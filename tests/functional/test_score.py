@@ -25,15 +25,15 @@ class FakeAnthropic:
 
 def _enrichment() -> Enrichment:
     return Enrichment(
-        account=Account(domain="chime.com"),
+        account=Account(domain="example.com"),
         firmographics=Firmographics(
-            name="Chime", industry="consumer fintech", headcount_range="1000-2000"
+            name="Example", industry="consumer fintech", headcount_range="1000-2000"
         ),
         news=(
             NewsItem(
-                headline="Chime adds AI support",
-                summary="Chime expands its AI-driven support stack",
-                citation=Citation.make(url="https://example.com/chime", source="exa", title="t"),
+                headline="Example adds AI support",
+                summary="Example expands its AI-driven support stack",
+                citation=Citation.make(url="https://example.com/news", source="exa", title="t"),
             ),
         ),
     )
@@ -43,18 +43,19 @@ def _enrichment() -> Enrichment:
 async def test_happy_path_score() -> None:
     llm = FakeAnthropic(
         text=(
-            '{"support_volume":10,"support_volume_reason":"high b2c volume",'
-            '"ai_maturity":8,"ai_maturity_reason":"posted AI jobs",'
-            '"stage_fit":9,"stage_fit_reason":"late stage",'
-            '"channel_breadth":9,"channel_breadth_reason":"omnichannel",'
+            '{"support_volume":5,"support_volume_reason":"high consumer volume",'
+            '"ai_maturity":4,"ai_maturity_reason":"posted AI jobs",'
+            '"stage_fit":4,"stage_fit_reason":"late stage",'
+            '"channel_breadth":5,"channel_breadth_reason":"omnichannel",'
             '"justification":"strong fit overall"}'
         )
     )
     scorer = Scorer(llm)
     score = await scorer.score(_enrichment())
     assert score is not None
-    assert score.total >= 9.0
-    assert score.breakdown.support_volume == 10
+    assert score.total >= 4.0
+    assert score.verdict == "strong"
+    assert score.breakdown.support_volume == 5
     assert "fit" in score.justification.lower()
 
 
@@ -64,15 +65,15 @@ async def test_clips_out_of_range_values() -> None:
         text=(
             '{"support_volume":15,"support_volume_reason":"r",'
             '"ai_maturity":-3,"ai_maturity_reason":"r",'
-            '"stage_fit":5,"stage_fit_reason":"r",'
-            '"channel_breadth":5,"channel_breadth_reason":"r",'
+            '"stage_fit":3,"stage_fit_reason":"r",'
+            '"channel_breadth":3,"channel_breadth_reason":"r",'
             '"justification":"clipped"}'
         )
     )
     score = await Scorer(llm).score(_enrichment())
     assert score is not None
-    assert score.breakdown.support_volume == 10.0
-    assert score.breakdown.ai_maturity == 0.0
+    assert score.breakdown.support_volume == 5.0
+    assert score.breakdown.ai_maturity == 1.0
 
 
 @pytest.mark.asyncio
@@ -85,7 +86,7 @@ async def test_malformed_json_returns_none() -> None:
 @pytest.mark.asyncio
 async def test_missing_reasons_get_defaults() -> None:
     llm = FakeAnthropic(
-        text=('{"support_volume":5,"ai_maturity":5,"stage_fit":5,"channel_breadth":5}')
+        text=('{"support_volume":3,"ai_maturity":3,"stage_fit":3,"channel_breadth":3}')
     )
     score = await Scorer(llm).score(_enrichment())
     assert score is not None
@@ -107,4 +108,5 @@ async def test_handles_no_firmographics() -> None:
     )
     score = await Scorer(llm).score(enr)
     assert score is not None
+    assert score.verdict == "weak"
     assert "no firmographics" in llm.calls[0]["context"]

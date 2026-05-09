@@ -83,10 +83,10 @@ class Enrichment(_Frozen):
 
 
 class RubricBreakdown(_Frozen):
-    support_volume: float = Field(ge=0, le=10)
-    ai_maturity: float = Field(ge=0, le=10)
-    stage_fit: float = Field(ge=0, le=10)
-    channel_breadth: float = Field(ge=0, le=10)
+    support_volume: float = Field(ge=1, le=5)
+    ai_maturity: float = Field(ge=1, le=5)
+    stage_fit: float = Field(ge=1, le=5)
+    channel_breadth: float = Field(ge=1, le=5)
     support_volume_reason: str
     ai_maturity_reason: str
     stage_fit_reason: str
@@ -94,9 +94,10 @@ class RubricBreakdown(_Frozen):
 
 
 class ICPScore(_Frozen):
-    total: float = Field(ge=0, le=10)
+    total: float = Field(ge=1, le=5)
     breakdown: RubricBreakdown
     justification: str
+    verdict: str
 
 
 class Contact(_Frozen):
@@ -111,14 +112,15 @@ class OutreachHook(_Frozen):
 
 
 class EvalScore(_Frozen):
-    groundedness: float = Field(ge=0, le=10)
-    icp_relevance: float = Field(ge=0, le=10)
-    personalization: float = Field(ge=0, le=10)
+    groundedness: float = Field(ge=1, le=5)
+    icp_relevance: float = Field(ge=1, le=5)
+    personalization: float = Field(ge=1, le=5)
     notes: str | None = None
+    flag_threshold: float = Field(default=3.0, ge=1, le=5)
 
     @property
     def is_flagged(self) -> bool:
-        return self.groundedness < 6.0
+        return self.groundedness < self.flag_threshold
 
 
 class ScoredAccount(_Frozen):

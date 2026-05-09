@@ -69,7 +69,18 @@ class TestRubricRanges:
     def test_rejects_out_of_range(self) -> None:
         with pytest.raises(ValidationError):
             RubricBreakdown(
-                support_volume=11,
+                support_volume=6,
+                ai_maturity=5,
+                stage_fit=5,
+                channel_breadth=5,
+                support_volume_reason="r",
+                ai_maturity_reason="r",
+                stage_fit_reason="r",
+                channel_breadth_reason="r",
+            )
+        with pytest.raises(ValidationError):
+            RubricBreakdown(
+                support_volume=0,
                 ai_maturity=5,
                 stage_fit=5,
                 channel_breadth=5,
@@ -81,26 +92,30 @@ class TestRubricRanges:
 
     def test_accepts_valid(self) -> None:
         rb = RubricBreakdown(
-            support_volume=8,
-            ai_maturity=7,
-            stage_fit=6,
-            channel_breadth=5,
-            support_volume_reason="b2c high volume",
+            support_volume=4,
+            ai_maturity=3,
+            stage_fit=4,
+            channel_breadth=2,
+            support_volume_reason="high volume",
             ai_maturity_reason="ai jobs posted",
             stage_fit_reason="series c",
             channel_breadth_reason="email + chat",
         )
-        ICPScore(total=7.0, breakdown=rb, justification="solid fit")
+        ICPScore(total=3.5, breakdown=rb, justification="solid fit", verdict="borderline")
 
 
 class TestEvalScoreFlag:
     def test_flagged_when_groundedness_below_threshold(self) -> None:
-        s = EvalScore(groundedness=5.9, icp_relevance=8, personalization=8)
+        s = EvalScore(groundedness=2.5, icp_relevance=4, personalization=4)
         assert s.is_flagged is True
 
     def test_not_flagged_at_or_above_threshold(self) -> None:
-        s = EvalScore(groundedness=6.0, icp_relevance=8, personalization=8)
+        s = EvalScore(groundedness=3.0, icp_relevance=4, personalization=4)
         assert s.is_flagged is False
+
+    def test_custom_threshold_overrides_default(self) -> None:
+        strict = EvalScore(groundedness=3.5, icp_relevance=4, personalization=4, flag_threshold=4.0)
+        assert strict.is_flagged is True
 
 
 class TestScoredAccountUnscoreable:

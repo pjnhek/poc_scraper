@@ -73,11 +73,11 @@ def _scripted_full_run() -> ScriptedAnthropic:
                 '{"name":"Chime","industry":"consumer fintech",'
                 '"headcount_range":"1000-2000","tech_signals":["zendesk","react"]}'
             ),
-            "score companies against Acme's ICP rubric": (
-                '{"support_volume":10,"support_volume_reason":"b2c at scale",'
-                '"ai_maturity":8,"ai_maturity_reason":"posted AI roles",'
-                '"stage_fit":9,"stage_fit_reason":"late stage public-bound",'
-                '"channel_breadth":9,"channel_breadth_reason":"chat email phone",'
+            "score companies against an ICP rubric": (
+                '{"support_volume":5,"support_volume_reason":"high consumer volume",'
+                '"ai_maturity":4,"ai_maturity_reason":"posted AI roles",'
+                '"stage_fit":4,"stage_fit_reason":"late stage",'
+                '"channel_breadth":4,"channel_breadth_reason":"chat email phone",'
                 '"justification":"strong fit"}'
             ),
             "propose the top 3 buyer personas": (
@@ -92,7 +92,7 @@ def _scripted_full_run() -> ScriptedAnthropic:
                 '"cited_urls":["https://techcrunch.com/chime-ai"]}'
             ),
             "LLM-as-judge evaluating outreach": (
-                '{"groundedness":9,"icp_relevance":10,"personalization":8,"notes":"solid"}'
+                '{"groundedness":4,"icp_relevance":5,"personalization":4,"notes":"solid"}'
             ),
         }
     )
@@ -108,14 +108,15 @@ async def test_full_account_processing_happy_path() -> None:
     sa = await process_account(Account(domain="chime.com"), deps)
 
     assert sa.status == "scored"
-    assert sa.score is not None and sa.score.total >= 9.0
+    assert sa.score is not None and sa.score.total >= 4.0
+    assert sa.score.verdict == "strong"
     assert len(sa.contacts) == 3
     assert len(sa.hooks) == 3
     for h in sa.hooks:
         assert "techcrunch.com/chime-ai" in h.paragraph
         assert len(h.citations) == 1
     assert sa.eval_score is not None
-    assert sa.eval_score.groundedness == 9
+    assert sa.eval_score.groundedness == 4
 
 
 @pytest.mark.asyncio

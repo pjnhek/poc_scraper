@@ -116,10 +116,10 @@ def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> s
 
     if score is not None:
         lines.append(
-            f"<icp_score>total={score.total}; "
-            f"support_volume={score.breakdown.support_volume}/10 "
+            f"<icp_score>total={score.total}; verdict={score.verdict}; "
+            f"support_volume={score.breakdown.support_volume}/5 "
             f"({score.breakdown.support_volume_reason}); "
-            f"ai_maturity={score.breakdown.ai_maturity}/10 "
+            f"ai_maturity={score.breakdown.ai_maturity}/5 "
             f"({score.breakdown.ai_maturity_reason})</icp_score>"
         )
 

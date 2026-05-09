@@ -30,16 +30,16 @@ def _scored(domain: str = "chime.com", flag: bool = False) -> ScoredAccount:
         news=(NewsItem(headline="h", summary="s", citation=citation),),
     )
     bd = RubricBreakdown(
-        support_volume=10,
-        ai_maturity=8,
-        stage_fit=9,
-        channel_breadth=9,
+        support_volume=5,
+        ai_maturity=4,
+        stage_fit=4,
+        channel_breadth=4,
         support_volume_reason="r",
         ai_maturity_reason="r",
         stage_fit_reason="r",
         channel_breadth_reason="r",
     )
-    score = ICPScore(total=9.4, breakdown=bd, justification="strong fit")
+    score = ICPScore(total=4.4, breakdown=bd, justification="strong fit", verdict="strong")
     contacts = (
         Contact(role_title="VP CX", rationale="owns deflection"),
         Contact(role_title="Head Support", rationale="r"),
@@ -47,9 +47,9 @@ def _scored(domain: str = "chime.com", flag: bool = False) -> ScoredAccount:
     )
     hooks = tuple(OutreachHook(contact=c, paragraph="p", citations=(citation,)) for c in contacts)
     ev = EvalScore(
-        groundedness=4.0 if flag else 8.0,
-        icp_relevance=8,
-        personalization=8,
+        groundedness=2.0 if flag else 4.0,
+        icp_relevance=4,
+        personalization=4,
     )
     return ScoredAccount(
         account=acc,
@@ -73,7 +73,7 @@ def test_build_rows_writes_account_data() -> None:
     assert row[0] == "chime.com"
     assert row[1] == "scored"
     assert row[2] == "Chime"
-    assert row[6] == "9.4"
+    assert row[6] == "4.4"
     assert "VP CX" in row
     assert any("example.com/news" in cell for cell in row)
 

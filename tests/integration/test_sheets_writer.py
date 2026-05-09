@@ -89,19 +89,19 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
         news=(NewsItem(headline="h", summary="s", citation=cit),),
     )
     bd = RubricBreakdown(
-        support_volume=8,
-        ai_maturity=7,
-        stage_fit=8,
-        channel_breadth=7,
+        support_volume=4,
+        ai_maturity=3,
+        stage_fit=4,
+        channel_breadth=3,
         support_volume_reason="r",
         ai_maturity_reason="r",
         stage_fit_reason="r",
         channel_breadth_reason="r",
     )
-    score = ICPScore(total=7.7, breakdown=bd, justification="ok")
+    score = ICPScore(total=3.7, breakdown=bd, justification="ok", verdict="borderline")
     c1 = Contact(role_title="r1", rationale="r")
     h1 = OutreachHook(contact=c1, paragraph="p", citations=(cit,))
-    ev = EvalScore(groundedness=4.0 if flag else 8.0, icp_relevance=8, personalization=8)
+    ev = EvalScore(groundedness=2.0 if flag else 4.0, icp_relevance=4, personalization=4)
     return ScoredAccount(
         account=acc,
         status="scored",

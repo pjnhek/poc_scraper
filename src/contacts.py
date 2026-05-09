@@ -99,7 +99,7 @@ def _build_contacts_context(enrichment: Enrichment, score: ICPScore | None) -> s
         )
     if score is not None:
         lines.append(
-            f"<icp_score>total={score.total}; "
+            f"<icp_score>total={score.total}; verdict={score.verdict}; "
             f"support_volume={score.breakdown.support_volume}; "
             f"ai_maturity={score.breakdown.ai_maturity}</icp_score>"
         )

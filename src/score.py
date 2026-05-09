@@ -1,43 +1,48 @@
 from __future__ import annotations
 
 import logging
-from typing import Final
 
 from ._json_utils import parse_json_object
 from .clients.protocols import AnthropicLike
+from .icp_config import ICPConfig, get_config
 from .models import Enrichment, ICPScore, NewsItem, RubricBreakdown
 
 log = logging.getLogger(__name__)
 
-WEIGHTS: Final[dict[str, float]] = {
-    "support_volume": 0.40,
-    "ai_maturity": 0.30,
-    "stage_fit": 0.20,
-    "channel_breadth": 0.10,
-}
 
-SCORE_SYSTEM = (
-    "You score companies against Acme's ICP rubric. Acme sells AI customer-support "
-    "agents (chat, voice, email, SMS). Their best customers are B2C with high support "
-    "volume (Cash App, Chime, Duolingo, Oura, Hertz) and B2B SaaS with consumer-like "
-    "support load (Notion, Webflow, Rippling). Output ONLY one JSON object with keys: "
-    '"support_volume" (0-10), "support_volume_reason" (one short sentence), '
-    '"ai_maturity" (0-10), "ai_maturity_reason", '
-    '"stage_fit" (0-10), "stage_fit_reason", '
-    '"channel_breadth" (0-10), "channel_breadth_reason", '
-    '"justification" (one sentence summarizing why the total score makes sense). '
-    "Use only the provided context, do not invent facts."
-)
+def _build_score_system(config: ICPConfig) -> str:
+    axis_lines = []
+    for name, axis in config.axes.items():
+        anchor_lines = "; ".join(f"{k}={v}" for k, v in sorted(axis.anchors.items()))
+        axis_lines.append(
+            f"- {name} (weight {axis.weight}): {axis.description.strip()} "
+            f"Anchors: {anchor_lines}"
+        )
+    axes_block = "\n".join(axis_lines)
+    return (
+        "You score companies against an ICP rubric and return JSON. "
+        f"Buyer description: {config.buyer_description.strip()}\n"
+        f"Score each axis on a 1-5 categorical scale using the anchors:\n{axes_block}\n\n"
+        "Output ONLY one JSON object with keys: "
+        '"support_volume" (integer 1-5), "support_volume_reason" (one short sentence), '
+        '"ai_maturity" (integer 1-5), "ai_maturity_reason", '
+        '"stage_fit" (integer 1-5), "stage_fit_reason", '
+        '"channel_breadth" (integer 1-5), "channel_breadth_reason", '
+        '"justification" (one sentence summarizing why the total makes sense). '
+        "Use only the provided context, do not invent facts. Be conservative when "
+        "context is thin; default to 2 (low) rather than guessing high."
+    )
 
 
 class Scorer:
-    def __init__(self, anthropic: AnthropicLike) -> None:
+    def __init__(self, anthropic: AnthropicLike, config: ICPConfig | None = None) -> None:
         self._anthropic = anthropic
+        self._config = config or get_config()
 
     async def score(self, enrichment: Enrichment) -> ICPScore | None:
         cached = _build_score_context(enrichment)
         result = await self._anthropic.synthesize(
-            system=SCORE_SYSTEM,
+            system=_build_score_system(self._config),
             cached_context=cached,
             user_prompt=(
                 "Return the ICP rubric JSON for this account. Be conservative when the "
@@ -67,20 +72,25 @@ class Scorer:
         except (TypeError, ValueError) as exc:
             log.warning("score: rubric validation failed: %s", exc)
             return None
-        total = compute_total(breakdown)
+        total = compute_total(breakdown, self._config)
+        verdict = self._config.verdict_for(total)
         justification = (
             str(parsed.get("justification") or "").strip()
-            or f"Weighted total {total} from rubric breakdown."
+            or f"Weighted total {total} ({verdict.label})."
         )
-        return ICPScore(total=total, breakdown=breakdown, justification=justification)
+        return ICPScore(
+            total=total, breakdown=breakdown, justification=justification, verdict=verdict.label
+        )
 
 
-def compute_total(breakdown: RubricBreakdown) -> float:
+def compute_total(breakdown: RubricBreakdown, config: ICPConfig | None = None) -> float:
+    cfg = config or get_config()
+    weights = {name: axis.weight for name, axis in cfg.axes.items()}
     raw = (
-        breakdown.support_volume * WEIGHTS["support_volume"]
-        + breakdown.ai_maturity * WEIGHTS["ai_maturity"]
-        + breakdown.stage_fit * WEIGHTS["stage_fit"]
-        + breakdown.channel_breadth * WEIGHTS["channel_breadth"]
+        breakdown.support_volume * weights["support_volume"]
+        + breakdown.ai_maturity * weights["ai_maturity"]
+        + breakdown.stage_fit * weights["stage_fit"]
+        + breakdown.channel_breadth * weights["channel_breadth"]
     )
     return round(raw, 1)
 
@@ -89,8 +99,8 @@ def _clip(value: object) -> float:
     try:
         f = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
-        return 0.0
-    return max(0.0, min(10.0, f))
+        return 1.0
+    return max(1.0, min(5.0, f))
 
 
 def _build_score_context(enrichment: Enrichment) -> str:
