@@ -1,0 +1,92 @@
+# ICP rubric configuration.
+#
+# Edit this file to retarget the scorer at a different vertical without
+# changing code or prompts. Both src/score.py and evals/rubric.py read
+# from here, so the writer and the judge stay in sync.
+
+# One-paragraph plain-English description of the buyer. Used verbatim in
+# both the scoring system prompt and the LLM-as-judge prompt. Keep it
+# abstract: do NOT name specific companies. Describe industry shape,
+# headcount, channels, signals.
+buyer_description: |
+  The ideal account has consumer-like support load (high ticket volume,
+  many channels), is past product-market fit but not yet a Fortune-10
+  with a fully insourced AI org, and shows public signals of investing
+  in support automation (AI/ML hiring, mentions of deflection, vendor
+  tooling for chat / voice / email / SMS).
+
+# Each axis is scored on a 1-5 categorical scale by the LLM.
+# 1 = poor fit, 5 = excellent fit. The categorical anchors guide the
+# judge so different runs are comparable.
+axes:
+  support_volume:
+    weight: 0.40
+    description: >
+      Volume and consumer-facing nature of support load. High when the
+      company serves many end-users with frequent transactional
+      questions; low when B2B-only with a small named-account base.
+    anchors:
+      "1": No consumer-facing support surface.
+      "2": Small B2B support load, named-account model.
+      "3": Mid-volume, some self-serve, mixed B2B/B2C.
+      "4": High-volume consumer-facing support, multiple channels.
+      "5": Massive transactional support load, public reviews of CX.
+
+  ai_maturity:
+    weight: 0.30
+    description: >
+      Public signals of AI/automation investment in support: AI/ML
+      hiring, AI mentioned in product, public deflection metrics,
+      adoption of AI vendor tooling.
+    anchors:
+      "1": No public AI investment signal.
+      "2": Generic AI marketing copy, no concrete signal.
+      "3": Some AI/ML hiring or product mentions.
+      "4": Active AI roadmap, named deflection or automation projects.
+      "5": AI deeply embedded in product and support, public metrics.
+
+  stage_fit:
+    weight: 0.20
+    description: >
+      Company stage. Sweet spot is mid-stage to public, past PMF.
+      Penalize pre-seed (no budget) and Fortune-10 with full insourced
+      AI (won't buy).
+    anchors:
+      "1": Pre-seed or Fortune-10 with insourced AI.
+      "2": Seed or very early stage.
+      "3": Series A.
+      "4": Series B+ to pre-IPO.
+      "5": Late-stage / public, past PMF, scaling spend.
+
+  channel_breadth:
+    weight: 0.10
+    description: >
+      Number of support channels operated (chat, voice, email, SMS,
+      social). Broader channel mix means more surface for AI deflection.
+    anchors:
+      "1": One channel.
+      "2": Two channels.
+      "3": Three channels.
+      "4": Four channels.
+      "5": Five or more channels including voice.
+
+# Verdict bucketing. Computed from the weighted total (1-5 scale).
+# `total` = sum(axis_score * weight) across all axes.
+verdicts:
+  strong:
+    min_total: 4.0
+    label: strong
+    description: Clear ICP fit; prioritize outreach.
+  borderline:
+    min_total: 2.5
+    label: borderline
+    description: Possible fit; review enrichment before reaching out.
+  weak:
+    min_total: 0.0
+    label: weak
+    description: Not ICP; deprioritize unless context changes.
+
+# Eval thresholds for the LLM-as-judge (also 1-5 scale).
+eval:
+  # Groundedness below this flags the row red in the sheet.
+  groundedness_flag_threshold: 3.0
