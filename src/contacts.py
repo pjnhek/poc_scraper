@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from ._json_utils import parse_json_object
+from ._json_utils import parse_json_array
 from .clients.protocols import LLMClient
 from .models import Contact, Enrichment, ICPScore
 
@@ -33,7 +33,7 @@ class ContactExtractor:
             user_prompt="Return the JSON array of three personas.",
             max_tokens=400,
         )
-        items = _parse_contacts_array(result.text)
+        items = parse_json_array(result.text)
         if items is None:
             log.warning("contacts: could not parse array from %r", result.text[:200])
             return tuple(_default_contacts())
@@ -59,34 +59,6 @@ def _default_contacts() -> list[Contact]:
         Contact(role_title="Head of Support Operations", rationale=DEFAULT_RATIONALE),
         Contact(role_title="Director of CX Automation", rationale=DEFAULT_RATIONALE),
     ]
-
-
-def _parse_contacts_array(text: str) -> list[dict[str, object]] | None:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    start = text.find("[")
-    end = text.rfind("]")
-    if start == -1 or end == -1 or end <= start:
-        wrapped = parse_json_object(text)
-        if wrapped is None:
-            return None
-        for value in wrapped.values():
-            if isinstance(value, list):
-                return [v for v in value if isinstance(v, dict)]
-        return None
-    import json
-
-    try:
-        loaded = json.loads(text[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(loaded, list):
-        return None
-    return [v for v in loaded if isinstance(v, dict)]
 
 
 def _build_contacts_context(enrichment: Enrichment, score: ICPScore | None) -> str:
