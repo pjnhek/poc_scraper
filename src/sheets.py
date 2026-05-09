@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .icp_config import ICPConfig
-from .models import ScoredAccount
+from .models import Account, ScoredAccount
 
 log = logging.getLogger(__name__)
 
@@ -175,6 +175,28 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
             "prompt read from this file."
         ]
     )
+    return rows
+
+
+def build_inputs_rows(
+    accounts: list[Account],
+    *,
+    loaded_at: datetime | None = None,
+    source_path: str | None = None,
+) -> list[list[str]]:
+    """Render the input list as a tab so the demo viewer sees what we're researching."""
+    when = (loaded_at or datetime.now(UTC)).strftime("%Y-%m-%d %H:%M:%S UTC")
+    rows: list[list[str]] = []
+    rows.append(["Inputs: domains queued for this run"])
+    rows.append([])
+    if source_path:
+        rows.append(["source", source_path])
+    rows.append(["loaded_at", when])
+    rows.append(["count", str(len(accounts))])
+    rows.append([])
+    rows.append(["domain"])
+    for a in accounts:
+        rows.append([a.domain])
     return rows
 
 
