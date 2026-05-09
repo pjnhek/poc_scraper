@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Any
 
-from openai import APIError, APIStatusError, AsyncOpenAI
+from openai import APIError, APIStatusError, AsyncOpenAI, RateLimitError
 from tenacity import (
     AsyncRetrying,
+    before_sleep_log,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_exponential,
+    wait_random_exponential,
 )
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -35,11 +40,11 @@ class GenerationParams:
 class NvidiaClient:
     """OpenAI-compatible client for the NVIDIA Build endpoint.
 
-    Same `synthesize` shape as the rest of the codebase: a system prompt,
-    a cached_context block, a user prompt, and an optional max_tokens
-    override. NVIDIA does not expose Anthropic-style explicit cache
-    control; the cached_context arg is just concatenated into the user
-    message. We keep the field names so the protocol stays uniform.
+    Same `synthesize` shape as the rest of the codebase. NVIDIA's free
+    tier rate-limits aggressively, so this client owns its own retry
+    policy and an in-flight cap. The OpenAI SDK's built-in retries are
+    disabled (max_retries=0) so we don't double-retry with two different
+    backoff schedules.
     """
 
     def __init__(
@@ -47,13 +52,17 @@ class NvidiaClient:
         api_key: str,
         model: str,
         params: GenerationParams | None = None,
+        max_in_flight: int = 2,
         client: Any = None,
     ) -> None:
         self._model = model
         self._params = params or GenerationParams()
         self._client = (
-            client if client is not None else AsyncOpenAI(api_key=api_key, base_url=NVIDIA_BASE_URL)
+            client
+            if client is not None
+            else AsyncOpenAI(api_key=api_key, base_url=NVIDIA_BASE_URL, max_retries=0)
         )
+        self._sem = asyncio.Semaphore(max(1, max_in_flight))
 
     async def synthesize(
         self,
@@ -76,13 +85,15 @@ class NvidiaClient:
         if self._params.reasoning_budget is not None:
             kwargs["extra_body"] = {"thinking_budget": self._params.reasoning_budget}
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(4),
-            wait=wait_exponential(multiplier=1, min=1, max=20),
-            retry=retry_if_exception_type((APIStatusError, APIError)),
+            stop=stop_after_attempt(6),
+            wait=wait_random_exponential(multiplier=4, max=60),
+            retry=retry_if_exception_type((RateLimitError, APIStatusError, APIError)),
+            before_sleep=before_sleep_log(log, logging.WARNING),
             reraise=True,
         ):
             with attempt:
-                response = await self._client.chat.completions.create(**kwargs)
+                async with self._sem:
+                    response = await self._client.chat.completions.create(**kwargs)
 
         choice = response.choices[0]
         text = choice.message.content or ""

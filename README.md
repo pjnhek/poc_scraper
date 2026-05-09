@@ -70,7 +70,7 @@ cp .env.example .env
 make run
 ```
 
-`make run` runs the full pipeline against `inputs/accounts.csv` and then runs `make smoke` so a silently-broken pipeline cannot ship to a recording.
+`make run` runs the full pipeline against `inputs/accounts.csv` and writes the workbook. `make smoke` is a separate target you can run when you want to verify against a fixed pair of fixture domains; it's intentionally not chained to `make run` because both hit the same NVIDIA free-tier endpoint and stacking them invites rate limiting.
 
 ### Picking models
 

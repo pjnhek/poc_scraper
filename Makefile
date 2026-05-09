@@ -9,8 +9,6 @@ setup-sheet:
 
 run:
 	uv run python -m src.pipeline
-	@echo "--- running smoke tests against fixture domains ---"
-	$(MAKE) smoke
 
 eval: eval-live
 

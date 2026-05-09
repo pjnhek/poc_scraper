@@ -37,7 +37,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 4. **Smoke E2E** - `make smoke`, opt-in, real LLM + Exa + Browserbase + Sheets against 2-3 fixture domains. Skipped in CI to avoid burning credits and avoid flakiness.
 5. **Edge cases** - scattered across layers above. Empty enrichment, scrape blocked, sub-threshold eval score, malformed CSV, rate limits.
 
-`make run` runs the full pipeline AND `make smoke` at the end so a silently-broken pipeline cannot ship to a recording.
+`make run` runs the full pipeline. `make smoke` is a separate opt-in target; it is no longer auto-chained because both hit the same rate-limited endpoint.
 
 ## Pre-commit vs CI split
 
