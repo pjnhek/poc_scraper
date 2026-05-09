@@ -18,6 +18,7 @@ HEADERS: tuple[str, ...] = (
     "headcount",
     "tech_signals",
     "icp_total",
+    "verdict",
     "support_volume",
     "ai_maturity",
     "stage_fit",
@@ -73,6 +74,7 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         (f.headcount_range or "") if f else "",
         ", ".join(f.tech_signals) if f else "",
         _fmt(sa.score.total) if sa.score else "",
+        sa.score.verdict if sa.score else "",
         _fmt(bd.support_volume) if bd else "",
         _fmt(bd.ai_maturity) if bd else "",
         _fmt(bd.stage_fit) if bd else "",
@@ -103,6 +105,31 @@ def _fmt(v: float) -> str:
 
 def flagged_row_indices(scored: list[ScoredAccount]) -> list[int]:
     return [i + 1 for i, sa in enumerate(scored) if sa.eval_score and sa.eval_score.is_flagged]
+
+
+VERDICT_COLORS: dict[str, dict[str, float]] = {
+    "strong": {"red": 0.82, "green": 0.95, "blue": 0.82},
+    "borderline": {"red": 1.0, "green": 0.97, "blue": 0.80},
+}
+
+FLAG_COLOR: dict[str, float] = {"red": 1.0, "green": 0.85, "blue": 0.85}
+
+
+def verdict_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
+    """Map of row index (1-based, header is row 0) to background color.
+
+    Eval-flagged rows always win and get the red flag color, regardless of
+    verdict. Other rows take the verdict bucket color, if any.
+    """
+    out: dict[int, dict[str, float]] = {}
+    for i, sa in enumerate(scored):
+        idx = i + 1
+        if sa.eval_score and sa.eval_score.is_flagged:
+            out[idx] = FLAG_COLOR
+            continue
+        if sa.score and sa.score.verdict in VERDICT_COLORS:
+            out[idx] = VERDICT_COLORS[sa.score.verdict]
+    return out
 
 
 class SheetsWriter:
@@ -144,7 +171,7 @@ class SheetsWriter:
             spreadsheet_id, sheet_title = self._create_spreadsheet(service, sheet_title)
 
         self._write_values(service, spreadsheet_id, sheet_title, rows)
-        self._highlight_flagged(service, spreadsheet_id, sheet_title, scored)
+        self._apply_row_colors(service, spreadsheet_id, sheet_title, scored)
 
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
         log.info("wrote %d rows to %s tab %s", len(rows) - 1, url, sheet_title)
@@ -174,15 +201,15 @@ class SheetsWriter:
             body={"values": rows},
         ).execute()
 
-    def _highlight_flagged(
+    def _apply_row_colors(
         self,
         service: Any,
         spreadsheet_id: str,
         sheet_title: str,
         scored: list[ScoredAccount],
     ) -> None:
-        flagged = flagged_row_indices(scored)
-        if not flagged:
+        colors = verdict_row_colors(scored)
+        if not colors:
             return
         sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
         if sheet_id is None:
@@ -195,15 +222,11 @@ class SheetsWriter:
                         "startRowIndex": idx,
                         "endRowIndex": idx + 1,
                     },
-                    "cell": {
-                        "userEnteredFormat": {
-                            "backgroundColor": {"red": 1.0, "green": 0.85, "blue": 0.85}
-                        }
-                    },
+                    "cell": {"userEnteredFormat": {"backgroundColor": color}},
                     "fields": "userEnteredFormat.backgroundColor",
                 }
             }
-            for idx in flagged
+            for idx, color in sorted(colors.items())
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}

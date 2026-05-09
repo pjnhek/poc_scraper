@@ -13,7 +13,14 @@ from src.models import (
     RubricBreakdown,
     ScoredAccount,
 )
-from src.sheets import HEADERS, build_rows, flagged_row_indices
+from src.sheets import (
+    FLAG_COLOR,
+    HEADERS,
+    VERDICT_COLORS,
+    build_rows,
+    flagged_row_indices,
+    verdict_row_colors,
+)
 
 
 def _scored(domain: str = "chime.com", flag: bool = False) -> ScoredAccount:
@@ -70,10 +77,12 @@ def test_build_rows_starts_with_headers() -> None:
 def test_build_rows_writes_account_data() -> None:
     rows = build_rows([_scored()])
     row = rows[1]
+    headers = rows[0]
     assert row[0] == "chime.com"
     assert row[1] == "scored"
     assert row[2] == "Chime"
-    assert row[6] == "4.4"
+    assert row[headers.index("icp_total")] == "4.4"
+    assert row[headers.index("verdict")] == "strong"
     assert "VP CX" in row
     assert any("example.com/news" in cell for cell in row)
 
@@ -83,9 +92,11 @@ def test_build_rows_handles_unscoreable() -> None:
     enr = Enrichment(account=acc)
     sa = ScoredAccount.unscoreable(acc, enr, "no enrichment")
     rows = build_rows([sa])
+    headers = rows[0]
     assert rows[1][0] == "dead.com"
     assert rows[1][1] == "unscoreable"
-    assert rows[1][6] == ""
+    assert rows[1][headers.index("icp_total")] == ""
+    assert rows[1][headers.index("verdict")] == ""
     assert rows[1][-1] == "no enrichment"
 
 
@@ -96,3 +107,15 @@ def test_flagged_indices_picks_up_low_groundedness() -> None:
 
 def test_flagged_indices_empty_when_no_eval() -> None:
     assert flagged_row_indices([]) == []
+
+
+def test_verdict_colors_strong_gets_green() -> None:
+    items = [_scored(domain="strong.com")]
+    colors = verdict_row_colors(items)
+    assert colors == {1: VERDICT_COLORS["strong"]}
+
+
+def test_verdict_colors_flag_overrides_verdict() -> None:
+    items = [_scored(domain="strong.com", flag=True)]
+    colors = verdict_row_colors(items)
+    assert colors == {1: FLAG_COLOR}

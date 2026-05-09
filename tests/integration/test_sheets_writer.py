@@ -144,7 +144,7 @@ def test_appends_tab_when_spreadsheet_id_provided() -> None:
     assert len(add_calls) == 1
 
 
-def test_highlights_flagged_rows() -> None:
+def test_flagged_row_gets_red_color_overriding_verdict() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
     writer.write([_scored("good.com", flag=False), _scored("bad.com", flag=True)])
@@ -152,16 +152,23 @@ def test_highlights_flagged_rows() -> None:
     repeat_calls = [
         r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
     ]
-    assert len(repeat_calls) == 1
-    assert repeat_calls[0]["repeatCell"]["range"]["startRowIndex"] == 2
-    color = repeat_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    flagged_request = next(
+        r for r in repeat_calls if r["repeatCell"]["range"]["startRowIndex"] == 2
+    )
+    color = flagged_request["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
     assert color["red"] == 1.0
+    assert color["green"] < 0.9
 
 
-def test_no_highlight_when_no_flagged_rows() -> None:
+def test_unscoreable_row_has_no_color() -> None:
+    from src.models import Account, Enrichment, ScoredAccount
+
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
-    writer.write([_scored("good.com", flag=False)])
+    sa = ScoredAccount.unscoreable(
+        Account(domain="dead.com"), Enrichment(account=Account(domain="dead.com")), "no data"
+    )
+    writer.write([sa])
     sheets = fake.spreadsheets()
     repeat_calls = [
         r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
