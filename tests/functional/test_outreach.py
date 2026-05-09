@@ -44,7 +44,7 @@ async def test_happy_path_with_valid_citations() -> None:
     llm = FakeAnthropic(
         text=(
             '{"paragraph":"Saw your AI-support push [news 0](https://tc.com/chime-1). '
-            'Acme helps with deflection.","cited_urls":["https://tc.com/chime-1"]}'
+            'We help teams hit higher deflection.","cited_urls":["https://tc.com/chime-1"]}'
         )
     )
     hook = await OutreachGenerator(llm).generate(_contact(), enr, score=None)

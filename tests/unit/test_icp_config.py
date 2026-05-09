@@ -39,6 +39,7 @@ def test_invalid_weights_rejected(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
     bad.write_text("""
 buyer_description: x
+seller_description: x
 axes:
   support_volume: {weight: 0.5, description: x, anchors: {"1": a, "2": b, "3": c, "4": d, "5": e}}
   ai_maturity: {weight: 0.3, description: x, anchors: {"1": a, "2": b, "3": c, "4": d, "5": e}}

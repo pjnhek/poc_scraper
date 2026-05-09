@@ -34,6 +34,7 @@ class EvalConfig(_Frozen):
 
 class ICPConfig(_Frozen):
     buyer_description: str
+    seller_description: str
     axes: dict[str, Axis]
     verdicts: dict[str, Verdict]
     eval: EvalConfig

@@ -4,31 +4,37 @@ import logging
 
 from ._json_utils import parse_json_array
 from .clients.protocols import LLMClient
+from .icp_config import ICPConfig, get_config
 from .models import Contact, Enrichment, ICPScore
 
 log = logging.getLogger(__name__)
 
-CONTACTS_SYSTEM = (
-    "You propose the top 3 buyer personas (job titles) inside a B2C-heavy company that "
-    "would be the right point of contact for Acme, an AI customer-support agent "
-    "platform. The buyer cares about deflection rate, support cost reduction, and CX "
-    "quality. Output ONLY a JSON array of exactly 3 objects, each with keys "
-    '"role_title" (string, e.g. "VP Customer Experience") and "rationale" '
-    "(one short sentence grounded in the provided context, naming what makes this role "
-    "the right reach for this account). Do not invent specific people."
-)
+
+def _build_contacts_system(config: ICPConfig) -> str:
+    return (
+        "You propose the top 3 buyer personas (job titles) inside the target company "
+        "who would be the right point of contact for the seller described below.\n"
+        f"Seller description: {config.seller_description.strip()}\n"
+        f"Buyer description (target account profile): {config.buyer_description.strip()}\n\n"
+        "Output ONLY a JSON array of exactly 3 objects, each with keys "
+        '"role_title" (string, e.g. "VP Customer Experience") and "rationale" '
+        "(one short sentence grounded in the provided context, naming what makes this role "
+        "the right reach for this account). Do not invent specific people."
+    )
+
 
 DEFAULT_RATIONALE = "(no rationale provided)"
 
 
 class ContactExtractor:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: LLMClient, config: ICPConfig | None = None) -> None:
         self._llm = llm
+        self._config = config or get_config()
 
     async def extract(self, enrichment: Enrichment, score: ICPScore | None) -> tuple[Contact, ...]:
         cached = _build_contacts_context(enrichment, score)
         result = await self._llm.synthesize(
-            system=CONTACTS_SYSTEM,
+            system=_build_contacts_system(self._config),
             cached_context=cached,
             user_prompt="Return the JSON array of three personas.",
         )

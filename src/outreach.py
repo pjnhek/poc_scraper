@@ -5,28 +5,35 @@ import re
 
 from ._json_utils import parse_json_object
 from .clients.protocols import LLMClient
+from .icp_config import ICPConfig, get_config
 from .models import Citation, Contact, Enrichment, ICPScore, OutreachHook
 
 log = logging.getLogger(__name__)
 
-OUTREACH_SYSTEM = (
-    "You write one short outreach paragraph (3-5 sentences) from a Acme seller to a "
-    "specific persona at a target account. EVERY factual claim about the account must "
-    "come from the provided <news> or <firmographics> blocks; do not invent or "
-    "extrapolate. Reference each fact by its citation URL inline using markdown like "
-    "[fact](url). End with a soft, specific ask to connect. Output ONLY one JSON object "
-    'with keys "paragraph" (string) and "cited_urls" (array of strings, every URL you '
-    "actually used). If the context is too thin to ground at least one claim, return "
-    "an empty paragraph and an empty cited_urls."
-)
+
+def _build_outreach_system(config: ICPConfig) -> str:
+    return (
+        "You write one short outreach paragraph (3-5 sentences) from a seller to a "
+        "specific persona at a target account.\n"
+        f"Seller description: {config.seller_description.strip()}\n\n"
+        "EVERY factual claim about the account must come from the provided <news> or "
+        "<firmographics> blocks; do not invent or extrapolate. Reference each fact by "
+        "its citation URL inline using markdown like [fact](url). End with a soft, "
+        "specific ask to connect. Output ONLY one JSON object with keys "
+        '"paragraph" (string) and "cited_urls" (array of strings, every URL you '
+        "actually used). If the context is too thin to ground at least one claim, "
+        "return an empty paragraph and an empty cited_urls."
+    )
+
 
 URL_RE = re.compile(r"\((https?://[^)]+)\)")
 BARE_URL_RE = re.compile(r"(?<![(\[])\bhttps?://\S+")
 
 
 class OutreachGenerator:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: LLMClient, config: ICPConfig | None = None) -> None:
         self._llm = llm
+        self._config = config or get_config()
 
     async def generate(
         self,
@@ -40,7 +47,7 @@ class OutreachGenerator:
             f"Persona rationale: {contact.rationale}"
         )
         result = await self._llm.synthesize(
-            system=OUTREACH_SYSTEM,
+            system=_build_outreach_system(self._config),
             cached_context=cached,
             user_prompt=user,
         )

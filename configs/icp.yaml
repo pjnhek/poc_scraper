@@ -15,6 +15,16 @@ buyer_description: |
   in support automation (AI/ML hiring, mentions of deflection, vendor
   tooling for chat / voice / email / SMS).
 
+# Short description of who the outreach is FROM. Used by the contacts
+# extractor (to pick the right persona to reach) and the outreach writer
+# (to frame the paragraph). Edit this to retarget the seller without
+# touching code. Do NOT name specific companies; describe the offering.
+seller_description: |
+  An AI customer-support automation platform. The seller helps companies
+  reduce ticket volume, increase deflection on tier-1 issues, and lower
+  support cost across chat, voice, email, and SMS channels. Buyers
+  typically care about deflection rate, CSAT, and time-to-resolution.
+
 # Each axis is scored on a 1-5 categorical scale by the LLM.
 # 1 = poor fit, 5 = excellent fit. The categorical anchors guide the
 # judge so different runs are comparable.
