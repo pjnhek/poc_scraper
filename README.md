@@ -87,9 +87,12 @@ Seed-OSS is a reasoning model. We pass `thinking_budget` via `extra_body` to bou
 
 For non-reasoning judge models, leave `JUDGE_REASONING_BUDGET=0` to skip the field entirely.
 
-## Eval results
+## Eval
 
-`make eval` runs the LLM-as-judge over `evals/labeled.jsonl` and prints a markdown table with mean absolute error vs. hand labels.
+Two modes:
+
+- `make eval` (alias for `make eval-live`) runs the **full pipeline** (real Exa, real writer, real Browserbase) against the first 3 domains in `inputs/accounts.csv`, then has the judge score every generated outreach paragraph. Output is a per-domain, per-persona markdown table. This is what a demo wants. Override domains with `EVAL_LIVE_DOMAINS=foo.com,bar.com make eval-live` or count with `EVAL_LIVE_LIMIT=5`.
+- `make eval-fixtures` runs the judge against `evals/labeled.jsonl` (hand-labeled synthetic paragraphs). This is a calibration check on the judge model, not a pipeline check. Useful when you swap judge models and want to confirm the new judge agrees with prior labels.
 
 ```text
 (populated after first run)

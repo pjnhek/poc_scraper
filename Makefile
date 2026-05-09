@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run eval test smoke lint format typecheck clean
+.PHONY: install setup-sheet run eval eval-live eval-fixtures test smoke lint format typecheck clean
 
 install:
 	uv sync --extra dev
@@ -12,7 +12,12 @@ run:
 	@echo "--- running smoke tests against fixture domains ---"
 	$(MAKE) smoke
 
-eval:
+eval: eval-live
+
+eval-live:
+	uv run python -m evals.run_live
+
+eval-fixtures:
 	uv run python -m evals.run_eval
 
 test:
