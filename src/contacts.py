@@ -31,7 +31,6 @@ class ContactExtractor:
             system=CONTACTS_SYSTEM,
             cached_context=cached,
             user_prompt="Return the JSON array of three personas.",
-            max_tokens=400,
         )
         items = parse_json_array(result.text)
         if items is None:

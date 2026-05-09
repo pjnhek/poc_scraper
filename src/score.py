@@ -48,7 +48,6 @@ class Scorer:
                 "Return the ICP rubric JSON for this account. Be conservative when the "
                 "context is thin."
             ),
-            max_tokens=600,
         )
         parsed = parse_json_object(result.text)
         if parsed is None:

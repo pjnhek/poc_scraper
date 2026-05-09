@@ -44,7 +44,6 @@ class EvalRubric:
             system=_build_eval_system(self._config),
             cached_context=cached,
             user_prompt="Score the outreach paragraph and return the JSON object.",
-            max_tokens=400,
         )
         parsed = parse_json_object(result.text)
         if parsed is None:

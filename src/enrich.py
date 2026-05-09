@@ -99,7 +99,6 @@ class Enricher:
                 "Return the firmographics JSON for this company. "
                 "If the context is insufficient for a field, use null or an empty array."
             ),
-            max_tokens=512,
         )
         parsed = parse_json_object(result.text)
         if parsed is None:

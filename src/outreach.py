@@ -43,7 +43,6 @@ class OutreachGenerator:
             system=OUTREACH_SYSTEM,
             cached_context=cached,
             user_prompt=user,
-            max_tokens=600,
         )
         parsed = parse_json_object(result.text)
         if parsed is None:
