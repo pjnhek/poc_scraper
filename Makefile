@@ -19,15 +19,15 @@ smoke:
 	uv run pytest -m smoke -v
 
 lint:
-	uv run ruff check src tests
-	uv run black --check src tests
+	uv run ruff check src tests evals
+	uv run black --check src tests evals
 
 format:
-	uv run black src tests
-	uv run ruff check --fix src tests
+	uv run black src tests evals
+	uv run ruff check --fix src tests evals
 
 typecheck:
-	uv run mypy src
+	uv run mypy src evals
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov dist build runs
