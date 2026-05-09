@@ -1,0 +1,169 @@
+from __future__ import annotations
+
+from typing import Any
+
+from src.models import (
+    Account,
+    Citation,
+    Contact,
+    Enrichment,
+    EvalScore,
+    Firmographics,
+    ICPScore,
+    NewsItem,
+    OutreachHook,
+    RubricBreakdown,
+    ScoredAccount,
+)
+from src.sheets import SheetsWriter
+
+
+class FakeRequest:
+    def __init__(self, response: dict[str, Any] | None = None) -> None:
+        self._response = response or {}
+
+    def execute(self) -> dict[str, Any]:
+        return self._response
+
+
+class FakeValues:
+    def __init__(self) -> None:
+        self.update_calls: list[dict[str, Any]] = []
+
+    def update(self, **kwargs: Any) -> FakeRequest:
+        self.update_calls.append(kwargs)
+        return FakeRequest({"updatedRows": len(kwargs.get("body", {}).get("values", []))})
+
+
+class FakeSpreadsheets:
+    def __init__(self) -> None:
+        self._values = FakeValues()
+        self.create_calls: list[dict[str, Any]] = []
+        self.batch_calls: list[dict[str, Any]] = []
+        self.get_calls: list[str] = []
+
+    def values(self) -> FakeValues:
+        return self._values
+
+    def create(self, **kwargs: Any) -> FakeRequest:
+        self.create_calls.append(kwargs)
+        return FakeRequest({"spreadsheetId": "fake-sid"})
+
+    def batchUpdate(self, **kwargs: Any) -> FakeRequest:
+        self.batch_calls.append(kwargs)
+        return FakeRequest({"replies": []})
+
+    def get(self, spreadsheetId: str) -> FakeRequest:
+        self.get_calls.append(spreadsheetId)
+        return FakeRequest(
+            {"sheets": [{"properties": {"title": self._batch_title(), "sheetId": 42}}]}
+        )
+
+    def _batch_title(self) -> str:
+        for call in self.batch_calls:
+            for req in call.get("body", {}).get("requests", []):
+                add = req.get("addSheet")
+                if add:
+                    return str(add["properties"]["title"])
+        for call in self.create_calls:
+            sheets = call.get("body", {}).get("sheets", [])
+            if sheets:
+                return str(sheets[0]["properties"]["title"])
+        return ""
+
+
+class FakeService:
+    def __init__(self) -> None:
+        self._sheets = FakeSpreadsheets()
+
+    def spreadsheets(self) -> FakeSpreadsheets:
+        return self._sheets
+
+
+def _scored(domain: str, flag: bool) -> ScoredAccount:
+    acc = Account(domain=domain)
+    cit = Citation.make(url="https://example.com/x", source="exa")
+    enr = Enrichment(
+        account=acc,
+        firmographics=Firmographics(name=domain, industry="fintech"),
+        news=(NewsItem(headline="h", summary="s", citation=cit),),
+    )
+    bd = RubricBreakdown(
+        support_volume=8,
+        ai_maturity=7,
+        stage_fit=8,
+        channel_breadth=7,
+        support_volume_reason="r",
+        ai_maturity_reason="r",
+        stage_fit_reason="r",
+        channel_breadth_reason="r",
+    )
+    score = ICPScore(total=7.7, breakdown=bd, justification="ok")
+    c1 = Contact(role_title="r1", rationale="r")
+    h1 = OutreachHook(contact=c1, paragraph="p", citations=(cit,))
+    ev = EvalScore(groundedness=4.0 if flag else 8.0, icp_relevance=8, personalization=8)
+    return ScoredAccount(
+        account=acc,
+        status="scored",
+        enrichment=enr,
+        score=score,
+        contacts=(c1, c1, c1),
+        hooks=(h1, h1, h1),
+        eval_score=ev,
+    )
+
+
+def test_creates_new_spreadsheet_when_no_id() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    result = writer.write([_scored("chime.com", flag=False)])
+
+    assert result.spreadsheet_id == "fake-sid"
+    assert result.url.endswith("fake-sid")
+    sheets = fake.spreadsheets()
+    assert len(sheets.create_calls) == 1
+    body = sheets.create_calls[0]["body"]
+    assert body["properties"]["title"].startswith("poc_scraper run-")
+    update = sheets._values.update_calls[0]
+    assert update["spreadsheetId"] == "fake-sid"
+    rows = update["body"]["values"]
+    assert rows[0][0] == "domain"
+    assert rows[1][0] == "chime.com"
+
+
+def test_appends_tab_when_spreadsheet_id_provided() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("chime.com", flag=False)])
+    assert result.spreadsheet_id == "existing-sid"
+    sheets = fake.spreadsheets()
+    assert sheets.create_calls == []
+    add_calls = [
+        c for c in sheets.batch_calls if any("addSheet" in r for r in c["body"]["requests"])
+    ]
+    assert len(add_calls) == 1
+
+
+def test_highlights_flagged_rows() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False), _scored("bad.com", flag=True)])
+    sheets = fake.spreadsheets()
+    repeat_calls = [
+        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
+    ]
+    assert len(repeat_calls) == 1
+    assert repeat_calls[0]["repeatCell"]["range"]["startRowIndex"] == 2
+    color = repeat_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    assert color["red"] == 1.0
+
+
+def test_no_highlight_when_no_flagged_rows() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    repeat_calls = [
+        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
+    ]
+    assert repeat_calls == []
