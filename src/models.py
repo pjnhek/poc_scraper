@@ -35,6 +35,26 @@ class Citation(_Frozen):
     retrieved_at: datetime | None = None
     source: Literal["exa", "browserbase"]
 
+    @classmethod
+    def make(
+        cls,
+        url: str,
+        source: Literal["exa", "browserbase"],
+        *,
+        title: str | None = None,
+        snippet: str | None = None,
+        retrieved_at: datetime | None = None,
+    ) -> Citation:
+        return cls.model_validate(
+            {
+                "url": url,
+                "source": source,
+                "title": title,
+                "snippet": snippet,
+                "retrieved_at": retrieved_at,
+            }
+        )
+
 
 class NewsItem(_Frozen):
     headline: str
