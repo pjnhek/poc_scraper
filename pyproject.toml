@@ -1,7 +1,7 @@
 [project]
 name = "poc-scraper"
 version = "0.1.0"
-description = "Acme-flavored account-mapping prototype: 20 domains in, scored Google Sheet out."
+description = "Generic account-research prototype: domains in, scored Google Sheet out."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
