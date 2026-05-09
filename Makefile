@@ -1,8 +1,11 @@
-.PHONY: install run eval test smoke lint format typecheck clean
+.PHONY: install setup-sheet run eval test smoke lint format typecheck clean
 
 install:
 	uv sync --extra dev
 	uv run pre-commit install
+
+setup-sheet:
+	uv run python -m scripts.setup_sheet
 
 run:
 	uv run python -m src.pipeline
