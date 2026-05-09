@@ -48,7 +48,7 @@ class OutreachGenerator:
         )
         result = await self._llm.synthesize(
             system=_build_outreach_system(self._config),
-            cached_context=cached,
+            context=cached,
             user_prompt=user,
         )
         parsed = parse_json_object(result.text)

@@ -42,7 +42,7 @@ class EvalRubric:
         cached = _build_eval_context(hook, account_domain)
         result = await self._llm.synthesize(
             system=_build_eval_system(self._config),
-            cached_context=cached,
+            context=cached,
             user_prompt="Score the outreach paragraph and return the JSON object.",
         )
         parsed = parse_json_object(result.text)

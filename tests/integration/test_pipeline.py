@@ -6,7 +6,7 @@ import pytest
 
 from src.clients.browserbase_client import RenderedPage
 from src.clients.exa_client import ExaResult
-from src.clients.nvidia_client import CachedSynthesis
+from src.clients.nvidia_client import LLMResponse
 from src.models import Account
 from src.pipeline import build_deps, process_account, run_pipeline
 
@@ -39,12 +39,12 @@ class ScriptedAnthropic:
         self.calls: list[str] = []
 
     async def synthesize(
-        self, system: str, cached_context: str, user_prompt: str, max_tokens=None
-    ) -> CachedSynthesis:
+        self, system: str, context: str, user_prompt: str, max_tokens=None
+    ) -> LLMResponse:
         for key, response in self._scripts.items():
             if key in system:
                 self.calls.append(key)
-                return CachedSynthesis(text=response, cache_read_tokens=0, cache_creation_tokens=0)
+                return LLMResponse(text=response)
         raise AssertionError(f"unscripted call: {system[:80]}")
 
 

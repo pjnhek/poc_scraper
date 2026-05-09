@@ -93,6 +93,6 @@ inputs/accounts.csv
 - CRM trigger automation.
 - Webapp / dashboard / Slack bot.
 - Multi-tenant config.
-- Caching layer beyond what the LLM provider gives us.
+- Custom prompt-caching layer. NVIDIA Build doesn't expose explicit cache control on its OpenAI-compatible endpoint; we send the full system+context+user every call. If we move to a paid provider that does (e.g. Anthropic), revisit.
 
 Mention these in the README under "What's next." Don't implement them.

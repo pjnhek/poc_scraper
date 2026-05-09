@@ -43,7 +43,7 @@ class Scorer:
         cached = _build_score_context(enrichment)
         result = await self._llm.synthesize(
             system=_build_score_system(self._config),
-            cached_context=cached,
+            context=cached,
             user_prompt=(
                 "Return the ICP rubric JSON for this account. Be conservative when the "
                 "context is thin."

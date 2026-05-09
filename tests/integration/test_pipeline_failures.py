@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from src.clients.exa_client import ExaResult
-from src.clients.nvidia_client import CachedSynthesis
+from src.clients.nvidia_client import LLMResponse
 from src.models import Account
 from src.pipeline import build_deps, process_account
 
@@ -36,11 +36,11 @@ class FailingAnthropic:
         self.fail_on = fail_on
 
     async def synthesize(
-        self, system: str, cached_context: str, user_prompt: str, max_tokens=None
-    ) -> CachedSynthesis:
+        self, system: str, context: str, user_prompt: str, max_tokens=None
+    ) -> LLMResponse:
         if self.fail_on in system:
             raise RuntimeError(f"deliberate failure on '{self.fail_on}'")
-        return CachedSynthesis(text="{}", cache_read_tokens=0, cache_creation_tokens=0)
+        return LLMResponse(text="{}")
 
 
 def _exa_about() -> ExaResult:
@@ -73,16 +73,14 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
             self.outreach_calls = 0
 
         async def synthesize(
-            self, system: str, cached_context: str, user_prompt: str, max_tokens=None
-        ) -> CachedSynthesis:
+            self, system: str, context: str, user_prompt: str, max_tokens=None
+        ) -> LLMResponse:
             if "extract structured firmographics" in system:
-                return CachedSynthesis(
+                return LLMResponse(
                     text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}',
-                    cache_read_tokens=0,
-                    cache_creation_tokens=0,
                 )
             if "score companies against an ICP rubric" in system:
-                return CachedSynthesis(
+                return LLMResponse(
                     text=(
                         '{"support_volume":5,"support_volume_reason":"r",'
                         '"ai_maturity":5,"ai_maturity_reason":"r",'
@@ -90,33 +88,25 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
                         '"channel_breadth":5,"channel_breadth_reason":"r",'
                         '"justification":"ok"}'
                     ),
-                    cache_read_tokens=0,
-                    cache_creation_tokens=0,
                 )
             if "propose the top 3 buyer personas" in system:
-                return CachedSynthesis(
+                return LLMResponse(
                     text=(
                         '[{"role_title":"a","rationale":"r"},'
                         '{"role_title":"b","rationale":"r"},'
                         '{"role_title":"c","rationale":"r"}]'
                     ),
-                    cache_read_tokens=0,
-                    cache_creation_tokens=0,
                 )
             if "write one short outreach paragraph" in system:
                 self.outreach_calls += 1
                 if self.outreach_calls == 2:
                     raise RuntimeError("transient outreach failure")
-                return CachedSynthesis(
+                return LLMResponse(
                     text='{"paragraph":"","cited_urls":[]}',
-                    cache_read_tokens=0,
-                    cache_creation_tokens=0,
                 )
             if "LLM judge evaluating" in system:
-                return CachedSynthesis(
+                return LLMResponse(
                     text='{"groundedness":4,"icp_relevance":4,"personalization":4}',
-                    cache_read_tokens=0,
-                    cache_creation_tokens=0,
                 )
             raise AssertionError(f"unscripted: {system[:60]}")
 

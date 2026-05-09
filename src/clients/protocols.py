@@ -4,7 +4,7 @@ from typing import Protocol
 
 from .browserbase_client import RenderedPage
 from .exa_client import ExaResult
-from .nvidia_client import CachedSynthesis
+from .nvidia_client import LLMResponse
 
 
 class ExaLike(Protocol):
@@ -23,7 +23,7 @@ class LLMClient(Protocol):
     async def synthesize(
         self,
         system: str,
-        cached_context: str,
+        context: str,
         user_prompt: str,
         max_tokens: int | None = None,
-    ) -> CachedSynthesis: ...
+    ) -> LLMResponse: ...

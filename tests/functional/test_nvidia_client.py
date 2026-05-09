@@ -48,7 +48,7 @@ async def test_synthesize_concatenates_context_into_user_message() -> None:
 
     result = await client.synthesize(
         system="you are an analyst",
-        cached_context="<news>...</news>",
+        context="<news>...</news>",
         user_prompt="score the account",
     )
 
@@ -109,6 +109,6 @@ async def test_no_reasoning_budget_omits_extra_body() -> None:
 async def test_empty_context_omits_separator() -> None:
     fake = _FakeOpenAI()
     client = NvidiaClient(api_key="k", model="m", client=fake)
-    await client.synthesize(system="s", cached_context="", user_prompt="just this")
+    await client.synthesize(system="s", context="", user_prompt="just this")
     user_content = fake.chat.completions.calls[0]["messages"][1]["content"]
     assert user_content == "just this"

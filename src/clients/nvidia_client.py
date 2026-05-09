@@ -20,10 +20,8 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class CachedSynthesis:
+class LLMResponse:
     text: str
-    cache_read_tokens: int
-    cache_creation_tokens: int
 
 
 @dataclass(frozen=True)
@@ -67,11 +65,11 @@ class NvidiaClient:
     async def synthesize(
         self,
         system: str,
-        cached_context: str,
+        context: str,
         user_prompt: str,
         max_tokens: int | None = None,
-    ) -> CachedSynthesis:
-        user_content = f"{cached_context}\n\n{user_prompt}" if cached_context else user_prompt
+    ) -> LLMResponse:
+        user_content = f"{context}\n\n{user_prompt}" if context else user_prompt
         kwargs: dict[str, Any] = {
             "model": self._model,
             "messages": [
@@ -97,8 +95,4 @@ class NvidiaClient:
 
         choice = response.choices[0]
         text = choice.message.content or ""
-        return CachedSynthesis(
-            text=text,
-            cache_read_tokens=0,
-            cache_creation_tokens=0,
-        )
+        return LLMResponse(text=text)

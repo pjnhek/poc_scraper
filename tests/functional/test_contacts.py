@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.clients.nvidia_client import CachedSynthesis
+from src.clients.nvidia_client import LLMResponse
 from src.contacts import ContactExtractor
 from src.models import Account, Citation, Enrichment, NewsItem
 
@@ -12,9 +12,9 @@ class FakeAnthropic:
         self.text = text
 
     async def synthesize(
-        self, system: str, cached_context: str, user_prompt: str, max_tokens=None
-    ) -> CachedSynthesis:
-        return CachedSynthesis(text=self.text, cache_read_tokens=0, cache_creation_tokens=0)
+        self, system: str, context: str, user_prompt: str, max_tokens=None
+    ) -> LLMResponse:
+        return LLMResponse(text=self.text)
 
 
 def _enr() -> Enrichment:

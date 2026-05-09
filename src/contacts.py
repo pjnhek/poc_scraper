@@ -35,7 +35,7 @@ class ContactExtractor:
         cached = _build_contacts_context(enrichment, score)
         result = await self._llm.synthesize(
             system=_build_contacts_system(self._config),
-            cached_context=cached,
+            context=cached,
             user_prompt="Return the JSON array of three personas.",
         )
         items = parse_json_array(result.text)

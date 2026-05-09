@@ -94,7 +94,7 @@ class Enricher:
         cached_block = _build_context_block(ctx)
         result = await self._llm.synthesize(
             system=FIRMOGRAPHICS_SYSTEM,
-            cached_context=cached_block,
+            context=cached_block,
             user_prompt=(
                 "Return the firmographics JSON for this company. "
                 "If the context is insufficient for a field, use null or an empty array."

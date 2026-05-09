@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.clients.nvidia_client import CachedSynthesis
+from src.clients.nvidia_client import LLMResponse
 from src.models import Account, Citation, Enrichment, Firmographics, NewsItem
 from src.score import Scorer
 
@@ -15,12 +15,12 @@ class FakeAnthropic:
     async def synthesize(
         self,
         system: str,
-        cached_context: str,
+        context: str,
         user_prompt: str,
         max_tokens: int | None = None,
-    ) -> CachedSynthesis:
-        self.calls.append({"system": system, "context": cached_context, "user": user_prompt})
-        return CachedSynthesis(text=self.text, cache_read_tokens=0, cache_creation_tokens=0)
+    ) -> LLMResponse:
+        self.calls.append({"system": system, "context": context, "user": user_prompt})
+        return LLMResponse(text=self.text)
 
 
 def _enrichment() -> Enrichment:
