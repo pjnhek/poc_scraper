@@ -16,15 +16,15 @@ inputs/accounts.csv  ->  enrich (Exa + Browserbase)  ->  score (ICP rubric)
                                                       ->  Google Sheet
 ```
 
-Per account, the sheet shows:
+Per run, the workbook gets three tabs:
 
-- Firmographics (name, industry, headcount, tech signals).
-- Last-90-day context (funding, hiring, product launches) with source URLs.
-- ICP fit verdict (strong / borderline / weak) with weighted breakdown so the seller sees *why*.
-- Top 3 target roles to reach with rationale.
-- One paragraph of grounded outreach copy per role with inline citations.
+1. **Rubric** — buyer description, the 4 weighted axes with their 1-5 anchor descriptions, verdict thresholds, and the LLM-as-judge axes. Sourced from `configs/icp.yaml`. Rewritten in place each run so the rubric you're reading always matches the rubric that produced this run's Results.
+2. **Inputs** — the contents of `inputs/accounts.csv`, with a load timestamp and count. Rewritten in place each run.
+3. **Results: `run-YYYYMMDD-HHMMSS`** — one row per account. New tab on every run, so the workbook accumulates a history. Per row: firmographics, last-90-day context with citations, ICP fit verdict (strong / borderline / weak) with weighted breakdown, top-3 personas, one grounded outreach paragraph per persona, and judge scores.
 
-Rows are color-coded: strong fits get green, borderline get yellow, eval-flagged groundedness gets red (overrides verdict color).
+Rows in Results are color-coded: strong fits get green, borderline get yellow, eval-flagged groundedness gets red (overrides verdict color).
+
+Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, then open the latest Results tab to walk through verdicts, citations, and outreach drafts.
 
 ## Stack and design choices
 
