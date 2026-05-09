@@ -255,38 +255,85 @@ class SheetsWriter:
         )
         return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
-    def write(self, scored: list[ScoredAccount]) -> SheetWriteResult:
+    def write(
+        self,
+        scored: list[ScoredAccount],
+        *,
+        accounts: list[Account] | None = None,
+        config: ICPConfig | None = None,
+    ) -> SheetWriteResult:
         service = self._build_service()
         run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        sheet_title = f"run-{run_id}"
-        rows = build_rows(scored)
+        results_title = f"run-{run_id}"
 
         if self._spreadsheet_id:
             spreadsheet_id = self._spreadsheet_id
-            self._add_tab(service, spreadsheet_id, sheet_title)
         else:
-            spreadsheet_id, sheet_title = self._create_spreadsheet(service, sheet_title)
+            spreadsheet_id = self._create_empty_spreadsheet(service, results_title)
 
-        self._write_values(service, spreadsheet_id, sheet_title, rows)
-        self._apply_row_colors(service, spreadsheet_id, sheet_title, scored)
+        existing_tabs = self._list_tabs(service, spreadsheet_id)
+
+        if config is not None:
+            self._refresh_named_tab(
+                service, spreadsheet_id, RUBRIC_TAB_TITLE, build_rubric_rows(config), existing_tabs
+            )
+        if accounts is not None:
+            self._refresh_named_tab(
+                service,
+                spreadsheet_id,
+                INPUTS_TAB_TITLE,
+                build_inputs_rows(accounts, source_path="inputs/accounts.csv"),
+                existing_tabs,
+            )
+
+        self._add_tab(service, spreadsheet_id, results_title, existing_tabs)
+        results_rows = build_rows(scored)
+        self._write_values(service, spreadsheet_id, results_title, results_rows)
+        self._apply_row_colors(service, spreadsheet_id, results_title, scored)
 
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-        log.info("wrote %d rows to %s tab %s", len(rows) - 1, url, sheet_title)
-        return SheetWriteResult(spreadsheet_id=spreadsheet_id, url=url, sheet_title=sheet_title)
+        log.info("wrote %d rows to %s tab %s", len(results_rows) - 1, url, results_title)
+        return SheetWriteResult(spreadsheet_id=spreadsheet_id, url=url, sheet_title=results_title)
 
-    def _create_spreadsheet(self, service: Any, title_prefix: str) -> tuple[str, str]:
+    def _create_empty_spreadsheet(self, service: Any, results_title: str) -> str:
         body = {
-            "properties": {"title": f"poc_scraper {title_prefix}"},
-            "sheets": [{"properties": {"title": title_prefix}}],
+            "properties": {"title": f"poc_scraper {results_title}"},
+            "sheets": [{"properties": {"title": results_title}}],
         }
         created = service.spreadsheets().create(body=body, fields="spreadsheetId").execute()
-        return created["spreadsheetId"], title_prefix
+        return str(created["spreadsheetId"])
 
-    def _add_tab(self, service: Any, spreadsheet_id: str, title: str) -> None:
+    def _list_tabs(self, service: Any, spreadsheet_id: str) -> set[str]:
+        meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        return {
+            s.get("properties", {}).get("title", "")
+            for s in meta.get("sheets", [])
+            if s.get("properties", {}).get("title")
+        }
+
+    def _add_tab(self, service: Any, spreadsheet_id: str, title: str, existing: set[str]) -> None:
+        if title in existing:
+            return
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
             body={"requests": [{"addSheet": {"properties": {"title": title}}}]},
         ).execute()
+        existing.add(title)
+
+    def _refresh_named_tab(
+        self,
+        service: Any,
+        spreadsheet_id: str,
+        title: str,
+        rows: list[list[str]],
+        existing: set[str],
+    ) -> None:
+        self._add_tab(service, spreadsheet_id, title, existing)
+        service.spreadsheets().values().clear(
+            spreadsheetId=spreadsheet_id,
+            range=f"{title}!A1:ZZ",
+        ).execute()
+        self._write_values(service, spreadsheet_id, title, rows)
 
     def _write_values(
         self, service: Any, spreadsheet_id: str, sheet_title: str, rows: list[list[str]]

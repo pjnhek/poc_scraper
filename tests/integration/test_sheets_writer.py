@@ -29,10 +29,15 @@ class FakeRequest:
 class FakeValues:
     def __init__(self) -> None:
         self.update_calls: list[dict[str, Any]] = []
+        self.clear_calls: list[dict[str, Any]] = []
 
     def update(self, **kwargs: Any) -> FakeRequest:
         self.update_calls.append(kwargs)
         return FakeRequest({"updatedRows": len(kwargs.get("body", {}).get("values", []))})
+
+    def clear(self, **kwargs: Any) -> FakeRequest:
+        self.clear_calls.append(kwargs)
+        return FakeRequest({})
 
 
 class FakeSpreadsheets:
@@ -55,21 +60,27 @@ class FakeSpreadsheets:
 
     def get(self, spreadsheetId: str) -> FakeRequest:
         self.get_calls.append(spreadsheetId)
-        return FakeRequest(
-            {"sheets": [{"properties": {"title": self._batch_title(), "sheetId": 42}}]}
-        )
+        return FakeRequest({"sheets": [self._sheet_meta(t) for t in self._all_tab_titles()]})
 
-    def _batch_title(self) -> str:
+    def _all_tab_titles(self) -> list[str]:
+        titles: list[str] = []
+        for call in self.create_calls:
+            for s in call.get("body", {}).get("sheets", []):
+                t = s.get("properties", {}).get("title")
+                if t:
+                    titles.append(t)
         for call in self.batch_calls:
             for req in call.get("body", {}).get("requests", []):
                 add = req.get("addSheet")
                 if add:
-                    return str(add["properties"]["title"])
-        for call in self.create_calls:
-            sheets = call.get("body", {}).get("sheets", [])
-            if sheets:
-                return str(sheets[0]["properties"]["title"])
-        return ""
+                    t = add["properties"]["title"]
+                    if t and t not in titles:
+                        titles.append(t)
+        return titles
+
+    @staticmethod
+    def _sheet_meta(title: str) -> dict[str, Any]:
+        return {"properties": {"title": title, "sheetId": abs(hash(title)) % 100000}}
 
 
 class FakeService:
@@ -158,6 +169,51 @@ def test_flagged_row_gets_red_color_overriding_verdict() -> None:
     color = flagged_request["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
     assert color["red"] == 1.0
     assert color["green"] < 0.9
+
+
+def test_writes_rubric_and_inputs_tabs_when_provided() -> None:
+    from src.icp_config import get_config
+    from src.models import Account
+
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write(
+        [_scored("good.com", flag=False)],
+        accounts=[Account(domain="good.com")],
+        config=get_config(),
+    )
+    sheets = fake.spreadsheets()
+    written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
+    assert "Rubric" in written_titles
+    assert "Inputs" in written_titles
+    assert any(t.startswith("run-") for t in written_titles)
+
+
+def test_omits_rubric_and_inputs_when_kwargs_missing() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
+    assert "Rubric" not in written_titles
+    assert "Inputs" not in written_titles
+
+
+def test_rubric_tab_is_cleared_before_rewriting() -> None:
+    from src.icp_config import get_config
+    from src.models import Account
+
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    writer.write(
+        [_scored("good.com", flag=False)],
+        accounts=[Account(domain="good.com")],
+        config=get_config(),
+    )
+    sheets = fake.spreadsheets()
+    cleared_titles = {call["range"].split("!")[0] for call in sheets._values.clear_calls}
+    assert "Rubric" in cleared_titles
+    assert "Inputs" in cleared_titles
 
 
 def test_unscoreable_row_has_no_color() -> None:

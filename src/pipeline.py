@@ -16,6 +16,7 @@ from .config import Settings, get_settings
 from .contacts import ContactExtractor
 from .csv_io import read_accounts
 from .enrich import Enricher
+from .icp_config import get_config
 from .models import Account, Enrichment, ScoredAccount
 from .outreach import OutreachGenerator
 from .score import Scorer
@@ -175,7 +176,7 @@ async def main(settings: Settings | None = None) -> int:
         credentials_path=settings.google_application_credentials,
         spreadsheet_id=settings.google_sheet_id or None,
     )
-    result = writer_sheets.write(scored)
+    result = writer_sheets.write(scored, accounts=accounts, config=get_config())
     log.info("done. sheet: %s (tab=%s)", result.url, result.sheet_title)
     print(f"sheet: {result.url}")
     return 0
