@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .icp_config import ICPConfig
 from .models import ScoredAccount
 
 log = logging.getLogger(__name__)
@@ -101,6 +102,80 @@ def _build_row(sa: ScoredAccount) -> list[str]:
 
 def _fmt(v: float) -> str:
     return f"{v:.1f}"
+
+
+RUBRIC_TAB_TITLE = "Rubric"
+INPUTS_TAB_TITLE = "Inputs"
+
+
+def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
+    """Render configs/icp.yaml into a human-readable Rubric tab.
+
+    Anyone scrolling the sheet should be able to understand how a verdict
+    was reached without reading code. Edit configs/icp.yaml; this rebuilds.
+    """
+    rows: list[list[str]] = []
+    rows.append(["Account-research POC: ICP rubric and grading instructions"])
+    rows.append([])
+    rows.append(["Buyer description"])
+    rows.append([config.buyer_description.strip()])
+    rows.append([])
+    rows.append(["Axes (each scored 1-5 by the writer LLM, weighted into a 1-5 total)"])
+    rows.append(["axis", "weight", "description", "1", "2", "3", "4", "5"])
+    for name, axis in config.axes.items():
+        rows.append(
+            [
+                name,
+                f"{axis.weight:.2f}",
+                axis.description.strip(),
+                axis.anchors.get("1", ""),
+                axis.anchors.get("2", ""),
+                axis.anchors.get("3", ""),
+                axis.anchors.get("4", ""),
+                axis.anchors.get("5", ""),
+            ]
+        )
+    rows.append([])
+    rows.append(["Verdict thresholds (computed from the weighted total)"])
+    rows.append(["verdict", "min_total", "description"])
+    for verdict in sorted(config.verdicts.values(), key=lambda v: -v.min_total):
+        rows.append([verdict.label, f"{verdict.min_total:.1f}", verdict.description.strip()])
+    rows.append([])
+    rows.append(["Judge rubric (LLM-as-judge, 1-5 scale per NeMo guidance)"])
+    rows.append(["axis", "description"])
+    rows.append(
+        [
+            "groundedness",
+            "Every factual claim about the account is supported by one of the cited URLs.",
+        ]
+    )
+    rows.append(
+        [
+            "icp_relevance",
+            "The outreach message reflects the buyer description above.",
+        ]
+    )
+    rows.append(
+        [
+            "personalization",
+            "The message references something specific to this account, not generic boilerplate.",
+        ]
+    )
+    rows.append([])
+    rows.append(
+        [
+            f"Groundedness below {config.eval.groundedness_flag_threshold:.1f} flags the "
+            "Results row red.",
+        ]
+    )
+    rows.append([])
+    rows.append(
+        [
+            "Edit configs/icp.yaml to retarget. Both the writer prompt and the judge "
+            "prompt read from this file."
+        ]
+    )
+    return rows
 
 
 def flagged_row_indices(scored: list[ScoredAccount]) -> list[int]:
