@@ -21,6 +21,7 @@ OUTREACH_SYSTEM = (
 )
 
 URL_RE = re.compile(r"\((https?://[^)]+)\)")
+BARE_URL_RE = re.compile(r"(?<![(\[])\bhttps?://\S+")
 
 
 class OutreachGenerator:
@@ -93,13 +94,20 @@ def _canonical(u: str) -> str:
 def _strip_uncited_urls(paragraph: str, allowed_urls: set[str]) -> str:
     canonical_allowed = {_canonical(u) for u in allowed_urls}
 
-    def _replace(match: re.Match[str]) -> str:
+    def _replace_md(match: re.Match[str]) -> str:
         url = match.group(1)
         if _canonical(url) in canonical_allowed:
             return match.group(0)
         return ""
 
-    return URL_RE.sub(_replace, paragraph)
+    def _replace_bare(match: re.Match[str]) -> str:
+        url = match.group(0).rstrip(".,;:!?)")
+        if _canonical(url) in canonical_allowed:
+            return match.group(0)
+        return ""
+
+    cleaned = URL_RE.sub(_replace_md, paragraph)
+    return BARE_URL_RE.sub(_replace_bare, cleaned)
 
 
 def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> str:

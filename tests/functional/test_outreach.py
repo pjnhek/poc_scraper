@@ -89,6 +89,34 @@ async def test_handles_malformed_json() -> None:
 
 
 @pytest.mark.asyncio
+async def test_strips_bare_url_not_in_markdown_link() -> None:
+    enr = _enr_with_news("https://real.com/news")
+    llm = FakeAnthropic(
+        text=(
+            '{"paragraph":"Saw [a](https://real.com/news) and also visit '
+            'https://hallucinated.example for context.",'
+            '"cited_urls":["https://real.com/news"]}'
+        )
+    )
+    hook = await OutreachGenerator(llm).generate(_contact(), enr, score=None)
+    assert "hallucinated.example" not in hook.paragraph
+    assert "real.com/news" in hook.paragraph
+
+
+@pytest.mark.asyncio
+async def test_keeps_bare_url_when_it_is_a_valid_citation() -> None:
+    enr = _enr_with_news("https://real.com/news")
+    llm = FakeAnthropic(
+        text=(
+            '{"paragraph":"Source: https://real.com/news shows the trend.",'
+            '"cited_urls":["https://real.com/news"]}'
+        )
+    )
+    hook = await OutreachGenerator(llm).generate(_contact(), enr, score=None)
+    assert "real.com/news" in hook.paragraph
+
+
+@pytest.mark.asyncio
 async def test_canonicalizes_trailing_slash_when_matching() -> None:
     enr = _enr_with_news("https://tc.com/chime-1")
     llm = FakeAnthropic(
