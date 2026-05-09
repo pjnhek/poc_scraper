@@ -86,6 +86,26 @@ async def test_max_tokens_override_wins() -> None:
 
 
 @pytest.mark.asyncio
+async def test_reasoning_budget_passes_thinking_budget_in_extra_body() -> None:
+    fake = _FakeOpenAI()
+    params = GenerationParams(reasoning_budget=-1)
+    client = NvidiaClient(
+        api_key="k", model="bytedance/seed-oss-36b-instruct", params=params, client=fake
+    )
+    await client.synthesize("s", "ctx", "p")
+    call = fake.chat.completions.calls[0]
+    assert call["extra_body"] == {"thinking_budget": -1}
+
+
+@pytest.mark.asyncio
+async def test_no_reasoning_budget_omits_extra_body() -> None:
+    fake = _FakeOpenAI()
+    client = NvidiaClient(api_key="k", model="m", client=fake)
+    await client.synthesize("s", "ctx", "p")
+    assert "extra_body" not in fake.chat.completions.calls[0]
+
+
+@pytest.mark.asyncio
 async def test_empty_context_omits_separator() -> None:
     fake = _FakeOpenAI()
     client = NvidiaClient(api_key="k", model="m", client=fake)

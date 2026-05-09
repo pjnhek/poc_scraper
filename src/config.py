@@ -30,10 +30,15 @@ class Settings(BaseSettings):
     writer_top_p: float = 0.95
     writer_max_tokens: int = 8192
 
-    judge_model: str = "mistralai/mistral-nemotron"
-    judge_temperature: float = 0.6
-    judge_top_p: float = 0.7
+    judge_model: str = "bytedance/seed-oss-36b-instruct"
+    judge_temperature: float = 0.3
+    judge_top_p: float = 0.95
     judge_max_tokens: int = 4096
+    # Bounded reasoning budget keeps room in max_tokens for the final JSON.
+    # -1 = unlimited reasoning (only safe with a much larger max_tokens),
+    # 0 = disabled, positive int = cap. Only applied if the judge model
+    # supports the thinking_budget extra (Seed-OSS, Nemotron reasoning).
+    judge_reasoning_budget: int = 1024
 
     pipeline_concurrency: int = Field(default=5, ge=1, le=50)
 

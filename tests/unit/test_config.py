@@ -18,7 +18,8 @@ def test_defaults_when_no_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.writer_model == "minimaxai/minimax-m2.7"
-    assert s.judge_model == "mistralai/mistral-nemotron"
+    assert s.judge_model == "bytedance/seed-oss-36b-instruct"
+    assert s.judge_reasoning_budget == 1024
     assert s.pipeline_concurrency == 5
 
 

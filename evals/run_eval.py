@@ -113,6 +113,7 @@ async def run() -> int:
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,
             max_tokens=settings.judge_max_tokens,
+            reasoning_budget=settings.judge_reasoning_budget,
         ),
     )
     rubric = EvalRubric(client)

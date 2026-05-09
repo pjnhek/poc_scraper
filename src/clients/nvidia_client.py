@@ -26,6 +26,10 @@ class GenerationParams:
     temperature: float = 0.6
     top_p: float = 0.7
     max_tokens: int = 4096
+    # For reasoning models (e.g. Seed-OSS): -1 = unlimited budget, 0 =
+    # disabled, positive = token cap. None means "don't pass the field"
+    # so non-reasoning models stay unaffected.
+    reasoning_budget: int | None = None
 
 
 class NvidiaClient:
@@ -59,6 +63,18 @@ class NvidiaClient:
         max_tokens: int | None = None,
     ) -> CachedSynthesis:
         user_content = f"{cached_context}\n\n{user_prompt}" if cached_context else user_prompt
+        kwargs: dict[str, Any] = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+            "temperature": self._params.temperature,
+            "top_p": self._params.top_p,
+            "max_tokens": max_tokens or self._params.max_tokens,
+        }
+        if self._params.reasoning_budget is not None:
+            kwargs["extra_body"] = {"thinking_budget": self._params.reasoning_budget}
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(4),
             wait=wait_exponential(multiplier=1, min=1, max=20),
@@ -66,16 +82,7 @@ class NvidiaClient:
             reraise=True,
         ):
             with attempt:
-                response = await self._client.chat.completions.create(
-                    model=self._model,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user_content},
-                    ],
-                    temperature=self._params.temperature,
-                    top_p=self._params.top_p,
-                    max_tokens=max_tokens or self._params.max_tokens,
-                )
+                response = await self._client.chat.completions.create(**kwargs)
 
         choice = response.choices[0]
         text = choice.message.content or ""

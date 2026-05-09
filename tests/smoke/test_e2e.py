@@ -57,6 +57,7 @@ def _build_clients(settings):  # type: ignore[no-untyped-def]
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,
             max_tokens=settings.judge_max_tokens,
+            reasoning_budget=settings.judge_reasoning_budget,
         ),
     )
     return writer, judge

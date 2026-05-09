@@ -143,6 +143,7 @@ def _build_judge(settings: Settings) -> NvidiaClient:
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,
             max_tokens=settings.judge_max_tokens,
+            reasoning_budget=settings.judge_reasoning_budget,
         ),
     )
 
