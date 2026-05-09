@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src.clients.anthropic_client import CachedSynthesis
 from src.clients.browserbase_client import RenderedPage
 from src.clients.exa_client import ExaResult
+from src.clients.nvidia_client import CachedSynthesis
 from src.models import Account
 from src.pipeline import build_deps, process_account, run_pipeline
 
@@ -103,7 +103,7 @@ async def test_full_account_processing_happy_path() -> None:
     exa = FakeExa(about=[_exa_about()], news=[_exa_news()])
     bb = FakeBrowserbase()
     anthropic = _scripted_full_run()
-    deps = build_deps(anthropic=anthropic, exa=exa, browserbase=bb)
+    deps = build_deps(writer=anthropic, judge=anthropic, exa=exa, browserbase=bb)
 
     sa = await process_account(Account(domain="chime.com"), deps)
 
@@ -124,7 +124,7 @@ async def test_unscoreable_when_no_enrichment() -> None:
     exa = FakeExa(about=[], news=[])
     bb = FakeBrowserbase()
     anthropic = _scripted_full_run()
-    deps = build_deps(anthropic=anthropic, exa=exa, browserbase=bb)
+    deps = build_deps(writer=anthropic, judge=anthropic, exa=exa, browserbase=bb)
 
     sa = await process_account(Account(domain="dead.example"), deps)
     assert sa.status == "unscoreable"
@@ -137,7 +137,7 @@ async def test_run_pipeline_processes_multiple_accounts() -> None:
     exa = FakeExa(about=[_exa_about()], news=[_exa_news()])
     bb = FakeBrowserbase()
     anthropic = _scripted_full_run()
-    deps = build_deps(anthropic=anthropic, exa=exa, browserbase=bb)
+    deps = build_deps(writer=anthropic, judge=anthropic, exa=exa, browserbase=bb)
 
     accounts = [Account(domain="chime.com"), Account(domain="duolingo.com")]
     results = await run_pipeline(accounts, deps, concurrency=2)
@@ -162,7 +162,7 @@ async def test_one_account_failure_does_not_kill_pipeline() -> None:
     exa = FlakyExa()
     bb = FakeBrowserbase()
     anthropic = _scripted_full_run()
-    deps = build_deps(anthropic=anthropic, exa=exa, browserbase=bb)
+    deps = build_deps(writer=anthropic, judge=anthropic, exa=exa, browserbase=bb)
 
     accounts = [Account(domain="bad.example"), Account(domain="chime.com")]
     results = await run_pipeline(accounts, deps, concurrency=1)

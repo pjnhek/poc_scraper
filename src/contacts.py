@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from ._json_utils import parse_json_object
-from .clients.protocols import AnthropicLike
+from .clients.protocols import LLMClient
 from .models import Contact, Enrichment, ICPScore
 
 log = logging.getLogger(__name__)
@@ -22,12 +22,12 @@ DEFAULT_RATIONALE = "(no rationale provided)"
 
 
 class ContactExtractor:
-    def __init__(self, anthropic: AnthropicLike) -> None:
-        self._anthropic = anthropic
+    def __init__(self, llm: LLMClient) -> None:
+        self._llm = llm
 
     async def extract(self, enrichment: Enrichment, score: ICPScore | None) -> tuple[Contact, ...]:
         cached = _build_contacts_context(enrichment, score)
-        result = await self._anthropic.synthesize(
+        result = await self._llm.synthesize(
             system=CONTACTS_SYSTEM,
             cached_context=cached,
             user_prompt="Return the JSON array of three personas.",

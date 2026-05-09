@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src.clients.anthropic_client import CachedSynthesis
 from src.clients.browserbase_client import RenderedPage
 from src.clients.exa_client import ExaResult
+from src.clients.nvidia_client import CachedSynthesis
 from src.enrich import Enricher
 from src.models import Account
 

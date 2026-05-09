@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from evals.rubric import EvalRubric
-from src.clients.anthropic_client import CachedSynthesis
+from src.clients.nvidia_client import CachedSynthesis
 from src.models import Citation, Contact, OutreachHook
 
 

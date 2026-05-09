@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.clients.anthropic_client import CachedSynthesis
+from src.clients.nvidia_client import CachedSynthesis
 from src.contacts import ContactExtractor
 from src.models import Account, Citation, Enrichment, NewsItem
 

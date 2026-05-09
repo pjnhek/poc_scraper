@@ -4,7 +4,7 @@ import logging
 import re
 
 from ._json_utils import parse_json_object
-from .clients.protocols import AnthropicLike
+from .clients.protocols import LLMClient
 from .models import Citation, Contact, Enrichment, ICPScore, OutreachHook
 
 log = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ URL_RE = re.compile(r"\((https?://[^)]+)\)")
 
 
 class OutreachGenerator:
-    def __init__(self, anthropic: AnthropicLike) -> None:
-        self._anthropic = anthropic
+    def __init__(self, llm: LLMClient) -> None:
+        self._llm = llm
 
     async def generate(
         self,
@@ -38,7 +38,7 @@ class OutreachGenerator:
             f"Write the outreach paragraph for the persona: {contact.role_title}. "
             f"Persona rationale: {contact.rationale}"
         )
-        result = await self._anthropic.synthesize(
+        result = await self._llm.synthesize(
             system=OUTREACH_SYSTEM,
             cached_context=cached,
             user_prompt=user,

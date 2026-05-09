@@ -14,7 +14,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    anthropic_api_key: str = ""
+    nvidia_api_key: str = ""
     exa_api_key: str = ""
     browserbase_api_key: str = ""
     browserbase_project_id: str = ""
@@ -22,17 +22,28 @@ class Settings(BaseSettings):
     google_application_credentials: str = "./credentials.json"
     google_sheet_id: str = ""
 
-    anthropic_model: str = "claude-sonnet-4-6"
+    # Two different model families on purpose: writer is hot for creativity,
+    # judge is cold for consistency, and a different family avoids the
+    # self-grading bias that shows up when the same model writes and judges.
+    writer_model: str = "minimaxai/minimax-m2.7"
+    writer_temperature: float = 1.0
+    writer_top_p: float = 0.95
+    writer_max_tokens: int = 8192
+
+    judge_model: str = "mistralai/mistral-nemotron"
+    judge_temperature: float = 0.6
+    judge_top_p: float = 0.7
+    judge_max_tokens: int = 4096
+
     pipeline_concurrency: int = Field(default=5, ge=1, le=50)
 
     accounts_csv: Path = Path("inputs/accounts.csv")
-    eval_groundedness_threshold: float = 6.0
 
     def require_for_pipeline(self) -> None:
         missing = [
             name
             for name, value in (
-                ("ANTHROPIC_API_KEY", self.anthropic_api_key),
+                ("NVIDIA_API_KEY", self.nvidia_api_key),
                 ("EXA_API_KEY", self.exa_api_key),
                 ("BROWSERBASE_API_KEY", self.browserbase_api_key),
                 ("BROWSERBASE_PROJECT_ID", self.browserbase_project_id),

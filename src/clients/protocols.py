@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from .anthropic_client import CachedSynthesis
 from .browserbase_client import RenderedPage
 from .exa_client import ExaResult
+from .nvidia_client import CachedSynthesis
 
 
 class ExaLike(Protocol):
@@ -19,7 +19,7 @@ class BrowserbaseLike(Protocol):
     async def render(self, url: str) -> RenderedPage | None: ...
 
 
-class AnthropicLike(Protocol):
+class LLMClient(Protocol):
     async def synthesize(
         self,
         system: str,

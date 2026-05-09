@@ -8,10 +8,10 @@ import httpx
 
 from evals.rubric import EvalRubric
 
-from .clients.anthropic_client import AnthropicClient
 from .clients.browserbase_client import BrowserbaseClient
 from .clients.exa_client import ExaClient
-from .clients.protocols import AnthropicLike, BrowserbaseLike, ExaLike
+from .clients.nvidia_client import GenerationParams, NvidiaClient
+from .clients.protocols import BrowserbaseLike, ExaLike, LLMClient
 from .config import Settings, get_settings
 from .contacts import ContactExtractor
 from .csv_io import read_accounts
@@ -34,16 +34,17 @@ class Deps:
 
 
 def build_deps(
-    anthropic: AnthropicLike,
+    writer: LLMClient,
+    judge: LLMClient,
     exa: ExaLike,
     browserbase: BrowserbaseLike,
 ) -> Deps:
     return Deps(
-        enricher=Enricher(exa=exa, browserbase=browserbase, anthropic=anthropic),
-        scorer=Scorer(anthropic=anthropic),
-        contacts=ContactExtractor(anthropic=anthropic),
-        outreach=OutreachGenerator(anthropic=anthropic),
-        eval_rubric=EvalRubric(anthropic=anthropic),
+        enricher=Enricher(exa=exa, browserbase=browserbase, llm=writer),
+        scorer=Scorer(llm=writer),
+        contacts=ContactExtractor(llm=writer),
+        outreach=OutreachGenerator(llm=writer),
+        eval_rubric=EvalRubric(llm=judge),
     )
 
 
@@ -122,6 +123,30 @@ async def run_pipeline(
     return list(await asyncio.gather(*(_bounded(a) for a in accounts)))
 
 
+def _build_writer(settings: Settings) -> NvidiaClient:
+    return NvidiaClient(
+        api_key=settings.nvidia_api_key,
+        model=settings.writer_model,
+        params=GenerationParams(
+            temperature=settings.writer_temperature,
+            top_p=settings.writer_top_p,
+            max_tokens=settings.writer_max_tokens,
+        ),
+    )
+
+
+def _build_judge(settings: Settings) -> NvidiaClient:
+    return NvidiaClient(
+        api_key=settings.nvidia_api_key,
+        model=settings.judge_model,
+        params=GenerationParams(
+            temperature=settings.judge_temperature,
+            top_p=settings.judge_top_p,
+            max_tokens=settings.judge_max_tokens,
+        ),
+    )
+
+
 async def main(settings: Settings | None = None) -> int:
     settings = settings or get_settings()
     settings.require_for_pipeline()
@@ -139,18 +164,17 @@ async def main(settings: Settings | None = None) -> int:
             project_id=settings.browserbase_project_id,
             client=http,
         )
-        anthropic = AnthropicClient(
-            api_key=settings.anthropic_api_key, model=settings.anthropic_model
-        )
-        deps = build_deps(anthropic=anthropic, exa=exa, browserbase=bb)
+        writer = _build_writer(settings)
+        judge = _build_judge(settings)
+        deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
 
         scored = await run_pipeline(accounts, deps, concurrency=settings.pipeline_concurrency)
 
-    writer = SheetsWriter(
+    writer_sheets = SheetsWriter(
         credentials_path=settings.google_application_credentials,
         spreadsheet_id=settings.google_sheet_id or None,
     )
-    result = writer.write(scored)
+    result = writer_sheets.write(scored)
     log.info("done. sheet: %s (tab=%s)", result.url, result.sheet_title)
     print(f"sheet: {result.url}")
     return 0

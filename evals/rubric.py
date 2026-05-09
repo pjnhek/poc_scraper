@@ -4,7 +4,7 @@ import logging
 from collections.abc import Iterable
 
 from src._json_utils import parse_json_object
-from src.clients.protocols import AnthropicLike
+from src.clients.protocols import LLMClient
 from src.icp_config import ICPConfig, get_config
 from src.models import EvalScore, OutreachHook, ScoredAccount
 
@@ -30,8 +30,8 @@ def _build_eval_system(config: ICPConfig) -> str:
 
 
 class EvalRubric:
-    def __init__(self, anthropic: AnthropicLike, config: ICPConfig | None = None) -> None:
-        self._anthropic = anthropic
+    def __init__(self, llm: LLMClient, config: ICPConfig | None = None) -> None:
+        self._llm = llm
         self._config = config or get_config()
 
     @property
@@ -40,7 +40,7 @@ class EvalRubric:
 
     async def evaluate_hook(self, hook: OutreachHook, account_domain: str) -> EvalScore:
         cached = _build_eval_context(hook, account_domain)
-        result = await self._anthropic.synthesize(
+        result = await self._llm.synthesize(
             system=_build_eval_system(self._config),
             cached_context=cached,
             user_prompt="Score the outreach paragraph and return the JSON object.",

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from ._json_utils import parse_json_object
 from .clients.exa_client import ExaResult
-from .clients.protocols import AnthropicLike, BrowserbaseLike, ExaLike
+from .clients.protocols import BrowserbaseLike, ExaLike, LLMClient
 from .models import Account, Citation, Enrichment, Firmographics, NewsItem
 
 log = logging.getLogger(__name__)
@@ -36,11 +36,11 @@ class Enricher:
         self,
         exa: ExaLike,
         browserbase: BrowserbaseLike,
-        anthropic: AnthropicLike,
+        llm: LLMClient,
     ) -> None:
         self._exa = exa
         self._browserbase = browserbase
-        self._anthropic = anthropic
+        self._llm = llm
 
     async def enrich(self, account: Account) -> Enrichment:
         ctx = await self._collect_context(account)
@@ -92,7 +92,7 @@ class Enricher:
 
     async def _extract_firmographics(self, ctx: _RawContext) -> Firmographics | None:
         cached_block = _build_context_block(ctx)
-        result = await self._anthropic.synthesize(
+        result = await self._llm.synthesize(
             system=FIRMOGRAPHICS_SYSTEM,
             cached_context=cached_block,
             user_prompt=(

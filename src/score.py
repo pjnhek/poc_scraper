@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from ._json_utils import parse_json_object
-from .clients.protocols import AnthropicLike
+from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
 from .models import Enrichment, ICPScore, NewsItem, RubricBreakdown
 
@@ -35,13 +35,13 @@ def _build_score_system(config: ICPConfig) -> str:
 
 
 class Scorer:
-    def __init__(self, anthropic: AnthropicLike, config: ICPConfig | None = None) -> None:
-        self._anthropic = anthropic
+    def __init__(self, llm: LLMClient, config: ICPConfig | None = None) -> None:
+        self._llm = llm
         self._config = config or get_config()
 
     async def score(self, enrichment: Enrichment) -> ICPScore | None:
         cached = _build_score_context(enrichment)
-        result = await self._anthropic.synthesize(
+        result = await self._llm.synthesize(
             system=_build_score_system(self._config),
             cached_context=cached,
             user_prompt=(

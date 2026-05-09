@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.clients.anthropic_client import CachedSynthesis
 from src.clients.exa_client import ExaResult
+from src.clients.nvidia_client import CachedSynthesis
 from src.models import Account
 from src.pipeline import build_deps, process_account
 
@@ -54,8 +54,10 @@ def _exa_about() -> ExaResult:
 
 @pytest.mark.asyncio
 async def test_score_failure_marks_unscoreable() -> None:
+    failing = FailingAnthropic(fail_on="score companies against an ICP rubric")
     deps = build_deps(
-        anthropic=FailingAnthropic(fail_on="score companies against an ICP rubric"),
+        writer=failing,
+        judge=failing,
         exa=FakeExa(about=[_exa_about()]),
         browserbase=FakeBrowserbase(),
     )
@@ -118,8 +120,10 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
                 )
             raise AssertionError(f"unscripted: {system[:60]}")
 
+    half = HalfFailing()
     deps = build_deps(
-        anthropic=HalfFailing(),
+        writer=half,
+        judge=half,
         exa=FakeExa(about=[_exa_about()]),
         browserbase=FakeBrowserbase(),
     )

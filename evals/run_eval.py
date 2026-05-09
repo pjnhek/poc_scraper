@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.clients.anthropic_client import AnthropicClient
+from src.clients.nvidia_client import GenerationParams, NvidiaClient
 from src.config import get_settings
 from src.models import Citation, Contact, OutreachHook
 
@@ -101,12 +101,20 @@ def summary_line(rows: list[EvalRow]) -> str:
 
 async def run() -> int:
     settings = get_settings()
-    if not settings.anthropic_api_key:
-        log.error("ANTHROPIC_API_KEY is not set; cannot run eval.")
+    if not settings.nvidia_api_key:
+        log.error("NVIDIA_API_KEY is not set; cannot run eval.")
         return 1
 
     examples = load_labeled()
-    client = AnthropicClient(api_key=settings.anthropic_api_key, model=settings.anthropic_model)
+    client = NvidiaClient(
+        api_key=settings.nvidia_api_key,
+        model=settings.judge_model,
+        params=GenerationParams(
+            temperature=settings.judge_temperature,
+            top_p=settings.judge_top_p,
+            max_tokens=settings.judge_max_tokens,
+        ),
+    )
     rubric = EvalRubric(client)
 
     rows: list[EvalRow] = []
