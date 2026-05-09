@@ -23,7 +23,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 ## Stack (locked, don't drift)
 
 - Python 3.11+, `uv` for env management.
-- NVIDIA Build endpoint (OpenAI-compatible, `https://integrate.api.nvidia.com/v1`) for synthesis. Separate writer and judge models so the LLM-as-judge is not self-grading.
+- NVIDIA Build endpoint (OpenAI-compatible, `https://integrate.api.nvidia.com/v1`) for synthesis. Default writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. Different families so the LLM-as-judge is not self-grading. Override via `WRITER_MODEL` / `JUDGE_MODEL` if a preview model goes DEGRADED on NVIDIA's side.
 - Exa primary for context retrieval (about pages + last-90-day news).
 - Browserbase fallback for JS-rendered pages or when Exa returns thin results.
 - Google Sheets API with service-account auth as the output surface.
