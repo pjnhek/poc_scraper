@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 import re
 from dataclasses import dataclass
 
+from ._json_utils import parse_json_object
 from .clients.exa_client import ExaResult
 from .clients.protocols import AnthropicLike, BrowserbaseLike, ExaLike
 from .models import Account, Citation, Enrichment, Firmographics, NewsItem
@@ -101,7 +101,7 @@ class Enricher:
             ),
             max_tokens=512,
         )
-        parsed = _parse_json_object(result.text)
+        parsed = parse_json_object(result.text)
         if parsed is None:
             log.warning("firmographics extraction: could not parse JSON from %r", result.text[:200])
             return None
@@ -147,24 +147,6 @@ def _to_news_item(r: ExaResult) -> NewsItem:
 def _strip_html(html: str) -> str:
     text = HTML_TAG.sub(" ", html)
     return WHITESPACE.sub(" ", text).strip()
-
-
-def _parse_json_object(text: str) -> dict[str, object] | None:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    try:
-        loaded = json.loads(text[start : end + 1])
-    except json.JSONDecodeError:
-        return None
-    return loaded if isinstance(loaded, dict) else None
 
 
 def _clean_str(value: object) -> str | None:
