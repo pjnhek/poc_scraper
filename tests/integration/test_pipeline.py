@@ -88,10 +88,10 @@ def _scripted_full_run() -> ScriptedAnthropic:
             "write one short outreach paragraph": (
                 '{"paragraph":"Saw your AI push '
                 "[Chime expands AI support](https://techcrunch.com/chime-ai). "
-                'Acme hits 80% deflection on tier-1 in B2C fintech.",'
+                'High deflection on tier-1 in consumer fintech.",'
                 '"cited_urls":["https://techcrunch.com/chime-ai"]}'
             ),
-            "LLM-as-judge evaluating outreach": (
+            "LLM judge evaluating an outreach paragraph": (
                 '{"groundedness":4,"icp_relevance":5,"personalization":4,"notes":"solid"}'
             ),
         }

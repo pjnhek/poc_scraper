@@ -5,30 +5,43 @@ from collections.abc import Iterable
 
 from src._json_utils import parse_json_object
 from src.clients.protocols import AnthropicLike
+from src.icp_config import ICPConfig, get_config
 from src.models import EvalScore, OutreachHook, ScoredAccount
 
 log = logging.getLogger(__name__)
 
-EVAL_SYSTEM = (
-    "You are an LLM-as-judge evaluating outreach copy from a Acme seller. Score the "
-    'paragraph 0-10 on three axes: (1) "groundedness": every factual claim is supported '
-    "by one of the cited URLs (10 = fully grounded, 0 = hallucinated); "
-    '(2) "icp_relevance": the message reflects Acme\'s ICP (B2C with high support '
-    "volume, AI-mature companies seeking deflection); "
-    '(3) "personalization": the message references something specific to this account, '
-    "not generic boilerplate. Output ONLY one JSON object with keys "
-    '"groundedness", "icp_relevance", "personalization", and "notes" (one short sentence).'
-)
+
+def _build_eval_system(config: ICPConfig) -> str:
+    return (
+        "You are an LLM judge evaluating an outreach paragraph against a target account.\n"
+        f"Buyer description (use this for the ICP-relevance axis): "
+        f"{config.buyer_description.strip()}\n\n"
+        "Score the paragraph on three axes using a 1-5 categorical scale:\n"
+        "1. groundedness: every factual claim about the account is supported by one of "
+        "the cited URLs (5 = fully grounded, 1 = hallucinated).\n"
+        "2. icp_relevance: how well the message reflects the buyer description above.\n"
+        "3. personalization: the message references something specific to this account "
+        "rather than generic boilerplate.\n\n"
+        "Anchors per axis: 1 = poor, 2 = fair, 3 = acceptable, 4 = strong, 5 = excellent.\n"
+        "Output ONLY one JSON object with integer keys "
+        '"groundedness", "icp_relevance", "personalization", and "notes" '
+        "(one short sentence). Do not include any other prose."
+    )
 
 
 class EvalRubric:
-    def __init__(self, anthropic: AnthropicLike) -> None:
+    def __init__(self, anthropic: AnthropicLike, config: ICPConfig | None = None) -> None:
         self._anthropic = anthropic
+        self._config = config or get_config()
+
+    @property
+    def _flag_threshold(self) -> float:
+        return self._config.eval.groundedness_flag_threshold
 
     async def evaluate_hook(self, hook: OutreachHook, account_domain: str) -> EvalScore:
         cached = _build_eval_context(hook, account_domain)
         result = await self._anthropic.synthesize(
-            system=EVAL_SYSTEM,
+            system=_build_eval_system(self._config),
             cached_context=cached,
             user_prompt="Score the outreach paragraph and return the JSON object.",
             max_tokens=400,
@@ -37,10 +50,11 @@ class EvalRubric:
         if parsed is None:
             log.warning("eval: could not parse JSON from %r", result.text[:200])
             return EvalScore(
-                groundedness=0,
-                icp_relevance=0,
-                personalization=0,
+                groundedness=1,
+                icp_relevance=1,
+                personalization=1,
                 notes="(judge output unparseable)",
+                flag_threshold=self._flag_threshold,
             )
         try:
             return EvalScore(
@@ -48,37 +62,42 @@ class EvalRubric:
                 icp_relevance=_clip(parsed.get("icp_relevance")),
                 personalization=_clip(parsed.get("personalization")),
                 notes=str(parsed.get("notes") or "").strip() or None,
+                flag_threshold=self._flag_threshold,
             )
         except (TypeError, ValueError) as exc:
             log.warning("eval: validation failed: %s", exc)
             return EvalScore(
-                groundedness=0,
-                icp_relevance=0,
-                personalization=0,
+                groundedness=1,
+                icp_relevance=1,
+                personalization=1,
                 notes=f"(validation failed: {exc})",
+                flag_threshold=self._flag_threshold,
             )
 
     async def evaluate_account(self, sa: ScoredAccount) -> EvalScore:
         if not sa.hooks:
             return EvalScore(
-                groundedness=0,
-                icp_relevance=0,
-                personalization=0,
+                groundedness=1,
+                icp_relevance=1,
+                personalization=1,
                 notes="(no hooks to evaluate)",
+                flag_threshold=self._flag_threshold,
             )
         scores = [await self.evaluate_hook(h, sa.account.domain) for h in sa.hooks if h.paragraph]
         if not scores:
             return EvalScore(
-                groundedness=0,
-                icp_relevance=0,
-                personalization=0,
+                groundedness=1,
+                icp_relevance=1,
+                personalization=1,
                 notes="(no grounded hooks)",
+                flag_threshold=self._flag_threshold,
             )
         return EvalScore(
             groundedness=_avg(s.groundedness for s in scores),
             icp_relevance=_avg(s.icp_relevance for s in scores),
             personalization=_avg(s.personalization for s in scores),
             notes=f"averaged across {len(scores)} hooks",
+            flag_threshold=self._flag_threshold,
         )
 
 
@@ -99,12 +118,12 @@ def _clip(value: object) -> float:
     try:
         f = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
-        return 0.0
-    return max(0.0, min(10.0, f))
+        return 1.0
+    return max(1.0, min(5.0, f))
 
 
 def _avg(values: Iterable[float]) -> float:
     nums = list(values)
     if not nums:
-        return 0.0
+        return 1.0
     return round(sum(nums) / len(nums), 1)

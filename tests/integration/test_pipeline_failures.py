@@ -55,7 +55,7 @@ def _exa_about() -> ExaResult:
 @pytest.mark.asyncio
 async def test_score_failure_marks_unscoreable() -> None:
     deps = build_deps(
-        anthropic=FailingAnthropic(fail_on="score companies against Acme's ICP rubric"),
+        anthropic=FailingAnthropic(fail_on="score companies against an ICP rubric"),
         exa=FakeExa(about=[_exa_about()]),
         browserbase=FakeBrowserbase(),
     )
@@ -79,7 +79,7 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
                     cache_read_tokens=0,
                     cache_creation_tokens=0,
                 )
-            if "score companies against Acme's ICP rubric" in system:
+            if "score companies against an ICP rubric" in system:
                 return CachedSynthesis(
                     text=(
                         '{"support_volume":5,"support_volume_reason":"r",'
@@ -110,9 +110,9 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
                     cache_read_tokens=0,
                     cache_creation_tokens=0,
                 )
-            if "LLM-as-judge" in system:
+            if "LLM judge evaluating" in system:
                 return CachedSynthesis(
-                    text='{"groundedness":7,"icp_relevance":7,"personalization":7}',
+                    text='{"groundedness":4,"icp_relevance":4,"personalization":4}',
                     cache_read_tokens=0,
                     cache_creation_tokens=0,
                 )
