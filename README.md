@@ -7,6 +7,10 @@ A generic account-research prototype. Given a CSV of company domains, it produce
 
 The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same code can be retargeted at any vertical without touching prompts.
 
+## Demo
+
+[![Watch the walkthrough on Loom](https://cdn.loom.com/sessions/thumbnails/e089ab6b686043d9b612963a96454cf2-with-play.gif)](https://www.loom.com/share/e089ab6b686043d9b612963a96454cf2)
+
 ## What it does
 
 ```mermaid
