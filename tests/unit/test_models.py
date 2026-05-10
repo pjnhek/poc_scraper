@@ -10,6 +10,7 @@ from src.models import (
     EvalScore,
     Firmographics,
     ICPScore,
+    Justification,
     NewsItem,
     RubricBreakdown,
     ScoredAccount,
@@ -116,6 +117,22 @@ class TestEvalScoreFlag:
     def test_custom_threshold_overrides_default(self) -> None:
         strict = EvalScore(groundedness=3.5, icp_relevance=4, personalization=4, flag_threshold=4.0)
         assert strict.is_flagged is True
+
+
+class TestJustification:
+    def test_index_must_be_positive(self) -> None:
+        cite = Citation(url="https://x.com/a", source="exa")
+        with pytest.raises(ValidationError):
+            Justification(index=0, summary="s", citation=cite)
+        with pytest.raises(ValidationError):
+            Justification(index=-1, summary="s", citation=cite)
+
+    def test_accepts_valid(self) -> None:
+        cite = Citation(url="https://x.com/a", source="exa")
+        j = Justification(index=1, summary="company raised funding", citation=cite)
+        assert j.index == 1
+        assert j.summary == "company raised funding"
+        assert str(j.citation.url) == "https://x.com/a"
 
 
 class TestScoredAccountUnscoreable:

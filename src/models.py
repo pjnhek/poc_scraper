@@ -63,6 +63,20 @@ class NewsItem(_Frozen):
     published_at: datetime | None = None
 
 
+class Justification(_Frozen):
+    """One numbered piece of retrieved evidence shown to the writer and judge.
+
+    The whole pipeline references retrievals by 1-based `index` so claims can
+    cite "[1]" instead of pasting URLs. Both the writer prompt and the judge
+    prompt see the same numbered list, which makes citation-checking
+    deterministic instead of fuzzy URL matching.
+    """
+
+    index: int = Field(ge=1)
+    summary: str
+    citation: Citation
+
+
 class Firmographics(_Frozen):
     name: str
     industry: str | None = None
