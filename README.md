@@ -9,11 +9,28 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 
 ## What it does
 
-```text
-inputs/accounts.csv  ->  enrich (Exa + Browserbase)  ->  score (ICP rubric)
-                                                      ->  contacts (top 3 personas)
-                                                      ->  outreach (grounded hooks)
-                                                      ->  Google Sheet
+```mermaid
+flowchart LR
+    csv[inputs/accounts.csv]
+    icp[configs/icp.yaml<br/>ICP rubric]
+    exa[Exa<br/>about + news]
+    bb[Browserbase<br/>fallback render]
+    writer[MiniMax M2.7<br/>score + write hooks]
+    cite{citation<br/>check}
+    judge[Seed-OSS 36B<br/>judge: groundedness,<br/>relevance, personalization]
+    sheet[(Google Sheet<br/>Rubric / Inputs / Results)]
+
+    csv --> exa
+    exa -. thin results .-> bb
+    bb --> writer
+    exa --> writer
+    icp --> writer
+    icp --> judge
+    writer --> cite
+    cite --> judge
+    judge --> sheet
+    icp --> sheet
+    csv --> sheet
 ```
 
 Per run, the workbook gets three tabs:
