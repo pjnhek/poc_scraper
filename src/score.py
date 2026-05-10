@@ -33,8 +33,13 @@ def _build_score_system(config: ICPConfig) -> str:
         '"stage_fit" (integer 1-5), "stage_fit_reason", '
         '"channel_breadth" (integer 1-5), "channel_breadth_reason", '
         '"justification" (one sentence summarizing why the total makes sense), '
-        '"supporting_indices" (array of integers, 1-based, drawn from the numbered '
-        "justifications you were given). "
+        '"supporting_indices" (array of at least 1 integer, 1-based, drawn from '
+        "the numbered justifications you were given). You MUST include at least one "
+        "index in supporting_indices, even if your verdict is weak. If the context "
+        "is so thin that nothing supports the verdict, return the index of the "
+        "justification you found least useful and explain in the justification "
+        "field that the evidence was insufficient. Empty supporting_indices is "
+        "not allowed.\n\n"
         "Use only the provided context, do not invent facts. Be conservative when "
         "context is thin; default to 2 (low) rather than guessing high."
     )

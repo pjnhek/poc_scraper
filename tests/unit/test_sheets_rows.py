@@ -94,6 +94,31 @@ def test_build_rows_writes_account_data() -> None:
     assert any("example.com/news" in cell for cell in row)
 
 
+def test_justification_cell_includes_supporting_evidence() -> None:
+    sa = _scored()
+    rows = build_rows([sa])
+    row = rows[1]
+    headers = rows[0]
+    just_cell = row[headers.index("justification")]
+    assert "Supporting:" in just_cell
+    assert "[1]" in just_cell
+
+
+def test_justification_cell_flags_missing_supporting_indices() -> None:
+    """If the writer omits supporting_indices, the cell should make that
+    visible rather than silently rendering an unsupported claim."""
+    sa = _scored()
+    # Reconstruct the score with empty supporting_indices.
+    assert sa.score is not None
+    bare_score = sa.score.model_copy(update={"supporting_indices": ()})
+    sa_bare = sa.model_copy(update={"score": bare_score})
+    rows = build_rows([sa_bare])
+    row = rows[1]
+    headers = rows[0]
+    just_cell = row[headers.index("justification")]
+    assert "no supporting indices" in just_cell
+
+
 def test_build_rows_handles_unscoreable() -> None:
     acc = Account(domain="dead.com")
     enr = Enrichment(account=acc)

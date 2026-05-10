@@ -106,7 +106,14 @@ def _build_row(sa: ScoredAccount) -> list[str]:
 
 
 def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
-    """Compose the score's justification cell with supporting evidence inline."""
+    """Compose the score's justification cell with supporting evidence inline.
+
+    If the writer omits supporting_indices entirely (which it shouldn't,
+    per the prompt) we still surface the gap to the reader as
+    'Supporting: (writer returned no indices)' rather than silently
+    rendering an unsupported justification. Makes the writer mistake
+    visible instead of indistinguishable from a "no evidence" verdict.
+    """
     parts = [score.justification.strip() if score.justification else ""]
     supports = [
         f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
@@ -115,6 +122,8 @@ def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
     ]
     if supports:
         parts.append("Supporting: " + "; ".join(supports))
+    elif by_index:
+        parts.append("Supporting: (writer returned no supporting indices)")
     return " ".join(p for p in parts if p)
 
 
