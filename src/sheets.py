@@ -170,31 +170,43 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
     for verdict in sorted(config.verdicts.values(), key=lambda v: -v.min_total):
         rows.append([verdict.label, f"{verdict.min_total:.1f}", verdict.description.strip()])
     rows.append([])
-    rows.append(["Judge rubric (LLM-as-judge, 1-5 scale per NeMo guidance)"])
+    rows.append(["Judge rubric (LLM-as-judge, claim-decomposition for groundedness)"])
     rows.append(["axis", "description"])
     rows.append(
         [
             "groundedness",
-            "Every factual claim about the account is supported by one of the cited URLs.",
+            "Judge breaks the outreach paragraph into atomic factual claims, then "
+            "marks each claim as supported by a numbered justification or "
+            "'uncited'. Score is (cited / max(total, 3)) * 5. The min-3 floor "
+            "penalizes very short hooks.",
         ]
     )
     rows.append(
         [
             "icp_relevance",
-            "The outreach message reflects the buyer description above.",
+            "1-5 categorical: how well the message reflects the buyer description above.",
         ]
     )
     rows.append(
         [
             "personalization",
-            "The message references something specific to this account, not generic boilerplate.",
+            "1-5 categorical: how specific the message is to this account.",
         ]
     )
     rows.append([])
     rows.append(
         [
-            f"Groundedness below {config.eval.groundedness_flag_threshold:.1f} flags the "
-            "Results row red.",
+            f"When groundedness drops below {config.eval.groundedness_flag_threshold:.1f}, "
+            "the eval_groundedness cell turns red text. The row keeps its verdict "
+            "color (strong = green, borderline = yellow, weak = no color).",
+        ]
+    )
+    rows.append([])
+    rows.append(
+        [
+            "Justifications are numbered Exa retrievals (about page + last-90-day "
+            "news), shown to the writer as [1]..[N]. The writer's hook references "
+            "these by index; the judge checks each claim against the same list."
         ]
     )
     rows.append([])

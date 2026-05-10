@@ -37,11 +37,13 @@ Per run, the workbook gets three tabs:
 
 1. **Rubric** — buyer description, the 4 weighted axes with their 1-5 anchor descriptions, verdict thresholds, and the LLM-as-judge axes. Sourced from `configs/icp.yaml`. Rewritten in place each run so the rubric you're reading always matches the rubric that produced this run's Results.
 2. **Inputs** — the contents of `inputs/accounts.csv`, with a load timestamp and count. Rewritten in place each run.
-3. **Results: `run-YYYYMMDD-HHMMSS`** — one row per account. New tab on every run, so the workbook accumulates a history. Per row: firmographics, last-90-day context with citations, ICP fit verdict (strong / borderline / weak) with weighted breakdown, top-3 personas, one grounded outreach paragraph per persona, and judge scores.
+3. **Results: `run-YYYYMMDD-HHMMSS`** — one row per account. New tab on every run, so the workbook accumulates a history. Per row: firmographics, ICP fit verdict (strong / borderline / weak) with weighted breakdown, top-3 personas, one grounded outreach paragraph per persona using `[N]` markers tied to numbered justifications, and judge scores.
 
-Rows in Results are color-coded: strong fits get green, borderline get yellow, eval-flagged groundedness gets red (overrides verdict color).
+Row colors signal the **verdict only**: strong = green, borderline = yellow, weak = no color. When the judge flags a row's groundedness below the threshold, the `eval_groundedness` cell turns red text — the row keeps its verdict color so you can read fit and quality independently.
 
-Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, then open the latest Results tab to walk through verdicts, citations, and outreach drafts.
+Citations work via numbered justifications. Each Exa retrieval (about page + recent news) gets a 1-based index. The writer references those indices inline (e.g. "their recent AI push [2]"). The judge decomposes each paragraph into atomic claims and marks each claim as supported by an index or 'uncited'. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop.
+
+Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, then open the latest Results tab to walk through verdicts, numbered citations, and outreach drafts.
 
 ## Stack and design choices
 
