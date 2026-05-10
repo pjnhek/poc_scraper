@@ -35,6 +35,26 @@ def test_loads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.pipeline_concurrency == 10
 
 
+def test_run_limit_default_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RUN_LIMIT", raising=False)
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.run_limit is None
+
+
+def test_run_limit_loads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RUN_LIMIT", "3")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.run_limit == 3
+
+
+def test_run_limit_rejects_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("RUN_LIMIT", "0")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
 def test_writer_and_judge_default_to_different_models() -> None:
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert (

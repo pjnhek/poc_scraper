@@ -157,6 +157,14 @@ async def main(settings: Settings | None = None) -> int:
     if not accounts:
         log.error("no accounts in %s", settings.accounts_csv)
         return 1
+    if settings.run_limit is not None and settings.run_limit < len(accounts):
+        log.info(
+            "RUN_LIMIT=%d set; processing first %d of %d accounts",
+            settings.run_limit,
+            settings.run_limit,
+            len(accounts),
+        )
+        accounts = accounts[: settings.run_limit]
     log.info("loaded %d accounts from %s", len(accounts), settings.accounts_csv)
 
     async with httpx.AsyncClient(timeout=60.0) as http:

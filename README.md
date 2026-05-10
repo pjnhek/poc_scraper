@@ -89,6 +89,12 @@ make run
 
 `make run` runs the full pipeline against `inputs/accounts.csv` and writes the workbook. `make smoke` is a separate target you can run when you want to verify against a fixed pair of fixture domains; it's intentionally not chained to `make run` because both hit the same NVIDIA free-tier endpoint and stacking them invites rate limiting.
 
+To cap how many domains a single run processes (useful for demos and to avoid rate limits), set `RUN_LIMIT`:
+
+```bash
+RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
+```
+
 ### Picking models
 
 The defaults are MiniMax M2.7 (writer) and Seed-OSS 36B (judge). NVIDIA Build's preview model availability rotates, so if you see a 400 / "DEGRADED function" error from one of them, swap via `WRITER_MODEL` or `JUDGE_MODEL` in `.env`. Tested working alternatives at the time of writing:

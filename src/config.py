@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     judge_reasoning_budget: int = 1024
 
     pipeline_concurrency: int = Field(default=5, ge=1, le=50)
+    # Optional: cap how many domains the pipeline processes from accounts.csv.
+    # Useful for demos and free-tier rate-limit avoidance. Unset = process all.
+    run_limit: int | None = Field(default=None, ge=1)
 
     accounts_csv: Path = Path("inputs/accounts.csv")
 
