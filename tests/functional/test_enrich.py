@@ -124,6 +124,44 @@ async def test_browserbase_fallback_when_about_text_thin() -> None:
 
 
 @pytest.mark.asyncio
+async def test_enrichment_numbers_about_then_news_justifications() -> None:
+    exa = FakeExa(
+        about=[_exa_about()],
+        news=[
+            _exa_news(url="https://techcrunch.com/notion-1"),
+            _exa_news(url="https://techcrunch.com/notion-2"),
+        ],
+    )
+    bb = FakeBrowserbase()
+    llm = FakeAnthropic(
+        text='{"name":"Notion","industry":null,"headcount_range":null,"tech_signals":[]}'
+    )
+    enr = await Enricher(exa, bb, llm).enrich(Account(domain="notion.so"))
+
+    assert [j.index for j in enr.justifications] == [1, 2, 3]
+    assert str(enr.justifications[0].citation.url) == "https://notion.so/about"
+    assert "techcrunch.com/notion-1" in str(enr.justifications[1].citation.url)
+    assert "techcrunch.com/notion-2" in str(enr.justifications[2].citation.url)
+
+
+@pytest.mark.asyncio
+async def test_enrichment_dedupes_url_appearing_in_about_and_news() -> None:
+    same = "https://notion.so/about"
+    exa = FakeExa(
+        about=[_exa_about()],
+        news=[_exa_news(url=same)],
+    )
+    bb = FakeBrowserbase()
+    llm = FakeAnthropic(
+        text='{"name":"Notion","industry":null,"headcount_range":null,"tech_signals":[]}'
+    )
+    enr = await Enricher(exa, bb, llm).enrich(Account(domain="notion.so"))
+
+    urls = [str(j.citation.url) for j in enr.justifications]
+    assert urls.count("https://notion.so/about") == 1
+
+
+@pytest.mark.asyncio
 async def test_browserbase_blocked_falls_back_to_exa_text() -> None:
     exa = FakeExa(about=[_exa_about(text="short")], news=[])
     bb = FakeBrowserbase(page=None)

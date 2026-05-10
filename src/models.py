@@ -89,6 +89,7 @@ class Enrichment(_Frozen):
     account: Account
     firmographics: Firmographics | None = None
     news: tuple[NewsItem, ...] = ()
+    justifications: tuple[Justification, ...] = ()
     notes: tuple[str, ...] = ()
 
     @property

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from ._json_utils import parse_json_object
 from .clients.exa_client import ExaResult
 from .clients.protocols import BrowserbaseLike, ExaLike, LLMClient
-from .models import Account, Citation, Enrichment, Firmographics, NewsItem
+from .models import Account, Citation, Enrichment, Firmographics, Justification, NewsItem
 
 log = logging.getLogger(__name__)
 
@@ -51,10 +51,13 @@ class Enricher:
         if ctx.about_text:
             firmographics = await self._extract_firmographics(ctx)
 
+        justifications = _number_justifications(ctx.about_citations, ctx.news_items)
+
         return Enrichment(
             account=account,
             firmographics=firmographics,
             news=tuple(ctx.news_items),
+            justifications=justifications,
         )
 
     async def _collect_context(self, account: Account) -> _RawContext:
@@ -87,7 +90,9 @@ class Enricher:
         for r in results:
             if r.snippet:
                 chunks.append(r.snippet)
-                citations.append(Citation.make(url=r.url, title=r.title, source="exa"))
+                citations.append(
+                    Citation.make(url=r.url, title=r.title, snippet=r.snippet, source="exa")
+                )
         return ("\n\n".join(chunks).strip(), citations)
 
     async def _extract_firmographics(self, ctx: _RawContext) -> Firmographics | None:
@@ -117,6 +122,46 @@ class Enricher:
         except (TypeError, ValueError) as exc:
             log.warning("firmographics validation failed: %s", exc)
             return None
+
+
+def _number_justifications(
+    about_citations: list[Citation],
+    news_items: list[NewsItem],
+) -> tuple[Justification, ...]:
+    """Combine about-page citations and news into a single numbered list.
+
+    About-page citations come first (they describe the company in general),
+    then news items in retrieval order. URLs are deduped: if the same URL
+    shows up in both lists, the about-page version wins because its snippet
+    is usually the richer 2000-char company overview.
+    """
+    seen: set[str] = set()
+    out: list[Justification] = []
+    idx = 1
+
+    for c in about_citations:
+        url = _canonical(str(c.url))
+        if url in seen:
+            continue
+        seen.add(url)
+        summary = (c.snippet or c.title or "").strip()[:300] or "(no summary)"
+        out.append(Justification(index=idx, summary=summary, citation=c))
+        idx += 1
+
+    for n in news_items:
+        url = _canonical(str(n.citation.url))
+        if url in seen:
+            continue
+        seen.add(url)
+        summary = f"{n.headline}: {n.summary}".strip()[:300]
+        out.append(Justification(index=idx, summary=summary, citation=n.citation))
+        idx += 1
+
+    return tuple(out)
+
+
+def _canonical(u: str) -> str:
+    return u.rstrip("/").lower()
 
 
 def _build_context_block(ctx: _RawContext) -> str:
