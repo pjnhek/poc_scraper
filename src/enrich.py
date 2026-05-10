@@ -144,7 +144,10 @@ def _number_justifications(
         if url in seen:
             continue
         seen.add(url)
-        summary = (c.snippet or c.title or "").strip()[:300] or "(no summary)"
+        # Prefer the title (e.g. "About Mercury | The art of simplified
+        # finances") over the snippet, which is a noisy raw page dump
+        # including logo descriptions and nav links.
+        summary = _clean_summary(c.title) or _clean_summary(c.snippet) or "(no summary)"
         out.append(Justification(index=idx, summary=summary, citation=c))
         idx += 1
 
@@ -153,7 +156,9 @@ def _number_justifications(
         if url in seen:
             continue
         seen.add(url)
-        summary = f"{n.headline}: {n.summary}".strip()[:300]
+        # News retrievals already give us a clean headline; that's the right
+        # cell-level summary. Snippet would balloon with article boilerplate.
+        summary = _clean_summary(n.headline) or _clean_summary(n.summary) or "(no summary)"
         out.append(Justification(index=idx, summary=summary, citation=n.citation))
         idx += 1
 
@@ -162,6 +167,24 @@ def _number_justifications(
 
 def _canonical(u: str) -> str:
     return u.rstrip("/").lower()
+
+
+SUMMARY_MAX_CHARS = 140
+
+
+def _clean_summary(text: str | None) -> str:
+    """Collapse whitespace, drop markdown chrome, cap length for cell display."""
+    if not text:
+        return ""
+    s = text.strip()
+    # Strip leading markdown headings/list markers and pipe-separated nav crumbs
+    # that Exa snippets often start with.
+    s = WHITESPACE.sub(" ", s)
+    s = s.replace("# ", "").replace("## ", "").strip()
+    if len(s) <= SUMMARY_MAX_CHARS:
+        return s
+    cut = s[: SUMMARY_MAX_CHARS - 1].rsplit(" ", 1)[0]
+    return cut + "…"
 
 
 def _build_context_block(ctx: _RawContext) -> str:

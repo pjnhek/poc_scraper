@@ -123,6 +123,31 @@ async def test_browserbase_fallback_when_about_text_thin() -> None:
     assert "browserbase" in cite_sources or "exa" in cite_sources
 
 
+def test_clean_summary_collapses_whitespace_and_caps_length() -> None:
+    from src.enrich import SUMMARY_MAX_CHARS, _clean_summary
+
+    assert _clean_summary(None) == ""
+    assert _clean_summary("") == ""
+    assert _clean_summary("hello\n\nworld") == "hello world"
+    assert _clean_summary("# Heading\n\nbody") == "Heading body"
+
+    long = "word " * 100
+    out = _clean_summary(long)
+    assert len(out) <= SUMMARY_MAX_CHARS
+    assert out.endswith("…")
+
+
+def test_clean_summary_prefers_complete_words_when_truncating() -> None:
+    from src.enrich import SUMMARY_MAX_CHARS, _clean_summary
+
+    text = " ".join(["aaaa"] * 60)  # ~300 chars
+    out = _clean_summary(text)
+    assert len(out) <= SUMMARY_MAX_CHARS
+    # Truncation should land on a word boundary, not mid-word.
+    body = out.rstrip("…").rstrip()
+    assert all(part == "aaaa" for part in body.split())
+
+
 @pytest.mark.asyncio
 async def test_enrichment_numbers_about_then_news_justifications() -> None:
     exa = FakeExa(

@@ -15,6 +15,11 @@ from tenacity import (
 )
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+# NVIDIA's free-tier edge sometimes silently drops idle connections during
+# long reasoning calls. Without an explicit per-call timeout the SDK's
+# default lets a single call hang for 5+ minutes before tenacity retries.
+# 120s is generous for Seed-OSS with 1024 reasoning budget but bounded.
+DEFAULT_REQUEST_TIMEOUT_S = 120.0
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +63,12 @@ class NvidiaClient:
         self._client = (
             client
             if client is not None
-            else AsyncOpenAI(api_key=api_key, base_url=NVIDIA_BASE_URL, max_retries=0)
+            else AsyncOpenAI(
+                api_key=api_key,
+                base_url=NVIDIA_BASE_URL,
+                max_retries=0,
+                timeout=DEFAULT_REQUEST_TIMEOUT_S,
+            )
         )
         self._sem = asyncio.Semaphore(max(1, max_in_flight))
 
