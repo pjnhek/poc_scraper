@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.clients.nvidia_client import LLMResponse
-from src.models import Account, Citation, Enrichment, Firmographics, NewsItem
+from src.models import Account, Citation, Enrichment, Firmographics, Justification, NewsItem
 from src.score import Scorer
 
 
@@ -24,6 +24,7 @@ class FakeAnthropic:
 
 
 def _enrichment() -> Enrichment:
+    citation = Citation.make(url="https://example.com/news", source="exa", title="t")
     return Enrichment(
         account=Account(domain="example.com"),
         firmographics=Firmographics(
@@ -33,8 +34,11 @@ def _enrichment() -> Enrichment:
             NewsItem(
                 headline="Example adds AI support",
                 summary="Example expands its AI-driven support stack",
-                citation=Citation.make(url="https://example.com/news", source="exa", title="t"),
+                citation=citation,
             ),
+        ),
+        justifications=(
+            Justification(index=1, summary="Example adds AI support", citation=citation),
         ),
     )
 
@@ -92,6 +96,38 @@ async def test_missing_reasons_get_defaults() -> None:
     assert score is not None
     assert score.breakdown.support_volume_reason == "(no reason given)"
     assert score.justification.startswith("Weighted total")
+
+
+@pytest.mark.asyncio
+async def test_score_parses_supporting_indices() -> None:
+    llm = FakeAnthropic(
+        text=(
+            '{"support_volume":4,"support_volume_reason":"r",'
+            '"ai_maturity":3,"ai_maturity_reason":"r",'
+            '"stage_fit":4,"stage_fit_reason":"r",'
+            '"channel_breadth":3,"channel_breadth_reason":"r",'
+            '"justification":"ok","supporting_indices":[1,99,1,2]}'
+        )
+    )
+    score = await Scorer(llm).score(_enrichment())
+    assert score is not None
+    assert score.supporting_indices == (1,)
+
+
+@pytest.mark.asyncio
+async def test_score_context_includes_numbered_justifications() -> None:
+    llm = FakeAnthropic(
+        text=(
+            '{"support_volume":4,"support_volume_reason":"r",'
+            '"ai_maturity":3,"ai_maturity_reason":"r",'
+            '"stage_fit":4,"stage_fit_reason":"r",'
+            '"channel_breadth":3,"channel_breadth_reason":"r",'
+            '"justification":"ok"}'
+        )
+    )
+    await Scorer(llm).score(_enrichment())
+    assert "<justifications>" in llm.calls[0]["context"]
+    assert "[1]" in llm.calls[0]["context"]
 
 
 @pytest.mark.asyncio

@@ -23,12 +23,18 @@ def _build_score_system(config: ICPConfig) -> str:
         "You score companies against an ICP rubric and return JSON. "
         f"Buyer description: {config.buyer_description.strip()}\n"
         f"Score each axis on a 1-5 categorical scale using the anchors:\n{axes_block}\n\n"
+        "The user message will provide a numbered list of justifications drawn from "
+        "Exa retrievals (about pages and recent news). When you score, also return a "
+        '"supporting_indices" array listing the 1-based indices of the justifications '
+        "that most directly support your verdict.\n\n"
         "Output ONLY one JSON object with keys: "
         '"support_volume" (integer 1-5), "support_volume_reason" (one short sentence), '
         '"ai_maturity" (integer 1-5), "ai_maturity_reason", '
         '"stage_fit" (integer 1-5), "stage_fit_reason", '
         '"channel_breadth" (integer 1-5), "channel_breadth_reason", '
-        '"justification" (one sentence summarizing why the total makes sense). '
+        '"justification" (one sentence summarizing why the total makes sense), '
+        '"supporting_indices" (array of integers, 1-based, drawn from the numbered '
+        "justifications you were given). "
         "Use only the provided context, do not invent facts. Be conservative when "
         "context is thin; default to 2 (low) rather than guessing high."
     )
@@ -46,7 +52,7 @@ class Scorer:
             context=cached,
             user_prompt=(
                 "Return the ICP rubric JSON for this account. Be conservative when the "
-                "context is thin."
+                "context is thin. Cite supporting justifications by their numbered index."
             ),
         )
         parsed = parse_json_object(result.text)
@@ -77,8 +83,13 @@ class Scorer:
             str(parsed.get("justification") or "").strip()
             or f"Weighted total {total} ({verdict.label})."
         )
+        supporting = _parse_indices(parsed.get("supporting_indices"), enrichment)
         return ICPScore(
-            total=total, breakdown=breakdown, justification=justification, verdict=verdict.label
+            total=total,
+            breakdown=breakdown,
+            justification=justification,
+            verdict=verdict.label,
+            supporting_indices=supporting,
         )
 
 
@@ -118,11 +129,26 @@ def _build_score_context(enrichment: Enrichment) -> str:
             lines.append(f"tech_signals: {', '.join(f.tech_signals)}")
     lines.append("</firmographics>")
 
-    lines.append("<news>")
-    for item in enrichment.news[:10]:
-        lines.append(_format_news(item))
-    lines.append("</news>")
+    lines.append("<justifications>")
+    for j in enrichment.justifications[:10]:
+        lines.append(f"[{j.index}] {j.summary} (source: {j.citation.url})")
+    lines.append("</justifications>")
     return "\n".join(lines)
+
+
+def _parse_indices(raw: object, enrichment: Enrichment) -> tuple[int, ...]:
+    if not isinstance(raw, list):
+        return ()
+    valid = {j.index for j in enrichment.justifications}
+    out: list[int] = []
+    for v in raw:
+        try:
+            i = int(v)
+        except (TypeError, ValueError):
+            continue
+        if i in valid and i not in out:
+            out.append(i)
+    return tuple(out)
 
 
 def _format_news(item: NewsItem) -> str:

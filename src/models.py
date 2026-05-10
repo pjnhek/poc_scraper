@@ -113,6 +113,7 @@ class ICPScore(_Frozen):
     breakdown: RubricBreakdown
     justification: str
     verdict: str
+    supporting_indices: tuple[int, ...] = ()
 
 
 class Contact(_Frozen):
