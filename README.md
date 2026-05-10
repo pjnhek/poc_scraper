@@ -9,7 +9,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 
 ## Demo
 
-[![Watch the walkthrough on Loom](https://cdn.loom.com/sessions/thumbnails/e089ab6b686043d9b612963a96454cf2-with-play.gif)](https://www.loom.com/share/e089ab6b686043d9b612963a96454cf2)
+[![Watch the walkthrough on Loom](https://cdn.loom.com/sessions/thumbnails/e089ab6b686043d9b612963a96454cf2-ba1e729dcc0a4f4c.jpg)](https://www.loom.com/share/e089ab6b686043d9b612963a96454cf2)
 
 [Sample output workbook](https://docs.google.com/spreadsheets/d/18NVrm8IrDxt9Z-DKXsExJPrbIvFDCy9Mf10NhDrXstc/edit?usp=sharing) — the Rubric, Inputs, and Results tabs from a real run.
 
