@@ -22,11 +22,15 @@ import httpx
 
 from src.clients.browserbase_client import BrowserbaseClient
 from src.clients.exa_client import ExaClient
-from src.clients.nvidia_client import GenerationParams, NvidiaClient
 from src.config import get_settings
 from src.csv_io import read_accounts
 from src.models import Account, ScoredAccount
-from src.pipeline import build_deps, process_account
+from src.pipeline import (
+    build_deps,
+    build_judge_client,
+    build_writer_client,
+    process_account,
+)
 
 log = logging.getLogger(__name__)
 
@@ -150,25 +154,8 @@ async def run() -> int:
             project_id=settings.browserbase_project_id,
             client=http,
         )
-        writer = NvidiaClient(
-            api_key=settings.nvidia_api_key,
-            model=settings.writer_model,
-            params=GenerationParams(
-                temperature=settings.writer_temperature,
-                top_p=settings.writer_top_p,
-                max_tokens=settings.writer_max_tokens,
-            ),
-        )
-        judge = NvidiaClient(
-            api_key=settings.nvidia_api_key,
-            model=settings.judge_model,
-            params=GenerationParams(
-                temperature=settings.judge_temperature,
-                top_p=settings.judge_top_p,
-                max_tokens=settings.judge_max_tokens,
-                reasoning_budget=settings.judge_reasoning_budget,
-            ),
-        )
+        writer = build_writer_client(settings)
+        judge = build_judge_client(settings)
         deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
         scored = await asyncio.gather(*(process_account(a, deps) for a in accounts))
 

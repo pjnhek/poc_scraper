@@ -106,6 +106,46 @@ async def test_no_reasoning_budget_omits_extra_body() -> None:
 
 
 @pytest.mark.asyncio
+async def test_reasoning_effort_passes_through_as_top_level_kwarg() -> None:
+    fake = _FakeOpenAI()
+    params = GenerationParams(reasoning_effort="high")
+    client = NvidiaClient(api_key="k", model="deepseek-v4-pro", params=params, client=fake)
+    await client.synthesize("s", "ctx", "p")
+    call = fake.chat.completions.calls[0]
+    assert call["reasoning_effort"] == "high"
+
+
+@pytest.mark.asyncio
+async def test_json_mode_sets_response_format() -> None:
+    fake = _FakeOpenAI()
+    params = GenerationParams(json_mode=True)
+    client = NvidiaClient(api_key="k", model="m", params=params, client=fake)
+    await client.synthesize("s", "ctx", "p")
+    call = fake.chat.completions.calls[0]
+    assert call["response_format"] == {"type": "json_object"}
+
+
+@pytest.mark.asyncio
+async def test_extra_body_thinking_mode_passes_through() -> None:
+    fake = _FakeOpenAI()
+    params = GenerationParams(extra_body={"thinking": {"type": "enabled"}})
+    client = NvidiaClient(api_key="k", model="deepseek-v4-pro", params=params, client=fake)
+    await client.synthesize("s", "ctx", "p")
+    call = fake.chat.completions.calls[0]
+    assert call["extra_body"] == {"thinking": {"type": "enabled"}}
+
+
+@pytest.mark.asyncio
+async def test_base_url_is_configurable() -> None:
+    fake = _FakeOpenAI()
+    client = NvidiaClient(api_key="k", model="m", base_url="https://api.deepseek.com", client=fake)
+    # We can't easily inspect the OpenAI client's base_url through the fake,
+    # but the constructor must accept the kwarg without raising.
+    await client.synthesize("s", "ctx", "p")
+    assert len(fake.chat.completions.calls) == 1
+
+
+@pytest.mark.asyncio
 async def test_empty_context_omits_separator() -> None:
     fake = _FakeOpenAI()
     client = NvidiaClient(api_key="k", model="m", client=fake)

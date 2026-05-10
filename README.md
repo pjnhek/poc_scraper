@@ -15,9 +15,9 @@ flowchart LR
     icp[configs/icp.yaml<br/>ICP rubric]
     exa[Exa<br/>about + news]
     bb[Browserbase<br/>fallback render]
-    writer[MiniMax M2.7<br/>score + write hooks]
+    writer[DeepSeek v4-flash<br/>score + write hooks]
     cite{citation<br/>check}
-    judge[Seed-OSS 36B<br/>judge: groundedness,<br/>relevance, personalization]
+    judge[DeepSeek v4-pro<br/>thinking + claim decomposition:<br/>groundedness, relevance, personalization]
     sheet[(Google Sheet<br/>Rubric / Inputs / Results)]
 
     csv --> exa
@@ -47,8 +47,9 @@ Demo flow: open the workbook, scroll the Rubric tab to explain the grading appro
 
 ## Stack and design choices
 
-- **NVIDIA Build endpoint** ([https://build.nvidia.com/](https://build.nvidia.com/)) for synthesis. OpenAI-compatible at `https://integrate.api.nvidia.com/v1`, free preview models.
-- **Two different model families on purpose**: writer = MiniMax M2.7 (creative, hot temperature). Judge = Seed-OSS 36B (reasoning model, cold temperature, bounded reasoning budget). Splitting them avoids the self-grading bias that shows up when the same model writes and evaluates.
+- **DeepSeek API** ([https://api.deepseek.com](https://api.deepseek.com)) for synthesis. OpenAI-compatible. Default writer = `deepseek-v4-flash` in non-thinking mode, judge = `deepseek-v4-pro` with `thinking={"type":"enabled"}` and `reasoning_effort="high"`. Two different model sizes plus thinking-on/off for the judge gives meaningful separation from the writer. ~$0.20-0.40 per 10-domain run during the v4-pro discount window.
+- **NVIDIA Build endpoint** ([https://build.nvidia.com/](https://build.nvidia.com/)) is supported as a free fallback (set `LLM_PROVIDER=nvidia` or just leave `DEEPSEEK_API_KEY` empty). Free preview models with rate limits and connection drops; usable for offline development but unreliable for live demos.
+- **Context caching is automatic on DeepSeek.** Repeated retrievals (the same numbered justifications across writer score / contacts / outreach calls) hit the disk cache at 1/10 the input price. No code change needed; `usage.prompt_cache_hit_tokens` in responses confirms hits when you want to verify.
 - **Exa** for neural search on about pages and last-90-day company news.
 - **Browserbase** for JS-rendered fallback when Exa misses.
 - **LLM-as-judge eval** scoring groundedness, ICP relevance, and personalization on a 1-5 categorical scale (per [NeMo guidance](https://docs.nvidia.com/nemo/microservices/latest/evaluator/metrics/llm-as-a-judge.html), 1-10 numeric judges drift).
@@ -80,7 +81,8 @@ make install
 
 # 2. Add API keys to .env (copy from .env.example)
 cp .env.example .env
-# fill in NVIDIA_API_KEY, EXA_API_KEY, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID
+# fill in DEEPSEEK_API_KEY (recommended) OR NVIDIA_API_KEY (free fallback),
+# plus EXA_API_KEY, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID.
 # point GOOGLE_APPLICATION_CREDENTIALS at a Sheets-enabled service-account JSON
 
 # 3. Drop domains into inputs/accounts.csv (one per line, header `domain`)
@@ -99,20 +101,20 @@ RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
 
 ### Picking models
 
-The defaults are MiniMax M2.7 (writer) and Seed-OSS 36B (judge). NVIDIA Build's preview model availability rotates, so if you see a 400 / "DEGRADED function" error from one of them, swap via `WRITER_MODEL` or `JUDGE_MODEL` in `.env`. Tested working alternatives at the time of writing:
+**DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-pro` with thinking and `reasoning_effort=high`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env`. Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.
+
+**NVIDIA Build (fallback).** Defaults: writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. NVIDIA's preview model availability rotates — if you see a 400 / "DEGRADED function" error, swap via `WRITER_MODEL_NVIDIA` or `JUDGE_MODEL_NVIDIA`. Tested working alternatives:
 
 - Writer: `mistralai/mistral-large-3-675b-instruct-2512`, `qwen/qwen3-coder-480b-a35b-instruct`
-- Judge: `qwen/qwen3-coder-480b-a35b-instruct`, `nvidia/nemotron-mini-4b-instruct`, `mistralai/mistral-large-3-675b-instruct-2512`
+- Judge: `qwen/qwen3-coder-480b-a35b-instruct`, `nvidia/nemotron-mini-4b-instruct`
 
-Keep the writer and judge in different families. Same family means self-grading bias.
+Keep the writer and judge in different model classes. Same model with the same settings means self-grading bias.
 
-### Reasoning budget for the judge
+### Reasoning settings
 
-Seed-OSS is a reasoning model and we pass `thinking_budget` via `extra_body` to control how much it deliberates before emitting JSON. The default is `JUDGE_REASONING_BUDGET=0`, which **disables** reasoning. On NVIDIA's free-tier endpoint, reasoning calls regularly take 60+ seconds and the edge drops the connection mid-flight, so disabling reasoning is the difference between "judge actually returns scores" and "every eval cell is empty." Non-reasoning calls finish in seconds and the schema is unchanged.
+**On DeepSeek** the judge runs in thinking mode (`extra_body={"thinking": {"type":"enabled"}}`) with `reasoning_effort="high"`. Both fields are sent automatically by `_build_judge`; tune via `JUDGE_REASONING_EFFORT_DEEPSEEK`. The writer stays in non-thinking mode for speed.
 
-If you have a paid endpoint or want the more rigorous claim decomposition, set `JUDGE_REASONING_BUDGET=1024` (bounded) or `-1` (unlimited; bump `JUDGE_MAX_TOKENS` to 8192+ or the model exhausts output budget on reasoning and returns nothing).
-
-For non-reasoning judge models, leave `JUDGE_REASONING_BUDGET=0` to skip the field entirely.
+**On NVIDIA** reasoning models (like Seed-OSS) use a separate `thinking_budget` extra. The default is `JUDGE_REASONING_BUDGET=0` (disabled) because long reasoning calls regularly time out on the free-tier endpoint. Set to `1024` for bounded reasoning or `-1` for unlimited (and bump `JUDGE_MAX_TOKENS` to 8192+ to leave room for the JSON output).
 
 ## Eval
 

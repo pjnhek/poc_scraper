@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.clients.nvidia_client import GenerationParams, NvidiaClient
 from src.config import get_settings
 from src.models import Contact, OutreachHook
+from src.pipeline import build_judge_client
 
 from .rubric import EvalRubric
 
@@ -104,22 +104,15 @@ def summary_line(rows: list[EvalRow]) -> str:
 
 async def run() -> int:
     settings = get_settings()
-    if not settings.nvidia_api_key:
+    if settings.resolved_provider == "deepseek" and not settings.deepseek_api_key:
+        log.error("DEEPSEEK_API_KEY is not set; cannot run eval.")
+        return 1
+    if settings.resolved_provider == "nvidia" and not settings.nvidia_api_key:
         log.error("NVIDIA_API_KEY is not set; cannot run eval.")
         return 1
 
     examples = load_labeled()
-    client = NvidiaClient(
-        api_key=settings.nvidia_api_key,
-        model=settings.judge_model,
-        params=GenerationParams(
-            temperature=settings.judge_temperature,
-            top_p=settings.judge_top_p,
-            max_tokens=settings.judge_max_tokens,
-            reasoning_budget=settings.judge_reasoning_budget,
-        ),
-    )
-    rubric = EvalRubric(client)
+    rubric = EvalRubric(build_judge_client(settings))
 
     rows: list[EvalRow] = []
     for ex in examples:

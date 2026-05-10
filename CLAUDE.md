@@ -23,7 +23,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 ## Stack (locked, don't drift)
 
 - Python 3.11+, `uv` for env management.
-- NVIDIA Build endpoint (OpenAI-compatible, `https://integrate.api.nvidia.com/v1`) for synthesis. Default writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. Different families so the LLM-as-judge is not self-grading. Override via `WRITER_MODEL` / `JUDGE_MODEL` if a preview model goes DEGRADED on NVIDIA's side.
+- LLM provider is configurable via `LLM_PROVIDER` env (`deepseek` | `nvidia`). DeepSeek is the recommended default; NVIDIA Build is a free fallback. Both are OpenAI-compatible. DeepSeek defaults: writer = `deepseek-v4-flash` (non-thinking), judge = `deepseek-v4-pro` with thinking + `reasoning_effort=high`. NVIDIA defaults: writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. Auto-select picks DeepSeek if its key is set.
 - Exa primary for context retrieval (about pages + last-90-day news).
 - Browserbase fallback for JS-rendered pages or when Exa returns thin results.
 - Google Sheets API with service-account auth as the output surface.
@@ -93,6 +93,6 @@ inputs/accounts.csv
 - CRM trigger automation.
 - Webapp / dashboard / Slack bot.
 - Multi-tenant config.
-- Custom prompt-caching layer. NVIDIA Build doesn't expose explicit cache control on its OpenAI-compatible endpoint; we send the full system+context+user every call. If we move to a paid provider that does (e.g. Anthropic), revisit.
+- Custom prompt-caching layer. DeepSeek auto-caches (1/10 input price on cache hits, no code changes needed); NVIDIA Build doesn't expose explicit cache control. If we move to a provider where caching needs explicit control (e.g. Anthropic), revisit.
 
 Mention these in the README under "What's next." Don't implement them.
