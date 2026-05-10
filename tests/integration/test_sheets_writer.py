@@ -158,7 +158,7 @@ def test_appends_tab_when_spreadsheet_id_provided() -> None:
     assert len(add_calls) == 1
 
 
-def test_flagged_row_gets_red_color_overriding_verdict() -> None:
+def test_flagged_row_keeps_verdict_color_with_red_text_on_eval_cell() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
     writer.write([_scored("good.com", flag=False), _scored("bad.com", flag=True)])
@@ -166,12 +166,21 @@ def test_flagged_row_gets_red_color_overriding_verdict() -> None:
     repeat_calls = [
         r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
     ]
-    flagged_request = next(
-        r for r in repeat_calls if r["repeatCell"]["range"]["startRowIndex"] == 2
-    )
-    color = flagged_request["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
-    assert color["red"] == 1.0
-    assert color["green"] < 0.9
+
+    # Both rows get a verdict-color background (borderline yellow).
+    bg_calls = [
+        r for r in repeat_calls if r["repeatCell"]["fields"] == "userEnteredFormat.backgroundColor"
+    ]
+    assert len(bg_calls) == 2
+
+    # Flagged row gets a red foreground on the eval_groundedness cell only.
+    text_calls = [r for r in repeat_calls if "textFormat" in r["repeatCell"]["fields"]]
+    assert len(text_calls) == 1
+    flagged = text_calls[0]
+    assert flagged["repeatCell"]["range"]["startRowIndex"] == 2
+    fg = flagged["repeatCell"]["cell"]["userEnteredFormat"]["textFormat"]["foregroundColor"]
+    assert fg["red"] >= 0.6
+    assert fg["green"] < 0.5
 
 
 def test_writes_rubric_and_inputs_tabs_when_provided() -> None:

@@ -229,33 +229,33 @@ def build_inputs_rows(
     return rows
 
 
-def flagged_row_indices(scored: list[ScoredAccount]) -> list[int]:
-    return [i + 1 for i, sa in enumerate(scored) if sa.eval_score and sa.eval_score.is_flagged]
-
-
 VERDICT_COLORS: dict[str, dict[str, float]] = {
     "strong": {"red": 0.82, "green": 0.95, "blue": 0.82},
     "borderline": {"red": 1.0, "green": 0.97, "blue": 0.80},
 }
 
-FLAG_COLOR: dict[str, float] = {"red": 1.0, "green": 0.85, "blue": 0.85}
+FLAG_TEXT_COLOR: dict[str, float] = {"red": 0.8, "green": 0.0, "blue": 0.0}
 
 
 def verdict_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
-    """Map of row index (1-based, header is row 0) to background color.
+    """Map of row index (1-based, header is row 0) to verdict background color.
 
-    Eval-flagged rows always win and get the red flag color, regardless of
-    verdict. Other rows take the verdict bucket color, if any.
+    Strong verdict gets green, borderline gets yellow, weak gets no color.
+    Eval-flagged rows are signaled separately by red text on the
+    eval_groundedness cell (see `flagged_eval_rows`), so the row's verdict
+    color is never overridden.
     """
     out: dict[int, dict[str, float]] = {}
     for i, sa in enumerate(scored):
         idx = i + 1
-        if sa.eval_score and sa.eval_score.is_flagged:
-            out[idx] = FLAG_COLOR
-            continue
         if sa.score and sa.score.verdict in VERDICT_COLORS:
             out[idx] = VERDICT_COLORS[sa.score.verdict]
     return out
+
+
+def flagged_eval_rows(scored: list[ScoredAccount]) -> list[int]:
+    """Row indices (1-based, header is row 0) where groundedness < flag threshold."""
+    return [i + 1 for i, sa in enumerate(scored) if sa.eval_score and sa.eval_score.is_flagged]
 
 
 class SheetsWriter:
@@ -319,6 +319,7 @@ class SheetsWriter:
         results_rows = build_rows(scored)
         self._write_values(service, spreadsheet_id, results_title, results_rows)
         self._apply_row_colors(service, spreadsheet_id, results_title, scored)
+        self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)
 
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
         log.info("wrote %d rows to %s tab %s", len(results_rows) - 1, url, results_title)
@@ -400,6 +401,48 @@ class SheetsWriter:
                 }
             }
             for idx, color in sorted(colors.items())
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_eval_flag_text(
+        self,
+        service: Any,
+        spreadsheet_id: str,
+        sheet_title: str,
+        scored: list[ScoredAccount],
+    ) -> None:
+        flagged = flagged_eval_rows(scored)
+        if not flagged:
+            return
+        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
+        if sheet_id is None:
+            return
+        col = HEADERS.index("eval_groundedness")
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": idx,
+                        "endRowIndex": idx + 1,
+                        "startColumnIndex": col,
+                        "endColumnIndex": col + 1,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "textFormat": {
+                                "bold": True,
+                                "foregroundColor": FLAG_TEXT_COLOR,
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat.textFormat.bold,"
+                    "userEnteredFormat.textFormat.foregroundColor",
+                }
+            }
+            for idx in flagged
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}

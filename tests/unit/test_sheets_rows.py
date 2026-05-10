@@ -15,11 +15,10 @@ from src.models import (
     ScoredAccount,
 )
 from src.sheets import (
-    FLAG_COLOR,
     HEADERS,
     VERDICT_COLORS,
     build_rows,
-    flagged_row_indices,
+    flagged_eval_rows,
     verdict_row_colors,
 )
 
@@ -108,13 +107,13 @@ def test_build_rows_handles_unscoreable() -> None:
     assert rows[1][-1] == "no enrichment"
 
 
-def test_flagged_indices_picks_up_low_groundedness() -> None:
+def test_flagged_eval_rows_picks_up_low_groundedness() -> None:
     items = [_scored(), _scored(domain="chime2.com", flag=True), _scored(domain="chime3.com")]
-    assert flagged_row_indices(items) == [2]
+    assert flagged_eval_rows(items) == [2]
 
 
-def test_flagged_indices_empty_when_no_eval() -> None:
-    assert flagged_row_indices([]) == []
+def test_flagged_eval_rows_empty_when_no_eval() -> None:
+    assert flagged_eval_rows([]) == []
 
 
 def test_verdict_colors_strong_gets_green() -> None:
@@ -123,7 +122,9 @@ def test_verdict_colors_strong_gets_green() -> None:
     assert colors == {1: VERDICT_COLORS["strong"]}
 
 
-def test_verdict_colors_flag_overrides_verdict() -> None:
+def test_verdict_color_unchanged_when_eval_is_flagged() -> None:
+    # New behavior: row keeps its verdict color even when eval flags it.
+    # The flag now shows up as red text on the eval_groundedness cell only.
     items = [_scored(domain="strong.com", flag=True)]
     colors = verdict_row_colors(items)
-    assert colors == {1: FLAG_COLOR}
+    assert colors == {1: VERDICT_COLORS["strong"]}
