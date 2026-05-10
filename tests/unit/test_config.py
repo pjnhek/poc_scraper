@@ -31,7 +31,10 @@ def test_deepseek_key_auto_selects_deepseek(monkeypatch: pytest.MonkeyPatch) -> 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.resolved_provider == "deepseek"
     assert s.writer_model == "deepseek-v4-flash"
-    assert s.judge_model == "deepseek-v4-pro"
+    # Both writer and judge default to flash for demo-friendly latency.
+    # Separation comes from thinking-mode toggle + reasoning_effort, not
+    # from different model weights.
+    assert s.judge_model == "deepseek-v4-flash"
 
 
 def test_explicit_provider_wins_over_auto_select(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,11 +77,15 @@ def test_run_limit_rejects_zero(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)  # type: ignore[call-arg]
 
 
-def test_writer_and_judge_default_to_different_models() -> None:
+def test_nvidia_writer_and_judge_default_to_different_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On NVIDIA we still rely on different model families for separation;
+    DeepSeek shares one model and uses thinking-mode + reasoning_effort instead."""
+    monkeypatch.setenv("LLM_PROVIDER", "nvidia")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     s = Settings(_env_file=None)  # type: ignore[call-arg]
-    assert (
-        s.writer_model != s.judge_model
-    ), "writer and judge must default to different models to avoid self-grading bias"
+    assert s.writer_model != s.judge_model
 
 
 def test_require_for_pipeline_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:

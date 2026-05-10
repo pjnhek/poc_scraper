@@ -153,6 +153,7 @@ def _build_writer(settings: Settings) -> NvidiaClient:
         api_key=api_key,
         base_url=base_url,
         model=settings.writer_model,
+        max_in_flight=settings.llm_max_in_flight,
         params=GenerationParams(
             temperature=settings.writer_temperature,
             top_p=settings.writer_top_p,
@@ -181,6 +182,7 @@ def _build_judge(settings: Settings) -> NvidiaClient:
         api_key=api_key,
         base_url=base_url,
         model=settings.judge_model,
+        max_in_flight=settings.llm_max_in_flight,
         params=GenerationParams(
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,

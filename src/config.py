@@ -37,15 +37,20 @@ class Settings(BaseSettings):
     writer_model_nvidia: str = "minimaxai/minimax-m2.7"
     judge_model_nvidia: str = "bytedance/seed-oss-36b-instruct"
 
-    # DeepSeek defaults. Writer = v4-flash (cheaper, no thinking).
-    # Judge = v4-pro with thinking + reasoning_effort=high (currently 75%
-    # off until 2026/05/31; even after the discount, the reasoning lift
-    # is worth ~$0.40 on a 10-domain run).
+    # DeepSeek defaults. Both on v4-flash for demo-friendly latency.
+    # Writer runs without thinking; judge runs WITH thinking enabled
+    # plus reasoning_effort="medium". The thinking-mode toggle creates
+    # meaningful (not perfect) separation between writer and judge
+    # outputs while keeping each call to ~5-10 sec.
+    #
+    # Set JUDGE_MODEL_DEEPSEEK=deepseek-v4-pro and JUDGE_REASONING_EFFORT_DEEPSEEK=high
+    # for more rigorous reasoning (~30-60s per call, recommended for
+    # offline analysis runs but too slow for a live demo).
     writer_model_deepseek: str = "deepseek-v4-flash"
-    judge_model_deepseek: str = "deepseek-v4-pro"
+    judge_model_deepseek: str = "deepseek-v4-flash"
     # Reasoning effort for the DeepSeek judge: "low" | "medium" | "high".
     # Sent as a top-level kwarg, separate from thinking-mode toggle.
-    judge_reasoning_effort_deepseek: str = "high"
+    judge_reasoning_effort_deepseek: str = "medium"
 
     # Generation params (provider-agnostic). Writer hot for creativity,
     # judge cold for consistency.
@@ -64,6 +69,11 @@ class Settings(BaseSettings):
     judge_reasoning_budget: int = 0
 
     pipeline_concurrency: int = Field(default=5, ge=1, le=50)
+    # Per-LLM-client cap on simultaneous in-flight requests. Prevents
+    # rate-limiting on free-tier providers. DeepSeek tolerates higher
+    # parallelism so the default is permissive; bump down for NVIDIA
+    # if you hit 429s.
+    llm_max_in_flight: int = Field(default=6, ge=1, le=50)
     # Optional: cap how many domains the pipeline processes from accounts.csv.
     # Useful for demos and free-tier rate-limit avoidance. Unset = process all.
     run_limit: int | None = Field(default=None, ge=1)
