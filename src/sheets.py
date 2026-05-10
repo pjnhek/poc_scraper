@@ -198,7 +198,7 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
         [
             f"When groundedness drops below {config.eval.groundedness_flag_threshold:.1f}, "
             "the eval_groundedness cell turns red text. The row keeps its verdict "
-            "color (strong = green, borderline = yellow, weak = no color).",
+            "color (strong = green, borderline = yellow, weak = pink).",
         ]
     )
     rows.append([])
@@ -244,6 +244,7 @@ def build_inputs_rows(
 VERDICT_COLORS: dict[str, dict[str, float]] = {
     "strong": {"red": 0.82, "green": 0.95, "blue": 0.82},
     "borderline": {"red": 1.0, "green": 0.97, "blue": 0.80},
+    "weak": {"red": 1.0, "green": 0.85, "blue": 0.85},
 }
 
 FLAG_TEXT_COLOR: dict[str, float] = {"red": 0.8, "green": 0.0, "blue": 0.0}

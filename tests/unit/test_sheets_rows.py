@@ -128,3 +128,9 @@ def test_verdict_color_unchanged_when_eval_is_flagged() -> None:
     items = [_scored(domain="strong.com", flag=True)]
     colors = verdict_row_colors(items)
     assert colors == {1: VERDICT_COLORS["strong"]}
+
+
+def test_all_verdicts_get_a_color() -> None:
+    """Every verdict bucket maps to a color so weak rows aren't visually
+    indistinguishable from blank/failed rows in the demo sheet."""
+    assert set(VERDICT_COLORS.keys()) == {"strong", "borderline", "weak"}

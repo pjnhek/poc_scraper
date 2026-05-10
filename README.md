@@ -39,7 +39,7 @@ Per run, the workbook gets three tabs:
 2. **Inputs** — the contents of `inputs/accounts.csv`, with a load timestamp and count. Rewritten in place each run.
 3. **Results: `run-YYYYMMDD-HHMMSS`** — one row per account. New tab on every run, so the workbook accumulates a history. Per row: firmographics, ICP fit verdict (strong / borderline / weak) with weighted breakdown, top-3 personas, one grounded outreach paragraph per persona using `[N]` markers tied to numbered justifications, and judge scores.
 
-Row colors signal the **verdict only**: strong = green, borderline = yellow, weak = no color. When the judge flags a row's groundedness below the threshold, the `eval_groundedness` cell turns red text — the row keeps its verdict color so you can read fit and quality independently.
+Row colors signal the **verdict only**: strong = green, borderline = yellow, weak = pink. When the judge flags a row's groundedness below the threshold, the `eval_groundedness` cell turns red text — the row keeps its verdict color so you can read fit and quality independently.
 
 Citations work via numbered justifications. Each Exa retrieval (about page + recent news) gets a 1-based index. The writer references those indices inline (e.g. "their recent AI push [2]"). The judge decomposes each paragraph into atomic claims and marks each claim as supported by an index or 'uncited'. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop.
 
