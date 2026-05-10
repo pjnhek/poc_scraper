@@ -108,7 +108,9 @@ Keep the writer and judge in different families. Same family means self-grading 
 
 ### Reasoning budget for the judge
 
-Seed-OSS is a reasoning model. We pass `thinking_budget` via `extra_body` to bound reasoning tokens. `JUDGE_REASONING_BUDGET=1024` leaves room in `JUDGE_MAX_TOKENS=4096` for the final JSON. If you set it to `-1` (unlimited), bump `JUDGE_MAX_TOKENS` to 8192+ or the model will exhaust output budget on reasoning and return an empty paragraph.
+Seed-OSS is a reasoning model and we pass `thinking_budget` via `extra_body` to control how much it deliberates before emitting JSON. The default is `JUDGE_REASONING_BUDGET=0`, which **disables** reasoning. On NVIDIA's free-tier endpoint, reasoning calls regularly take 60+ seconds and the edge drops the connection mid-flight, so disabling reasoning is the difference between "judge actually returns scores" and "every eval cell is empty." Non-reasoning calls finish in seconds and the schema is unchanged.
+
+If you have a paid endpoint or want the more rigorous claim decomposition, set `JUDGE_REASONING_BUDGET=1024` (bounded) or `-1` (unlimited; bump `JUDGE_MAX_TOKENS` to 8192+ or the model exhausts output budget on reasoning and returns nothing).
 
 For non-reasoning judge models, leave `JUDGE_REASONING_BUDGET=0` to skip the field entirely.
 

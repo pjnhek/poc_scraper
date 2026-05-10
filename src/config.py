@@ -36,9 +36,12 @@ class Settings(BaseSettings):
     judge_max_tokens: int = 4096
     # Bounded reasoning budget keeps room in max_tokens for the final JSON.
     # -1 = unlimited reasoning (only safe with a much larger max_tokens),
-    # 0 = disabled, positive int = cap. Only applied if the judge model
-    # supports the thinking_budget extra (Seed-OSS, Nemotron reasoning).
-    judge_reasoning_budget: int = 1024
+    # 0 = disabled (recommended for free-tier; reasoning calls take long
+    # enough that NVIDIA's edge frequently drops the connection mid-flight,
+    # while non-reasoning calls return in seconds), positive int = cap.
+    # Only applied if the judge model supports the thinking_budget extra
+    # (Seed-OSS, Nemotron reasoning).
+    judge_reasoning_budget: int = 0
 
     pipeline_concurrency: int = Field(default=5, ge=1, le=50)
     # Optional: cap how many domains the pipeline processes from accounts.csv.
