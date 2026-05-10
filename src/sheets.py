@@ -66,6 +66,11 @@ def _build_row(sa: ScoredAccount) -> list[str]:
     contacts = list(sa.contacts) + [None, None, None]
     hooks = list(sa.hooks) + [None, None, None]
     ev = sa.eval_score
+    justifications_by_index = {j.index: j for j in sa.enrichment.justifications}
+
+    score_justification = (
+        _format_score_justification(sa.score, justifications_by_index) if sa.score else ""
+    )
 
     row: list[str] = [
         sa.account.domain,
@@ -80,7 +85,7 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         _fmt(bd.ai_maturity) if bd else "",
         _fmt(bd.stage_fit) if bd else "",
         _fmt(bd.channel_breadth) if bd else "",
-        sa.score.justification if sa.score else "",
+        score_justification,
     ]
     for i in range(3):
         c = contacts[i]
@@ -88,7 +93,7 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         row.append(c.role_title if c else "")
         row.append(c.rationale if c else "")
         row.append(h.paragraph if h else "")
-        row.append(", ".join(str(cit.url) for cit in h.citations) if h else "")
+        row.append(_format_hook_citations(h, justifications_by_index) if h else "")
     row.extend(
         [
             _fmt(ev.groundedness) if ev else "",
@@ -98,6 +103,30 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         ]
     )
     return row
+
+
+def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
+    """Compose the score's justification cell with supporting evidence inline."""
+    parts = [score.justification.strip() if score.justification else ""]
+    supports = [
+        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
+        for i in score.supporting_indices
+        if i in by_index
+    ]
+    if supports:
+        parts.append("Supporting: " + "; ".join(supports))
+    return " ".join(p for p in parts if p)
+
+
+def _format_hook_citations(hook: Any, by_index: dict[int, Any]) -> str:
+    """Render the hook's cited justifications as '[1] summary (url); [3] summary (url)'."""
+    if not hook.cited_indices:
+        return ""
+    return "; ".join(
+        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
+        for i in hook.cited_indices
+        if i in by_index
+    )
 
 
 def _fmt(v: float) -> str:

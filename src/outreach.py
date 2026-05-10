@@ -6,7 +6,7 @@ import re
 from ._json_utils import parse_json_object
 from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
-from .models import Citation, Contact, Enrichment, ICPScore, OutreachHook
+from .models import Contact, Enrichment, ICPScore, Justification, OutreachHook
 
 log = logging.getLogger(__name__)
 
@@ -16,18 +16,24 @@ def _build_outreach_system(config: ICPConfig) -> str:
         "You write one short outreach paragraph (3-5 sentences) from a seller to a "
         "specific persona at a target account.\n"
         f"Seller description: {config.seller_description.strip()}\n\n"
-        "EVERY factual claim about the account must come from the provided <news> or "
-        "<firmographics> blocks; do not invent or extrapolate. Reference each fact by "
-        "its citation URL inline using markdown like [fact](url). End with a soft, "
-        "specific ask to connect. Output ONLY one JSON object with keys "
-        '"paragraph" (string) and "cited_urls" (array of strings, every URL you '
-        "actually used). If the context is too thin to ground at least one claim, "
-        "return an empty paragraph and an empty cited_urls."
+        "The user message will provide a numbered list of justifications drawn from "
+        "Exa retrievals (about pages and recent news). EVERY factual claim about the "
+        "account must be supported by one of those numbered justifications. Reference "
+        'the supporting justification inline using [N] markers (e.g. "recent push on '
+        'AI [2]"). Do not paste raw URLs into the paragraph; do not invent claims.\n\n'
+        "End with a soft, specific ask to connect. "
+        "Output ONLY one JSON object with keys: "
+        '"paragraph" (string with [N] markers, no raw URLs) and '
+        '"cited_justifications" (array of 1-based integer indices you actually used). '
+        "If the context is too thin to ground at least one claim, return an empty "
+        '"paragraph" and an empty "cited_justifications".'
     )
 
 
-URL_RE = re.compile(r"\((https?://[^)]+)\)")
-BARE_URL_RE = re.compile(r"(?<![(\[])\bhttps?://\S+")
+# [1], [2,3], [1, 4] — tolerate optional whitespace and comma-separated lists.
+INDEX_MARKER_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# Strip raw URLs the writer shouldn't have included anyway.
+URL_RE = re.compile(r"\(?https?://\S+\)?")
 
 
 class OutreachGenerator:
@@ -44,7 +50,9 @@ class OutreachGenerator:
         cached = _build_outreach_context(enrichment, score)
         user = (
             f"Write the outreach paragraph for the persona: {contact.role_title}. "
-            f"Persona rationale: {contact.rationale}"
+            f"Persona rationale: {contact.rationale}. "
+            "Use [N] markers to cite the numbered justifications above; do not include "
+            "raw URLs in the paragraph."
         )
         result = await self._llm.synthesize(
             system=_build_outreach_system(self._config),
@@ -54,66 +62,52 @@ class OutreachGenerator:
         parsed = parse_json_object(result.text)
         if parsed is None:
             log.warning("outreach: could not parse JSON from %r", result.text[:200])
-            return OutreachHook(contact=contact, paragraph="", citations=())
+            return OutreachHook(contact=contact, paragraph="", cited_indices=())
 
         paragraph = str(parsed.get("paragraph") or "").strip()
-        raw_urls = parsed.get("cited_urls") or []
-        cited_urls: list[str] = (
-            [str(u) for u in raw_urls if isinstance(u, str)] if isinstance(raw_urls, list) else []
-        )
+        valid_indices = {j.index for j in enrichment.justifications}
+        claimed = _parse_indices(parsed.get("cited_justifications"), valid_indices)
 
-        allowed = _allowed_urls(enrichment)
-        valid_citations = _validate_citations(cited_urls, allowed)
-        if not valid_citations:
-            log.info("outreach: no valid citations for %s, dropping paragraph", contact.role_title)
-            return OutreachHook(contact=contact, paragraph="", citations=())
+        # Cross-check: only count indices the writer actually marked in the paragraph.
+        marked = _markers_in_paragraph(paragraph, valid_indices)
+        cited = tuple(i for i in claimed if i in marked)
 
-        cleaned = _strip_uncited_urls(paragraph, {str(c.url) for c in valid_citations})
-        return OutreachHook(contact=contact, paragraph=cleaned, citations=tuple(valid_citations))
+        if not cited:
+            log.info(
+                "outreach: no valid [N] markers for %s, dropping paragraph",
+                contact.role_title,
+            )
+            return OutreachHook(contact=contact, paragraph="", cited_indices=())
 
-
-def _allowed_urls(enrichment: Enrichment) -> dict[str, Citation]:
-    allowed: dict[str, Citation] = {}
-    if enrichment.firmographics is not None:
-        for c in enrichment.firmographics.citations:
-            allowed[str(c.url)] = c
-    for n in enrichment.news:
-        allowed[str(n.citation.url)] = n.citation
-    return allowed
+        cleaned = URL_RE.sub("", paragraph).strip()
+        return OutreachHook(contact=contact, paragraph=cleaned, cited_indices=cited)
 
 
-def _validate_citations(urls: list[str], allowed: dict[str, Citation]) -> list[Citation]:
-    out: list[Citation] = []
-    for u in urls:
-        canonical = _canonical(u)
-        for allowed_url, cit in allowed.items():
-            if _canonical(allowed_url) == canonical:
-                out.append(cit)
-                break
-    return out
+def _parse_indices(raw: object, valid: set[int]) -> tuple[int, ...]:
+    if not isinstance(raw, list):
+        return ()
+    out: list[int] = []
+    for v in raw:
+        try:
+            i = int(v)
+        except (TypeError, ValueError):
+            continue
+        if i in valid and i not in out:
+            out.append(i)
+    return tuple(out)
 
 
-def _canonical(u: str) -> str:
-    return u.rstrip("/").lower()
-
-
-def _strip_uncited_urls(paragraph: str, allowed_urls: set[str]) -> str:
-    canonical_allowed = {_canonical(u) for u in allowed_urls}
-
-    def _replace_md(match: re.Match[str]) -> str:
-        url = match.group(1)
-        if _canonical(url) in canonical_allowed:
-            return match.group(0)
-        return ""
-
-    def _replace_bare(match: re.Match[str]) -> str:
-        url = match.group(0).rstrip(".,;:!?)")
-        if _canonical(url) in canonical_allowed:
-            return match.group(0)
-        return ""
-
-    cleaned = URL_RE.sub(_replace_md, paragraph)
-    return BARE_URL_RE.sub(_replace_bare, cleaned)
+def _markers_in_paragraph(paragraph: str, valid: set[int]) -> set[int]:
+    found: set[int] = set()
+    for match in INDEX_MARKER_RE.finditer(paragraph):
+        for piece in match.group(1).split(","):
+            try:
+                n = int(piece.strip())
+            except ValueError:
+                continue
+            if n in valid:
+                found.add(n)
+    return found
 
 
 def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> str:
@@ -124,8 +118,6 @@ def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> s
         lines.append(f"name: {f.name}")
         lines.append(f"industry: {f.industry or 'unknown'}")
         lines.append(f"headcount: {f.headcount_range or 'unknown'}")
-        if f.citations:
-            lines.append("citations: " + ", ".join(str(c.url) for c in f.citations))
         lines.append("</firmographics>")
 
     if score is not None:
@@ -137,8 +129,12 @@ def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> s
             f"({score.breakdown.ai_maturity_reason})</icp_score>"
         )
 
-    lines.append("<news>")
-    for n in enrichment.news[:8]:
-        lines.append(f"- [{n.headline}]({n.citation.url}) {n.summary[:300]}")
-    lines.append("</news>")
+    lines.append("<justifications>")
+    for j in enrichment.justifications[:10]:
+        lines.append(_format_justification(j))
+    lines.append("</justifications>")
     return "\n".join(lines)
+
+
+def _format_justification(j: Justification) -> str:
+    return f"[{j.index}] {j.summary} (source: {j.citation.url})"

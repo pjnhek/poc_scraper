@@ -104,12 +104,9 @@ def _build_eval_context(hook: OutreachHook, domain: str) -> str:
     lines = [
         f"<account>{domain}</account>",
         f"<contact>{hook.contact.role_title}</contact>",
-        "<citations>",
+        f"<cited_indices>{', '.join(str(i) for i in hook.cited_indices)}</cited_indices>",
+        f"<paragraph>{hook.paragraph}</paragraph>",
     ]
-    for c in hook.citations:
-        lines.append(f"- {c.url} (snippet: {(c.snippet or '')[:200]})")
-    lines.append("</citations>")
-    lines.append(f"<paragraph>{hook.paragraph}</paragraph>")
     return "\n".join(lines)
 
 

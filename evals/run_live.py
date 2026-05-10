@@ -74,7 +74,7 @@ def _flatten(scored: list[ScoredAccount]) -> list[LiveRow]:
                     icp_total=sa.score.total,
                     persona=h.contact.role_title,
                     paragraph_excerpt=excerpt or "(empty paragraph)",
-                    citations_count=len(h.citations),
+                    citations_count=len(h.cited_indices),
                     groundedness=ev.groundedness if ev else 0.0,
                     icp_relevance=ev.icp_relevance if ev else 0.0,
                     personalization=ev.personalization if ev else 0.0,

@@ -124,7 +124,10 @@ class Contact(_Frozen):
 class OutreachHook(_Frozen):
     contact: Contact
     paragraph: str
-    citations: tuple[Citation, ...]
+    # 1-based justification indices the writer claims to have cited.
+    # Validated against Enrichment.justifications before this hook is built,
+    # so anything in this tuple is guaranteed to resolve.
+    cited_indices: tuple[int, ...]
 
 
 class EvalScore(_Frozen):

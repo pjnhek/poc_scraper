@@ -4,7 +4,7 @@ import pytest
 
 from evals.rubric import EvalRubric
 from src.clients.nvidia_client import LLMResponse
-from src.models import Citation, Contact, OutreachHook
+from src.models import Contact, OutreachHook
 
 
 class FakeAnthropic:
@@ -19,11 +19,11 @@ class FakeAnthropic:
         return LLMResponse(text=self.text)
 
 
-def _hook(paragraph: str = "p") -> OutreachHook:
+def _hook(paragraph: str = "p [1]") -> OutreachHook:
     return OutreachHook(
         contact=Contact(role_title="VP CX", rationale="r"),
         paragraph=paragraph,
-        citations=(Citation.make(url="https://x.com/a", source="exa"),),
+        cited_indices=(1,),
     )
 
 

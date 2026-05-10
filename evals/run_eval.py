@@ -8,7 +8,7 @@ from pathlib import Path
 
 from src.clients.nvidia_client import GenerationParams, NvidiaClient
 from src.config import get_settings
-from src.models import Citation, Contact, OutreachHook
+from src.models import Contact, OutreachHook
 
 from .rubric import EvalRubric
 
@@ -62,11 +62,14 @@ def load_labeled(path: Path = LABELED_PATH) -> list[LabeledExample]:
 
 
 def to_hook(example: LabeledExample) -> OutreachHook:
-    citations = tuple(Citation.make(url=u, source="exa") for u in example.citation_urls)
+    # Fixture URLs are mapped to 1-based indices; the labeled paragraphs were
+    # written before the [N] format existed, so most won't have markers and
+    # will round-trip as ungrounded. That's expected for this calibration set.
+    cited = tuple(range(1, len(example.citation_urls) + 1))
     return OutreachHook(
         contact=Contact(role_title=example.contact_role, rationale="(eval fixture)"),
         paragraph=example.paragraph,
-        citations=citations,
+        cited_indices=cited,
     )
 
 

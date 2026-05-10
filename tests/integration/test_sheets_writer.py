@@ -92,12 +92,15 @@ class FakeService:
 
 
 def _scored(domain: str, flag: bool) -> ScoredAccount:
+    from src.models import Justification
+
     acc = Account(domain=domain)
-    cit = Citation.make(url="https://example.com/x", source="exa")
+    cit = Citation.make(url="https://example.com/x", source="exa", snippet="snippet")
     enr = Enrichment(
         account=acc,
         firmographics=Firmographics(name=domain, industry="fintech"),
         news=(NewsItem(headline="h", summary="s", citation=cit),),
+        justifications=(Justification(index=1, summary="h: s", citation=cit),),
     )
     bd = RubricBreakdown(
         support_volume=4,
@@ -111,7 +114,7 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
     )
     score = ICPScore(total=3.7, breakdown=bd, justification="ok", verdict="borderline")
     c1 = Contact(role_title="r1", rationale="r")
-    h1 = OutreachHook(contact=c1, paragraph="p", citations=(cit,))
+    h1 = OutreachHook(contact=c1, paragraph="p [1]", cited_indices=(1,))
     ev = EvalScore(groundedness=2.0 if flag else 4.0, icp_relevance=4, personalization=4)
     return ScoredAccount(
         account=acc,

@@ -86,10 +86,9 @@ def _scripted_full_run() -> ScriptedAnthropic:
                 '{"role_title":"Director CX Auto","rationale":"runs RFPs"}]'
             ),
             "write one short outreach paragraph": (
-                '{"paragraph":"Saw your AI push '
-                "[Chime expands AI support](https://techcrunch.com/chime-ai). "
+                '{"paragraph":"Saw your AI push [2]. '
                 'High deflection on tier-1 in consumer fintech.",'
-                '"cited_urls":["https://techcrunch.com/chime-ai"]}'
+                '"cited_justifications":[2]}'
             ),
             "LLM judge evaluating an outreach paragraph": (
                 '{"groundedness":4,"icp_relevance":5,"personalization":4,"notes":"solid"}'
@@ -113,8 +112,8 @@ async def test_full_account_processing_happy_path() -> None:
     assert len(sa.contacts) == 3
     assert len(sa.hooks) == 3
     for h in sa.hooks:
-        assert "techcrunch.com/chime-ai" in h.paragraph
-        assert len(h.citations) == 1
+        assert "[2]" in h.paragraph
+        assert h.cited_indices == (2,)
     assert sa.eval_score is not None
     assert sa.eval_score.groundedness == 4
 
