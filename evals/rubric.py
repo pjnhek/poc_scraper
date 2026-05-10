@@ -6,26 +6,37 @@ from collections.abc import Iterable
 from src._json_utils import parse_json_object
 from src.clients.protocols import LLMClient
 from src.icp_config import ICPConfig, get_config
-from src.models import EvalScore, OutreachHook, ScoredAccount
+from src.models import EvalScore, Justification, OutreachHook, ScoredAccount
 
 log = logging.getLogger(__name__)
 
 
 def _build_eval_system(config: ICPConfig) -> str:
     return (
-        "You are an LLM judge evaluating an outreach paragraph against a target account.\n"
+        "You are an LLM judge evaluating an outreach paragraph against a target "
+        "account.\n"
         f"Buyer description (use this for the ICP-relevance axis): "
         f"{config.buyer_description.strip()}\n\n"
-        "Score the paragraph on three axes using a 1-5 categorical scale:\n"
-        "1. groundedness: every factual claim about the account is supported by one of "
-        "the cited URLs (5 = fully grounded, 1 = hallucinated).\n"
-        "2. icp_relevance: how well the message reflects the buyer description above.\n"
-        "3. personalization: the message references something specific to this account "
-        "rather than generic boilerplate.\n\n"
-        "Anchors per axis: 1 = poor, 2 = fair, 3 = acceptable, 4 = strong, 5 = excellent.\n"
-        "Output ONLY one JSON object with integer keys "
-        '"groundedness", "icp_relevance", "personalization", and "notes" '
-        "(one short sentence). Do not include any other prose."
+        "The user message will give you:\n"
+        "1. A numbered list of justifications (the only evidence the writer was "
+        "given).\n"
+        "2. The indices the writer claims to have cited.\n"
+        "3. The outreach paragraph.\n\n"
+        "Your job is to decompose the paragraph into atomic factual claims about "
+        "the account, then for each claim mark which justification supports it "
+        "(by 1-based index) or 'uncited' if no justification supports it.\n\n"
+        "A claim is 'supported_by': [index] when the listed justification's text "
+        "actually contains the fact being claimed (paraphrasing is fine; making "
+        "up new numbers or facts is not).\n\n"
+        "Also score icp_relevance and personalization on a 1-5 scale (1 poor, "
+        "5 excellent). Do NOT score groundedness yourself; it will be derived from "
+        "your claims array.\n\n"
+        "Output ONLY one JSON object with these keys:\n"
+        '"claims": array of {"text": str, "supported_by": int | "uncited"},\n'
+        '"icp_relevance": int 1-5,\n'
+        '"personalization": int 1-5,\n'
+        '"notes": one short sentence (quote the most-uncited claim if any).\n'
+        "Do not include any other prose."
     )
 
 
@@ -38,26 +49,33 @@ class EvalRubric:
     def _flag_threshold(self) -> float:
         return self._config.eval.groundedness_flag_threshold
 
-    async def evaluate_hook(self, hook: OutreachHook, account_domain: str) -> EvalScore:
-        cached = _build_eval_context(hook, account_domain)
+    async def evaluate_hook(
+        self,
+        hook: OutreachHook,
+        account_domain: str,
+        justifications: tuple[Justification, ...] = (),
+    ) -> EvalScore:
+        cached = _build_eval_context(hook, account_domain, justifications)
         result = await self._llm.synthesize(
             system=_build_eval_system(self._config),
             context=cached,
-            user_prompt="Score the outreach paragraph and return the JSON object.",
+            user_prompt=(
+                "Decompose the paragraph into atomic factual claims, mark each as "
+                "supported_by an index from the numbered justifications or "
+                "'uncited', then score icp_relevance and personalization. "
+                "Return the JSON object."
+            ),
         )
         parsed = parse_json_object(result.text)
         if parsed is None:
             log.warning("eval: could not parse JSON from %r", result.text[:200])
-            return EvalScore(
-                groundedness=1,
-                icp_relevance=1,
-                personalization=1,
-                notes="(judge output unparseable)",
-                flag_threshold=self._flag_threshold,
-            )
+            return self._floor("(judge output unparseable)")
+
+        claims = _parse_claims(parsed.get("claims"))
+        groundedness = _compute_groundedness(claims)
         try:
             return EvalScore(
-                groundedness=_clip(parsed.get("groundedness")),
+                groundedness=groundedness,
                 icp_relevance=_clip(parsed.get("icp_relevance")),
                 personalization=_clip(parsed.get("personalization")),
                 notes=str(parsed.get("notes") or "").strip() or None,
@@ -65,32 +83,18 @@ class EvalRubric:
             )
         except (TypeError, ValueError) as exc:
             log.warning("eval: validation failed: %s", exc)
-            return EvalScore(
-                groundedness=1,
-                icp_relevance=1,
-                personalization=1,
-                notes=f"(validation failed: {exc})",
-                flag_threshold=self._flag_threshold,
-            )
+            return self._floor(f"(validation failed: {exc})")
 
     async def evaluate_account(self, sa: ScoredAccount) -> EvalScore:
         if not sa.hooks:
-            return EvalScore(
-                groundedness=1,
-                icp_relevance=1,
-                personalization=1,
-                notes="(no hooks to evaluate)",
-                flag_threshold=self._flag_threshold,
-            )
-        scores = [await self.evaluate_hook(h, sa.account.domain) for h in sa.hooks if h.paragraph]
+            return self._floor("(no hooks to evaluate)")
+        scores = [
+            await self.evaluate_hook(h, sa.account.domain, sa.enrichment.justifications)
+            for h in sa.hooks
+            if h.paragraph
+        ]
         if not scores:
-            return EvalScore(
-                groundedness=1,
-                icp_relevance=1,
-                personalization=1,
-                notes="(no grounded hooks)",
-                flag_threshold=self._flag_threshold,
-            )
+            return self._floor("(no grounded hooks)")
         return EvalScore(
             groundedness=_avg(s.groundedness for s in scores),
             icp_relevance=_avg(s.icp_relevance for s in scores),
@@ -99,15 +103,57 @@ class EvalRubric:
             flag_threshold=self._flag_threshold,
         )
 
+    def _floor(self, note: str) -> EvalScore:
+        return EvalScore(
+            groundedness=1,
+            icp_relevance=1,
+            personalization=1,
+            notes=note,
+            flag_threshold=self._flag_threshold,
+        )
 
-def _build_eval_context(hook: OutreachHook, domain: str) -> str:
+
+def _build_eval_context(
+    hook: OutreachHook,
+    domain: str,
+    justifications: tuple[Justification, ...],
+) -> str:
     lines = [
         f"<account>{domain}</account>",
         f"<contact>{hook.contact.role_title}</contact>",
-        f"<cited_indices>{', '.join(str(i) for i in hook.cited_indices)}</cited_indices>",
-        f"<paragraph>{hook.paragraph}</paragraph>",
+        "<justifications>",
     ]
+    for j in justifications:
+        lines.append(f"[{j.index}] {j.summary} (source: {j.citation.url})")
+    lines.append("</justifications>")
+    lines.append(f"<cited_indices>{', '.join(str(i) for i in hook.cited_indices)}</cited_indices>")
+    lines.append(f"<paragraph>{hook.paragraph}</paragraph>")
     return "\n".join(lines)
+
+
+def _parse_claims(raw: object) -> list[dict[str, object]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, object]] = []
+    for item in raw:
+        if isinstance(item, dict) and "text" in item:
+            out.append(item)
+    return out
+
+
+def _compute_groundedness(claims: list[dict[str, object]]) -> float:
+    """`(cited / max(total, 3)) * 5`, rounded to 1 decimal.
+
+    The `max(total, 3)` floor penalizes short hooks: a 1-claim hook with 1
+    citation can only score 5/3 ≈ 1.7, not 5.0. Forces the writer to
+    actually back up the value prop, not just drop one citation and stop.
+    """
+    if not claims:
+        return 1.0
+    total = len(claims)
+    cited = sum(1 for c in claims if isinstance(c.get("supported_by"), int))
+    raw = (cited / max(total, 3)) * 5
+    return round(max(1.0, min(5.0, raw)), 1)
 
 
 def _clip(value: object) -> float:

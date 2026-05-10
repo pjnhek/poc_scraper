@@ -106,7 +106,10 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
                 )
             if "LLM judge evaluating" in system:
                 return LLMResponse(
-                    text='{"groundedness":4,"icp_relevance":4,"personalization":4}',
+                    text=(
+                        '{"claims":[{"text":"x","supported_by":1}],'
+                        '"icp_relevance":4,"personalization":4}'
+                    ),
                 )
             raise AssertionError(f"unscripted: {system[:60]}")
 

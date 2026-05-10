@@ -91,7 +91,11 @@ def _scripted_full_run() -> ScriptedAnthropic:
                 '"cited_justifications":[2]}'
             ),
             "LLM judge evaluating an outreach paragraph": (
-                '{"groundedness":4,"icp_relevance":5,"personalization":4,"notes":"solid"}'
+                '{"claims":['
+                '{"text":"AI push","supported_by":2},'
+                '{"text":"high deflection in fintech","supported_by":2},'
+                '{"text":"consumer focus","supported_by":2}'
+                '],"icp_relevance":5,"personalization":4,"notes":"solid"}'
             ),
         }
     )
@@ -115,7 +119,8 @@ async def test_full_account_processing_happy_path() -> None:
         assert "[2]" in h.paragraph
         assert h.cited_indices == (2,)
     assert sa.eval_score is not None
-    assert sa.eval_score.groundedness == 4
+    # 3 cited / max(3, 3) * 5 = 5.0
+    assert sa.eval_score.groundedness == 5.0
 
 
 @pytest.mark.asyncio
