@@ -24,14 +24,14 @@ from src.sheets import (
 )
 
 
-def _scored(domain: str = "chime.com", flag: bool = False) -> ScoredAccount:
+def _scored(domain: str = "examplefintech.com", flag: bool = False) -> ScoredAccount:
     acc = Account(domain=domain)
     citation = Citation.make(url="https://example.com/news", source="exa", snippet="snippet")
     enr = Enrichment(
         account=acc,
         firmographics=Firmographics(
-            name="Chime",
-            industry="fintech",
+            name="ExampleFintech",
+            industry="software",
             headcount_range="1000-2000",
             tech_signals=("zendesk", "react"),
         ),
@@ -88,9 +88,9 @@ def test_build_rows_writes_account_data() -> None:
     rows = build_rows([_scored()])
     row = rows[1]
     headers = rows[0]
-    assert row[0] == "chime.com"
+    assert row[0] == "examplefintech.com"
     assert row[1] == AccountStatus.clean
-    assert row[2] == "Chime"
+    assert row[2] == "ExampleFintech"
     assert row[headers.index("icp_total")] == "4.4"
     assert row[headers.index("verdict")] == "strong"
     assert "VP CX" in row
@@ -136,7 +136,11 @@ def test_build_rows_handles_unscoreable() -> None:
 
 
 def test_flagged_eval_rows_picks_up_low_groundedness() -> None:
-    items = [_scored(), _scored(domain="chime2.com", flag=True), _scored(domain="chime3.com")]
+    items = [
+        _scored(),
+        _scored(domain="exampleapp2.com", flag=True),
+        _scored(domain="exampleapp3.com"),
+    ]
     assert flagged_eval_rows(items) == [2]
 
 

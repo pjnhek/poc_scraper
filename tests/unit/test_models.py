@@ -22,7 +22,7 @@ class TestAccount:
     def test_normalizes_domain_strips_protocol_and_www(self) -> None:
         assert Account(domain="https://www.Notion.so/").domain == "notion.so"
         assert Account(domain="HTTP://Linear.app").domain == "linear.app"
-        assert Account(domain="duolingo.com").domain == "duolingo.com"
+        assert Account(domain="examplelearnco.com").domain == "examplelearnco.com"
 
     def test_rejects_blank_or_malformed_domain(self) -> None:
         with pytest.raises(ValidationError):

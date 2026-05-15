@@ -28,7 +28,7 @@ def _enrichment() -> Enrichment:
     return Enrichment(
         account=Account(domain="example.com"),
         firmographics=Firmographics(
-            name="Example", industry="consumer fintech", headcount_range="1000-2000"
+            name="Example", industry="consumer software", headcount_range="1000-2000"
         ),
         news=(
             NewsItem(

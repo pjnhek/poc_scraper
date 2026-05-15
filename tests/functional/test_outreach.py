@@ -32,8 +32,8 @@ def _justification(index: int, summary: str, url: str = "") -> Justification:
 
 def _enr(justifications: list[Justification]) -> Enrichment:
     return Enrichment(
-        account=Account(domain="chime.com"),
-        firmographics=Firmographics(name="Chime", industry="fintech"),
+        account=Account(domain="exampleapp.com"),
+        firmographics=Firmographics(name="ExampleApp", industry="software"),
         news=(),
         justifications=tuple(justifications),
     )
@@ -50,27 +50,27 @@ def _config() -> ICPConfig:
 @pytest.mark.asyncio
 async def test_happy_path_grounded_claim() -> None:
     """A grounded claim that overlaps its cited evidence survives assembly."""
-    j1 = _justification(1, "Chime expanded its AI support automation program in 2024")
+    j1 = _justification(1, "ExampleApp expanded its AI support automation program in 2024")
     enr = _enr([j1])
     llm = FakeAnthropic(
         text=(
-            '{"claims": [{"claim": "Chime expanded AI support automation", "cited_indices": [1]}], '
+            '{"claims": [{"claim": "ExampleApp expanded AI support automation", "cited_indices": [1]}], '
             '"connective_text": "We help teams hit higher deflection."}'
         )
     )
     hook = await OutreachGenerator(llm, config=_config()).generate(_contact(), enr, score=None)
-    assert "Chime expanded AI support automation" in hook.paragraph
+    assert "ExampleApp expanded AI support automation" in hook.paragraph
     assert hook.cited_indices == (1,)
 
 
 @pytest.mark.asyncio
 async def test_drops_claim_with_unknown_index() -> None:
     """A claim citing a non-existent justification index is suppressed."""
-    j1 = _justification(1, "Chime expanded its AI support automation program")
+    j1 = _justification(1, "ExampleApp expanded its AI support automation program")
     enr = _enr([j1])
     llm = FakeAnthropic(
         text=(
-            '{"claims": [{"claim": "Chime expanded AI support automation", "cited_indices": [99]}], '
+            '{"claims": [{"claim": "ExampleApp expanded AI support automation", "cited_indices": [99]}], '
             '"connective_text": ""}'
         )
     )
@@ -83,7 +83,7 @@ async def test_drops_claim_with_unknown_index() -> None:
 @pytest.mark.asyncio
 async def test_returns_empty_when_all_claims_fail_coverage() -> None:
     """When all claims fail the rapidfuzz coverage gate, an empty hook is returned."""
-    j1 = _justification(1, "Chime news: their support team won an award")
+    j1 = _justification(1, "ExampleApp news: their support team won an award")
     enr = _enr([j1])
     llm = FakeAnthropic(
         text=(
@@ -110,19 +110,19 @@ async def test_handles_malformed_json() -> None:
 @pytest.mark.asyncio
 async def test_supports_multi_claim_multi_index() -> None:
     """Two grounded claims each with a single cited index both survive."""
-    j1 = _justification(1, "Chime automated support ticket deflection by 40 percent")
-    j2 = _justification(2, "Chime launched voice channel support in 2024")
+    j1 = _justification(1, "ExampleApp automated support ticket deflection by 40 percent")
+    j2 = _justification(2, "ExampleApp launched voice channel support in 2024")
     enr = _enr([j1, j2])
     llm = FakeAnthropic(
         text=(
             '{"claims": ['
-            '{"claim": "Chime automated support ticket deflection", "cited_indices": [1]}, '
-            '{"claim": "Chime launched voice channel support", "cited_indices": [2]}'
+            '{"claim": "ExampleApp automated support ticket deflection", "cited_indices": [1]}, '
+            '{"claim": "ExampleApp launched voice channel support", "cited_indices": [2]}'
             '], "connective_text": "We help teams hit higher deflection."}'
         )
     )
     hook = await OutreachGenerator(llm, config=_config()).generate(_contact(), enr, score=None)
-    assert "Chime automated" in hook.paragraph
+    assert "ExampleApp automated" in hook.paragraph
     assert "voice channel" in hook.paragraph
     assert set(hook.cited_indices) == {1, 2}
 
@@ -130,19 +130,19 @@ async def test_supports_multi_claim_multi_index() -> None:
 @pytest.mark.asyncio
 async def test_connective_text_appended_after_surviving_claims() -> None:
     """Connective text appears after surviving claim content in the paragraph."""
-    j1 = _justification(1, "Chime expanded AI support automation program in 2024")
+    j1 = _justification(1, "ExampleApp expanded AI support automation program in 2024")
     enr = _enr([j1])
     llm = FakeAnthropic(
         text=(
-            '{"claims": [{"claim": "Chime expanded AI support automation", "cited_indices": [1]}], '
+            '{"claims": [{"claim": "ExampleApp expanded AI support automation", "cited_indices": [1]}], '
             '"connective_text": "Would love to connect and share how we can help."}'
         )
     )
     hook = await OutreachGenerator(llm, config=_config()).generate(_contact(), enr, score=None)
-    assert "Chime expanded AI support automation" in hook.paragraph
+    assert "ExampleApp expanded AI support automation" in hook.paragraph
     assert "Would love to connect" in hook.paragraph
     # Connective text comes after the claim.
-    assert hook.paragraph.index("Chime") < hook.paragraph.index("Would love")
+    assert hook.paragraph.index("ExampleApp") < hook.paragraph.index("Would love")
 
 
 @pytest.mark.asyncio

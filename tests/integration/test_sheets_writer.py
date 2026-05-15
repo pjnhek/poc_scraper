@@ -99,7 +99,7 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
     cit = Citation.make(url="https://example.com/x", source="exa", snippet="snippet")
     enr = Enrichment(
         account=acc,
-        firmographics=Firmographics(name=domain, industry="fintech"),
+        firmographics=Firmographics(name=domain, industry="software"),
         news=(NewsItem(headline="h", summary="s", citation=cit),),
         justifications=(Justification(index=1, summary="h: s", citation=cit),),
     )
@@ -137,7 +137,7 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
 def test_creates_new_spreadsheet_when_no_id() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
-    result = writer.write([_scored("chime.com", flag=False)])
+    result = writer.write([_scored("examplefintech.com", flag=False)])
 
     assert result.spreadsheet_id == "fake-sid"
     assert result.url.endswith("fake-sid")
@@ -149,13 +149,13 @@ def test_creates_new_spreadsheet_when_no_id() -> None:
     assert update["spreadsheetId"] == "fake-sid"
     rows = update["body"]["values"]
     assert rows[0][0] == "domain"
-    assert rows[1][0] == "chime.com"
+    assert rows[1][0] == "examplefintech.com"
 
 
 def test_appends_tab_when_spreadsheet_id_provided() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
-    result = writer.write([_scored("chime.com", flag=False)])
+    result = writer.write([_scored("examplefintech.com", flag=False)])
     assert result.spreadsheet_id == "existing-sid"
     sheets = fake.spreadsheets()
     assert sheets.create_calls == []

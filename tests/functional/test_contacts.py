@@ -19,10 +19,10 @@ class FakeAnthropic:
 
 def _enr() -> Enrichment:
     return Enrichment(
-        account=Account(domain="chime.com"),
+        account=Account(domain="exampleapp.com"),
         news=(
             NewsItem(
-                headline="Chime adds AI",
+                headline="ExampleApp adds AI",
                 summary="...",
                 citation=Citation.make(url="https://example.com/a", source="exa"),
             ),
