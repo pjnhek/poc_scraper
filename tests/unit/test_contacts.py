@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.contacts import _default_contacts
+from src.contacts import _default_contacts, _to_contacts
 from src.icp_config import ICPConfig
 
 
@@ -86,3 +86,25 @@ class TestDefaultContacts:
         assert result[0].rationale == "(no rationale provided)"
         assert result[1].rationale == "explicit"
         assert result[2].rationale == "(no rationale provided)"
+
+
+class TestToContactsPartialFill:
+    def test_partial_fill_uses_defaults_from_front(self) -> None:
+        # When the LLM returns fewer than 3 contacts, padding must start from
+        # defaults[0], not defaults[len(llm_contacts)].  The off-by-one bug
+        # caused defaults[0] to be unreachable on any partial-fill scenario.
+        config = _make_config(
+            [
+                {"role_title": "Default A", "rationale": "da"},
+                {"role_title": "Default B", "rationale": "db"},
+                {"role_title": "Default C", "rationale": "dc"},
+            ]
+        )
+        items: list[dict[str, object]] = [{"role_title": "LLM Role", "rationale": "r"}]
+        result = _to_contacts(items, config)
+
+        assert len(result) == 3
+        assert result[0].role_title == "LLM Role"
+        # Padding must start from Default A (index 0), not Default B (index 1).
+        assert result[1].role_title == "Default A"
+        assert result[2].role_title == "Default B"

@@ -53,8 +53,11 @@ def _to_contacts(items: list[dict[str, object]], config: ICPConfig) -> list[Cont
             continue
         rationale = str(entry.get("rationale") or "").strip() or DEFAULT_RATIONALE
         contacts.append(Contact(role_title=role, rationale=rationale))
+    defaults = _default_contacts(config)
+    default_idx = 0  # always start from front of defaults regardless of LLM fill count
     while len(contacts) < 3:
-        contacts.append(_default_contacts(config)[len(contacts)])
+        contacts.append(defaults[default_idx])
+        default_idx += 1
     return contacts
 
 
