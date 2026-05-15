@@ -4,6 +4,7 @@ import logging
 import re
 
 from ._json_utils import parse_json_object
+from .citations import markers_in_paragraph, parse_indices
 from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
 from .models import Contact, Enrichment, ICPScore, Justification, OutreachHook
@@ -30,8 +31,6 @@ def _build_outreach_system(config: ICPConfig) -> str:
     )
 
 
-# [1], [2,3], [1, 4] — tolerate optional whitespace and comma-separated lists.
-INDEX_MARKER_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 # Strip raw URLs the writer shouldn't have included anyway.
 URL_RE = re.compile(r"\(?https?://\S+\)?")
 
@@ -66,10 +65,10 @@ class OutreachGenerator:
 
         paragraph = str(parsed.get("paragraph") or "").strip()
         valid_indices = {j.index for j in enrichment.justifications}
-        claimed = _parse_indices(parsed.get("cited_justifications"), valid_indices)
+        claimed = parse_indices(parsed.get("cited_justifications"), valid_indices)
 
         # Cross-check: only count indices the writer actually marked in the paragraph.
-        marked = _markers_in_paragraph(paragraph, valid_indices)
+        marked = markers_in_paragraph(paragraph, valid_indices)
         cited = tuple(i for i in claimed if i in marked)
 
         if not cited:
@@ -81,33 +80,6 @@ class OutreachGenerator:
 
         cleaned = URL_RE.sub("", paragraph).strip()
         return OutreachHook(contact=contact, paragraph=cleaned, cited_indices=cited)
-
-
-def _parse_indices(raw: object, valid: set[int]) -> tuple[int, ...]:
-    if not isinstance(raw, list):
-        return ()
-    out: list[int] = []
-    for v in raw:
-        try:
-            i = int(v)
-        except (TypeError, ValueError):
-            continue
-        if i in valid and i not in out:
-            out.append(i)
-    return tuple(out)
-
-
-def _markers_in_paragraph(paragraph: str, valid: set[int]) -> set[int]:
-    found: set[int] = set()
-    for match in INDEX_MARKER_RE.finditer(paragraph):
-        for piece in match.group(1).split(","):
-            try:
-                n = int(piece.strip())
-            except ValueError:
-                continue
-            if n in valid:
-                found.add(n)
-    return found
 
 
 def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> str:

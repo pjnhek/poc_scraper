@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterable
 
 from src._json_utils import parse_json_object
+from src.citations import INDEX_MARKER_RE  # noqa: F401 — consolidates marker pattern (CHANGE-01)
 from src.clients.protocols import LLMClient
 from src.icp_config import ICPConfig, get_config
 from src.models import EvalScore, Justification, OutreachHook, ScoredAccount
