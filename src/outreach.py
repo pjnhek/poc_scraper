@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from ._json_utils import parse_json_object
-from .citations import markers_in_paragraph, parse_indices
+from .citations import assemble_paragraph
 from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
 from .models import Contact, Enrichment, ICPScore, Justification, OutreachHook
@@ -14,25 +13,20 @@ log = logging.getLogger(__name__)
 
 def _build_outreach_system(config: ICPConfig) -> str:
     return (
-        "You write one short outreach paragraph (3-5 sentences) from a seller to a "
-        "specific persona at a target account.\n"
+        "You write outreach claims from a seller to a specific persona at a target account.\n"
         f"Seller description: {config.seller_description.strip()}\n\n"
         "The user message will provide a numbered list of justifications drawn from "
         "Exa retrievals (about pages and recent news). EVERY factual claim about the "
-        "account must be supported by one of those numbered justifications. Reference "
-        'the supporting justification inline using [N] markers (e.g. "recent push on '
-        'AI [2]"). Do not paste raw URLs into the paragraph; do not invent claims.\n\n'
-        "End with a soft, specific ask to connect. "
-        "Output ONLY one JSON object with keys: "
-        '"paragraph" (string with [N] markers, no raw URLs) and '
-        '"cited_justifications" (array of 1-based integer indices you actually used). '
-        "If the context is too thin to ground at least one claim, return an empty "
-        '"paragraph" and an empty "cited_justifications".'
+        "account must be supported by one of those numbered justifications. "
+        "Do not invent claims.\n\n"
+        "Output ONLY one JSON object with keys:\n"
+        '"claims": array of {"claim": string, "cited_indices": array of 1-based integer indices}\n'
+        '"connective_text": short transitional text (1-2 sentences, no factual claims, no [N] markers)\n'
+        "Each claim object makes exactly one factual assertion about the account and cites "
+        "the justification indices that support it. Non-factual connective sentences go in "
+        '"connective_text". End connective_text with a soft, specific ask to connect. '
+        'If the context is too thin, return an empty "claims" array and empty "connective_text".'
     )
-
-
-# Strip raw URLs the writer shouldn't have included anyway.
-URL_RE = re.compile(r"\(?https?://\S+\)?")
 
 
 class OutreachGenerator:
@@ -63,23 +57,15 @@ class OutreachGenerator:
             log.warning("outreach: could not parse JSON from %r", result.text[:200])
             return OutreachHook(contact=contact, paragraph="", cited_indices=())
 
-        paragraph = str(parsed.get("paragraph") or "").strip()
-        valid_indices = {j.index for j in enrichment.justifications}
-        claimed = parse_indices(parsed.get("cited_justifications"), valid_indices)
-
-        # Cross-check: only count indices the writer actually marked in the paragraph.
-        marked = markers_in_paragraph(paragraph, valid_indices)
-        cited = tuple(i for i in claimed if i in marked)
-
-        if not cited:
-            log.info(
-                "outreach: no valid [N] markers for %s, dropping paragraph",
-                contact.role_title,
-            )
-            return OutreachHook(contact=contact, paragraph="", cited_indices=())
-
-        cleaned = URL_RE.sub("", paragraph).strip()
-        return OutreachHook(contact=contact, paragraph=cleaned, cited_indices=cited)
+        raw_claims = parsed.get("claims") or []
+        connective = str(parsed.get("connective_text") or "").strip()
+        paragraph, cited_indices = assemble_paragraph(
+            raw_claims=raw_claims if isinstance(raw_claims, list) else [],
+            connective_text=connective,
+            justifications=enrichment.justifications,
+            threshold_01=self._config.eval.groundedness_suppress_threshold,
+        )
+        return OutreachHook(contact=contact, paragraph=paragraph, cited_indices=cited_indices)
 
 
 def _build_outreach_context(enrichment: Enrichment, score: ICPScore | None) -> str:
