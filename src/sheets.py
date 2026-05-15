@@ -11,6 +11,9 @@ from .models import Account, ScoredAccount
 
 log = logging.getLogger(__name__)
 
+# D-03 precedence string: consumed verbatim by the Phase 6 legend renderer.
+STATUS_LEGEND = "judge_failed > hook_suppressed > low_groundedness > clean"
+
 HEADERS: tuple[str, ...] = (
     "domain",
     "status",
@@ -40,6 +43,8 @@ HEADERS: tuple[str, ...] = (
     "eval_groundedness",
     "eval_icp_relevance",
     "eval_personalization",
+    "eval_specificity",
+    "eval_recency",
     "error",
 )
 
@@ -99,6 +104,8 @@ def _build_row(sa: ScoredAccount) -> list[str]:
             _fmt(ev.groundedness) if ev else "",
             _fmt(ev.icp_relevance) if ev else "",
             _fmt(ev.personalization) if ev else "",
+            _fmt(ev.specificity) if ev else "",
+            _fmt(ev.recency) if ev else "",
             sa.error or "",
         ]
     )

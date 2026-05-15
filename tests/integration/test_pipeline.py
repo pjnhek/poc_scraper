@@ -7,7 +7,7 @@ import pytest
 from src.clients.browserbase_client import RenderedPage
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
-from src.models import Account
+from src.models import Account, AccountStatus
 from src.pipeline import build_deps, process_account, run_pipeline
 
 
@@ -49,9 +49,11 @@ class ScriptedAnthropic:
 
 
 def _exa_about(text: str = "Chime is a consumer fintech app. " * 30) -> ExaResult:
+    # title=None forces snippet to be used as justification summary, so claims
+    # derived from the snippet pass the rapidfuzz gate.
     return ExaResult(
         url="https://chime.com/about",
-        title="About Chime",
+        title=None,
         snippet=text,
         published_at=None,
     )
@@ -85,17 +87,21 @@ def _scripted_full_run() -> ScriptedAnthropic:
                 '{"role_title":"Head of Support","rationale":"owns CSAT"},'
                 '{"role_title":"Director CX Auto","rationale":"runs RFPs"}]'
             ),
-            "write one short outreach paragraph": (
-                '{"paragraph":"Saw your AI push [2]. '
-                'High deflection on tier-1 in consumer fintech.",'
-                '"cited_justifications":[2]}'
+            # D-01 shape: claims + connective_text.
+            # Justification [2] is the news item about AI support expansion.
+            # Claim cites the news snippet so rapidfuzz gate passes.
+            "You write outreach claims from a seller": (
+                '{"claims":[{"claim":"Chime expands AI support",'
+                '"cited_indices":[2]}],'
+                '"connective_text":"Reach out to discuss tier-1 deflection."}'
             ),
             "LLM judge evaluating an outreach paragraph": (
                 '{"claims":['
-                '{"text":"AI push","supported_by":2},'
+                '{"text":"AI support expansion","supported_by":2},'
                 '{"text":"high deflection in fintech","supported_by":2},'
                 '{"text":"consumer focus","supported_by":2}'
-                '],"icp_relevance":5,"personalization":4,"notes":"solid"}'
+                '],"icp_relevance":5,"personalization":4,'
+                '"specificity":3,"recency":4,"notes":"solid"}'
             ),
         }
     )
@@ -110,13 +116,15 @@ async def test_full_account_processing_happy_path() -> None:
 
     sa = await process_account(Account(domain="chime.com"), deps)
 
-    assert sa.status == "scored"
+    assert sa.status == AccountStatus.clean
     assert sa.score is not None and sa.score.total >= 4.0
     assert sa.score.verdict == "strong"
     assert len(sa.contacts) == 3
     assert len(sa.hooks) == 3
     for h in sa.hooks:
-        assert "[2]" in h.paragraph
+        # D-01 shape: paragraph is assembled from claims (no [N] markers); cited_indices carries
+        # the citation info separately.
+        assert h.paragraph  # non-empty
         assert h.cited_indices == (2,)
     assert sa.eval_score is not None
     # 3 cited / max(3, 3) * 5 = 5.0
@@ -131,7 +139,7 @@ async def test_unscoreable_when_no_enrichment() -> None:
     deps = build_deps(writer=anthropic, judge=anthropic, exa=exa, browserbase=bb)
 
     sa = await process_account(Account(domain="dead.example"), deps)
-    assert sa.status == "unscoreable"
+    assert sa.status == AccountStatus.hook_suppressed
     assert sa.error == "empty enrichment"
     assert sa.score is None
 
@@ -146,7 +154,7 @@ async def test_run_pipeline_processes_multiple_accounts() -> None:
     accounts = [Account(domain="chime.com"), Account(domain="duolingo.com")]
     results = await run_pipeline(accounts, deps, concurrency=2)
     assert len(results) == 2
-    assert all(sa.status == "scored" for sa in results)
+    assert all(sa.status == AccountStatus.clean for sa in results)
     assert {sa.account.domain for sa in results} == {"chime.com", "duolingo.com"}
 
 
@@ -171,4 +179,7 @@ async def test_one_account_failure_does_not_kill_pipeline() -> None:
     accounts = [Account(domain="bad.example"), Account(domain="chime.com")]
     results = await run_pipeline(accounts, deps, concurrency=1)
     statuses = {r.account.domain: r.status for r in results}
-    assert statuses == {"bad.example": "unscoreable", "chime.com": "scored"}
+    assert statuses == {
+        "bad.example": AccountStatus.hook_suppressed,
+        "chime.com": AccountStatus.clean,
+    }

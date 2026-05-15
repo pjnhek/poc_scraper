@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.models import (
     Account,
+    AccountStatus,
     Citation,
     Contact,
     Enrichment,
@@ -64,10 +65,12 @@ def _scored(domain: str = "chime.com", flag: bool = False) -> ScoredAccount:
         groundedness=2.0 if flag else 4.0,
         icp_relevance=4,
         personalization=4,
+        specificity=3,
+        recency=3,
     )
     return ScoredAccount(
         account=acc,
-        status="scored",
+        status=AccountStatus.clean,
         enrichment=enr,
         score=score,
         contacts=contacts,
@@ -86,7 +89,7 @@ def test_build_rows_writes_account_data() -> None:
     row = rows[1]
     headers = rows[0]
     assert row[0] == "chime.com"
-    assert row[1] == "scored"
+    assert row[1] == AccountStatus.clean
     assert row[2] == "Chime"
     assert row[headers.index("icp_total")] == "4.4"
     assert row[headers.index("verdict")] == "strong"
@@ -126,7 +129,7 @@ def test_build_rows_handles_unscoreable() -> None:
     rows = build_rows([sa])
     headers = rows[0]
     assert rows[1][0] == "dead.com"
-    assert rows[1][1] == "unscoreable"
+    assert rows[1][1] == AccountStatus.hook_suppressed
     assert rows[1][headers.index("icp_total")] == ""
     assert rows[1][headers.index("verdict")] == ""
     assert rows[1][-1] == "no enrichment"

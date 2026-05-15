@@ -95,26 +95,38 @@ class EvalRubric:
 
     async def evaluate_account(self, sa: ScoredAccount) -> EvalScore:
         if not sa.hooks:
-            return self._floor("(no hooks to evaluate)")
+            # No hooks means the outreach stage produced nothing; this is content
+            # suppression, not a judge failure, so eval_failed stays False.
+            return self._no_content_floor("(no hooks to evaluate)")
         scores = [
             await self.evaluate_hook(h, sa.account.domain, sa.enrichment.justifications)
             for h in sa.hooks
             if h.paragraph
         ]
         if not scores:
-            return self._floor("(no grounded hooks)")
+            # All hooks had empty paragraphs (rapidfuzz gate suppressed everything);
+            # again content suppression, not a judge failure.
+            return self._no_content_floor("(no grounded hooks)")
+        # eval_failed propagates up: if any hook's judge call failed, the
+        # account-level score must carry eval_failed=True so D-03 precedence
+        # in pipeline.py can assign judge_failed status.
+        any_failed = any(s.eval_failed for s in scores)
         return EvalScore(
             groundedness=_avg(s.groundedness for s in scores),
             icp_relevance=_avg(s.icp_relevance for s in scores),
             personalization=_avg(s.personalization for s in scores),
             specificity=_avg(s.specificity for s in scores),
             recency=_avg(s.recency for s in scores),
-            eval_failed=False,
+            eval_failed=any_failed,
             notes=f"averaged across {len(scores)} hooks",
             flag_threshold=self._flag_threshold,
         )
 
     def _floor(self, note: str) -> EvalScore:
+        """Judge API failure: unparseable output or validation error.
+
+        Sets eval_failed=True so D-03 precedence assigns judge_failed status.
+        """
         return EvalScore(
             groundedness=1,
             icp_relevance=1,
@@ -122,6 +134,23 @@ class EvalRubric:
             specificity=1,
             recency=1,
             eval_failed=True,
+            notes=note,
+            flag_threshold=self._flag_threshold,
+        )
+
+    def _no_content_floor(self, note: str) -> EvalScore:
+        """No content available to evaluate (empty hooks or all-suppressed).
+
+        eval_failed=False because the judge was not invoked; this is content
+        suppression, not a judge-side failure.
+        """
+        return EvalScore(
+            groundedness=1,
+            icp_relevance=1,
+            personalization=1,
+            specificity=1,
+            recency=1,
+            eval_failed=False,
             notes=note,
             flag_threshold=self._flag_threshold,
         )

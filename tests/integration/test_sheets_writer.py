@@ -4,6 +4,7 @@ from typing import Any
 
 from src.models import (
     Account,
+    AccountStatus,
     Citation,
     Contact,
     Enrichment,
@@ -115,10 +116,16 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
     score = ICPScore(total=3.7, breakdown=bd, justification="ok", verdict="borderline")
     c1 = Contact(role_title="r1", rationale="r")
     h1 = OutreachHook(contact=c1, paragraph="p [1]", cited_indices=(1,))
-    ev = EvalScore(groundedness=2.0 if flag else 4.0, icp_relevance=4, personalization=4)
+    ev = EvalScore(
+        groundedness=2.0 if flag else 4.0,
+        icp_relevance=4,
+        personalization=4,
+        specificity=3,
+        recency=3,
+    )
     return ScoredAccount(
         account=acc,
-        status="scored",
+        status=AccountStatus.clean,
         enrichment=enr,
         score=score,
         contacts=(c1, c1, c1),
