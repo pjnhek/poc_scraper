@@ -22,7 +22,7 @@ from .contacts import ContactExtractor
 from .csv_io import read_accounts
 from .enrich import Enricher
 from .icp_config import get_config
-from .models import Account, Enrichment, ScoredAccount
+from .models import Account, AccountStatus, Enrichment, ScoredAccount
 from .outreach import OutreachGenerator
 from .score import Scorer
 from .sheets import SheetsWriter
@@ -60,19 +60,31 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
     except Exception as exc:
         log.warning("enrich failed for %s: %s", account.domain, exc)
         return ScoredAccount.unscoreable(
-            account, Enrichment(account=account), f"enrich failed: {exc}"
+            account,
+            Enrichment(account=account),
+            f"enrich failed: {exc}",
+            status=AccountStatus.hook_suppressed,
         )
 
     if enrichment.is_empty:
-        return ScoredAccount.unscoreable(account, enrichment, "empty enrichment")
+        return ScoredAccount.unscoreable(
+            account, enrichment, "empty enrichment", status=AccountStatus.hook_suppressed
+        )
 
     try:
         score = await deps.scorer.score(enrichment)
     except Exception as exc:
         log.warning("score failed for %s: %s", account.domain, exc)
-        return ScoredAccount.unscoreable(account, enrichment, f"score failed: {exc}")
+        return ScoredAccount.unscoreable(
+            account, enrichment, f"score failed: {exc}", status=AccountStatus.hook_suppressed
+        )
     if score is None:
-        return ScoredAccount.unscoreable(account, enrichment, "score: judge returned no JSON")
+        return ScoredAccount.unscoreable(
+            account,
+            enrichment,
+            "score: judge returned no JSON",
+            status=AccountStatus.hook_suppressed,
+        )
 
     try:
         contacts = await deps.contacts.extract(enrichment, score)
@@ -91,7 +103,7 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     sa = ScoredAccount(
         account=account,
-        status="scored",
+        status=AccountStatus.clean,
         enrichment=enrichment,
         score=score,
         contacts=contacts,
@@ -104,9 +116,23 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
         log.warning("eval failed for %s: %s", account.domain, exc)
         eval_score = None
 
+    # D-03 precedence: worst-observability-first so a judge failure is never masked.
+    # judge_failed wins because it signals the eval layer is broken, not just the content.
+    # hook_suppressed is next because no content was delivered regardless of eval result.
+    # low_groundedness means content exists but the judge flagged it.
+    # clean only when none of the above apply.
+    if eval_score is not None and eval_score.eval_failed:
+        final_status = AccountStatus.judge_failed
+    elif all(h.paragraph == "" for h in hooks):
+        final_status = AccountStatus.hook_suppressed
+    elif eval_score is not None and eval_score.is_flagged:
+        final_status = AccountStatus.low_groundedness
+    else:
+        final_status = AccountStatus.clean
+
     return ScoredAccount(
         account=account,
-        status=sa.status,
+        status=final_status,
         enrichment=enrichment,
         score=score,
         contacts=contacts,
