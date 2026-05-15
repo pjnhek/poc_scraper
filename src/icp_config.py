@@ -30,6 +30,12 @@ class Verdict(_Frozen):
 
 class EvalConfig(_Frozen):
     groundedness_flag_threshold: float = Field(ge=0, le=5)
+    groundedness_suppress_threshold: float = Field(ge=0, le=1)
+
+
+class DefaultPersona(_Frozen):
+    role_title: str
+    rationale: str
 
 
 class ICPConfig(_Frozen):
@@ -38,6 +44,7 @@ class ICPConfig(_Frozen):
     axes: dict[str, Axis]
     verdicts: dict[str, Verdict]
     eval: EvalConfig
+    default_personas: tuple[DefaultPersona, ...] = ()
 
     @model_validator(mode="after")
     def _check_axes(self) -> ICPConfig:
@@ -47,6 +54,13 @@ class ICPConfig(_Frozen):
         total_weight = sum(a.weight for a in self.axes.values())
         if abs(total_weight - 1.0) > 1e-6:
             raise ValueError(f"axis weights must sum to 1.0, got {total_weight}")
+        if len(self.default_personas) != 3:
+            raise ValueError(
+                f"default_personas must have exactly 3 entries, got {len(self.default_personas)}"
+            )
+        for i, p in enumerate(self.default_personas):
+            if not p.role_title.strip():
+                raise ValueError(f"default_personas[{i}].role_title must be non-empty")
         return self
 
     def verdict_for(self, total: float) -> Verdict:

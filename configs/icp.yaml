@@ -96,7 +96,21 @@ verdicts:
     label: weak
     description: Not ICP; deprioritize unless context changes.
 
+# Fallback personas when the LLM cannot propose contacts for an account.
+# Must be exactly 3 entries. role_title must be non-empty. Keep titles abstract
+# (no specific company or vertical names -- this file is in the public repo).
+default_personas:
+  - role_title: "VP of Customer Experience"
+    rationale: "(no rationale provided)"
+  - role_title: "Head of Support Operations"
+    rationale: "(no rationale provided)"
+  - role_title: "Director of CX Automation"
+    rationale: "(no rationale provided)"
+
 # Eval thresholds for the LLM-as-judge (also 1-5 scale).
 eval:
   # Groundedness below this flags the row red in the sheet.
   groundedness_flag_threshold: 3.0
+  # Claims with token_set_ratio below this (x100) are suppressed from the final paragraph.
+  # Range [0, 1]; 0.4 means 40/100 overlap required. Tunable per vertical.
+  groundedness_suppress_threshold: 0.4
