@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
-ScoreStatus = Literal["scored", "unscoreable"]
+
+class AccountStatus(StrEnum):
+    clean = "clean"
+    low_groundedness = "low_groundedness"
+    hook_suppressed = "hook_suppressed"
+    judge_failed = "judge_failed"
 
 
 class _Frozen(BaseModel):
@@ -134,6 +140,9 @@ class EvalScore(_Frozen):
     groundedness: float = Field(ge=1, le=5)
     icp_relevance: float = Field(ge=1, le=5)
     personalization: float = Field(ge=1, le=5)
+    specificity: float = Field(ge=1, le=5)
+    recency: float = Field(ge=1, le=5)
+    eval_failed: bool = False
     notes: str | None = None
     flag_threshold: float = Field(default=3.0, ge=1, le=5)
 
@@ -144,7 +153,7 @@ class EvalScore(_Frozen):
 
 class ScoredAccount(_Frozen):
     account: Account
-    status: ScoreStatus
+    status: AccountStatus
     enrichment: Enrichment
     score: ICPScore | None = None
     contacts: tuple[Contact, ...] = ()
@@ -153,5 +162,11 @@ class ScoredAccount(_Frozen):
     error: str | None = None
 
     @classmethod
-    def unscoreable(cls, account: Account, enrichment: Enrichment, reason: str) -> ScoredAccount:
-        return cls(account=account, status="unscoreable", enrichment=enrichment, error=reason)
+    def unscoreable(
+        cls,
+        account: Account,
+        enrichment: Enrichment,
+        reason: str,
+        status: AccountStatus = AccountStatus.hook_suppressed,
+    ) -> ScoredAccount:
+        return cls(account=account, status=status, enrichment=enrichment, error=reason)
