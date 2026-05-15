@@ -18,3 +18,10 @@ repos:
     hooks:
       - id: ruff-check
         args: [--fix]
+  - repo: local
+    hooks:
+      - id: public-repo-discipline
+        name: public-repo-discipline
+        entry: python scripts/check_public_discipline.py
+        language: system
+        pass_filenames: true

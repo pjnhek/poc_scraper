@@ -22,3 +22,6 @@ service-account*.json
 # Run artifacts
 runs/
 *.log
+
+# Local-only public-repo-discipline denylist (must never be committed)
+.secrets-denylist
