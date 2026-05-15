@@ -17,7 +17,7 @@ def _build_contacts_system(config: ICPConfig) -> str:
         f"Seller description: {config.seller_description.strip()}\n"
         f"Buyer description (target account profile): {config.buyer_description.strip()}\n\n"
         "Output ONLY a JSON array of exactly 3 objects, each with keys "
-        '"role_title" (string, e.g. "VP Customer Experience") and "rationale" '
+        '"role_title" (string, e.g. "Head of Operations") and "rationale" '
         "(one short sentence grounded in the provided context, naming what makes this role "
         "the right reach for this account). Do not invent specific people."
     )
@@ -41,11 +41,11 @@ class ContactExtractor:
         items = parse_json_array(result.text)
         if items is None:
             log.warning("contacts: could not parse array from %r", result.text[:200])
-            return tuple(_default_contacts())
-        return tuple(_to_contacts(items))
+            return tuple(_default_contacts(self._config))
+        return tuple(_to_contacts(items, self._config))
 
 
-def _to_contacts(items: list[dict[str, object]]) -> list[Contact]:
+def _to_contacts(items: list[dict[str, object]], config: ICPConfig) -> list[Contact]:
     contacts: list[Contact] = []
     for entry in items[:3]:
         role = str(entry.get("role_title") or "").strip()
@@ -54,15 +54,14 @@ def _to_contacts(items: list[dict[str, object]]) -> list[Contact]:
         rationale = str(entry.get("rationale") or "").strip() or DEFAULT_RATIONALE
         contacts.append(Contact(role_title=role, rationale=rationale))
     while len(contacts) < 3:
-        contacts.append(_default_contacts()[len(contacts)])
+        contacts.append(_default_contacts(config)[len(contacts)])
     return contacts
 
 
-def _default_contacts() -> list[Contact]:
+def _default_contacts(config: ICPConfig) -> list[Contact]:
     return [
-        Contact(role_title="VP Customer Experience", rationale=DEFAULT_RATIONALE),
-        Contact(role_title="Head of Support Operations", rationale=DEFAULT_RATIONALE),
-        Contact(role_title="Director of CX Automation", rationale=DEFAULT_RATIONALE),
+        Contact(role_title=p.role_title, rationale=p.rationale or DEFAULT_RATIONALE)
+        for p in config.default_personas
     ]
 
 
