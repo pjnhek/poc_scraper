@@ -29,13 +29,17 @@ def _build_eval_system(config: ICPConfig) -> str:
         "A claim is 'supported_by': [index] when the listed justification's text "
         "actually contains the fact being claimed (paraphrasing is fine; making "
         "up new numbers or facts is not).\n\n"
-        "Also score icp_relevance and personalization on a 1-5 scale (1 poor, "
-        "5 excellent). Do NOT score groundedness yourself; it will be derived from "
-        "your claims array.\n\n"
+        "Also score icp_relevance, personalization, specificity, and recency on a "
+        "1-5 scale (1 poor, 5 excellent). Do NOT score groundedness yourself; it "
+        "will be derived from your claims array.\n\n"
         "Output ONLY one JSON object with these keys:\n"
         '"claims": array of {"text": str, "supported_by": int | "uncited"},\n'
         '"icp_relevance": int 1-5,\n'
         '"personalization": int 1-5,\n'
+        '"specificity": int 1-5 (1 = generic claim could apply to any company, '
+        "5 = highly specific facts unique to this account),\n"
+        '"recency": int 1-5 (1 = no recent evidence cited, '
+        "5 = multiple recent-news citations),\n"
         '"notes": one short sentence (quote the most-uncited claim if any).\n'
         "Do not include any other prose."
     )
@@ -79,6 +83,9 @@ class EvalRubric:
                 groundedness=groundedness,
                 icp_relevance=_clip(parsed.get("icp_relevance")),
                 personalization=_clip(parsed.get("personalization")),
+                specificity=_clip(parsed.get("specificity")),
+                recency=_clip(parsed.get("recency")),
+                eval_failed=False,
                 notes=str(parsed.get("notes") or "").strip() or None,
                 flag_threshold=self._flag_threshold,
             )
@@ -100,6 +107,9 @@ class EvalRubric:
             groundedness=_avg(s.groundedness for s in scores),
             icp_relevance=_avg(s.icp_relevance for s in scores),
             personalization=_avg(s.personalization for s in scores),
+            specificity=_avg(s.specificity for s in scores),
+            recency=_avg(s.recency for s in scores),
+            eval_failed=False,
             notes=f"averaged across {len(scores)} hooks",
             flag_threshold=self._flag_threshold,
         )
@@ -109,6 +119,9 @@ class EvalRubric:
             groundedness=1,
             icp_relevance=1,
             personalization=1,
+            specificity=1,
+            recency=1,
+            eval_failed=True,
             notes=note,
             flag_threshold=self._flag_threshold,
         )

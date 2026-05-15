@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from src.models import (
     Account,
+    AccountStatus,
     Citation,
     Enrichment,
     EvalScore,
@@ -107,15 +108,26 @@ class TestRubricRanges:
 
 class TestEvalScoreFlag:
     def test_flagged_when_groundedness_below_threshold(self) -> None:
-        s = EvalScore(groundedness=2.5, icp_relevance=4, personalization=4)
+        s = EvalScore(
+            groundedness=2.5, icp_relevance=4, personalization=4, specificity=3, recency=3
+        )
         assert s.is_flagged is True
 
     def test_not_flagged_at_or_above_threshold(self) -> None:
-        s = EvalScore(groundedness=3.0, icp_relevance=4, personalization=4)
+        s = EvalScore(
+            groundedness=3.0, icp_relevance=4, personalization=4, specificity=3, recency=3
+        )
         assert s.is_flagged is False
 
     def test_custom_threshold_overrides_default(self) -> None:
-        strict = EvalScore(groundedness=3.5, icp_relevance=4, personalization=4, flag_threshold=4.0)
+        strict = EvalScore(
+            groundedness=3.5,
+            icp_relevance=4,
+            personalization=4,
+            specificity=3,
+            recency=3,
+            flag_threshold=4.0,
+        )
         assert strict.is_flagged is True
 
 
@@ -140,6 +152,20 @@ class TestScoredAccountUnscoreable:
         acc = Account(domain="x.com")
         enr = Enrichment(account=acc)
         sa = ScoredAccount.unscoreable(acc, enr, "no enrichment data")
-        assert sa.status == "unscoreable"
+        assert sa.status == AccountStatus.hook_suppressed
         assert sa.score is None
         assert sa.error == "no enrichment data"
+
+    def test_account_status_serializes_as_string(self) -> None:
+        acc = Account(domain="x.com")
+        enr = Enrichment(account=acc)
+        sa = ScoredAccount(account=acc, status=AccountStatus.clean, enrichment=enr)
+        assert sa.model_dump()["status"] == "clean"
+
+    def test_scored_account_rejects_invalid_status(self) -> None:
+        from pydantic import ValidationError
+
+        acc = Account(domain="x.com")
+        enr = Enrichment(account=acc)
+        with pytest.raises(ValidationError):
+            ScoredAccount(account=acc, status="invalid_status", enrichment=enr)  # type: ignore[arg-type]
