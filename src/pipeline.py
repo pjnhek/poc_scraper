@@ -119,13 +119,19 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
     # D-03 precedence: worst-observability-first so a judge failure is never masked.
     # judge_failed wins because it signals the eval layer is broken, not just the content.
     # hook_suppressed is next because no content was delivered regardless of eval result.
+    # eval_score=None from an exception (not unparseable output) also maps to judge_failed
+    # so the sheet reader can distinguish "evaluated clean" from "eval crashed silently".
     # low_groundedness means content exists but the judge flagged it.
     # clean only when none of the above apply.
     if eval_score is not None and eval_score.eval_failed:
         final_status = AccountStatus.judge_failed
     elif all(h.paragraph == "" for h in hooks):
         final_status = AccountStatus.hook_suppressed
-    elif eval_score is not None and eval_score.is_flagged:
+    elif eval_score is None:
+        # Eval raised a network or runtime exception; treat as judge_failed so the
+        # reader knows the eval layer did not run, not that content passed review.
+        final_status = AccountStatus.judge_failed
+    elif eval_score.is_flagged:
         final_status = AccountStatus.low_groundedness
     else:
         final_status = AccountStatus.clean

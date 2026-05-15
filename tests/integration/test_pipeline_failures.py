@@ -251,3 +251,61 @@ async def test_all_hooks_suppressed_status() -> None:
     sa = await process_account(Account(domain="x.com"), deps)
     # D-03: all hooks empty → hook_suppressed regardless of eval result.
     assert sa.status == AccountStatus.hook_suppressed
+
+
+@pytest.mark.asyncio
+async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> None:
+    """D-03: eval network exception + non-empty hooks must yield judge_failed, not clean.
+
+    When evaluate_account raises (not returns unparseable output), eval_score=None.
+    The D-03 precedence must map None to judge_failed so the reader knows the eval
+    layer crashed, not that the content was clean.
+    """
+
+    class EvalCrashingLLM:
+        async def synthesize(
+            self, system: str, context: str, user_prompt: str, max_tokens=None
+        ) -> LLMResponse:
+            if "You are a sales analyst" in system:
+                return LLMResponse(
+                    text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}'
+                )
+            if "score companies against an ICP rubric" in system:
+                return LLMResponse(
+                    text=(
+                        '{"support_volume":5,"support_volume_reason":"r",'
+                        '"ai_maturity":5,"ai_maturity_reason":"r",'
+                        '"stage_fit":5,"stage_fit_reason":"r",'
+                        '"channel_breadth":5,"channel_breadth_reason":"r",'
+                        '"justification":"ok"}'
+                    )
+                )
+            if "propose the top 3 buyer personas" in system:
+                return LLMResponse(
+                    text=(
+                        '[{"role_title":"a","rationale":"r"},'
+                        '{"role_title":"b","rationale":"r"},'
+                        '{"role_title":"c","rationale":"r"}]'
+                    )
+                )
+            if "You write outreach claims from a seller" in system:
+                return LLMResponse(
+                    text=(
+                        '{"claims":[{"claim":"X is a company that does things",'
+                        '"cited_indices":[1]}],"connective_text":"reach out"}'
+                    )
+                )
+            if "LLM judge evaluating" in system:
+                raise RuntimeError("eval network error")
+            raise AssertionError(f"unscripted: {system[:60]}")
+
+    deps = build_deps(
+        writer=EvalCrashingLLM(),
+        judge=EvalCrashingLLM(),
+        exa=FakeExa(about=[_exa_about()]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="x.com"), deps)
+    # D-03: eval exception with non-empty hooks must be judge_failed, not clean.
+    assert sa.status == AccountStatus.judge_failed
+    assert sa.eval_score is None
