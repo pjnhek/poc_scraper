@@ -13,6 +13,7 @@ build/
 .coverage
 htmlcov/
 .DS_Store
+.planning/
 
 # Google service account credentials
 credentials*.json
