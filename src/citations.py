@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
 from rapidfuzz import fuzz
 
 from .models import Justification
+
+log = logging.getLogger(__name__)
 
 # [1], [2,3], [1, 4] — tolerate optional whitespace and comma-separated lists.
 INDEX_MARKER_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
@@ -116,6 +119,13 @@ def assemble_paragraph(
 
     paragraph = " ".join(surviving_texts)
     tail = connective_text.strip()
+    # Guard: drop connective_text that embeds [N] markers — the writer has
+    # placed a citable factual claim here instead of in the claims array,
+    # attempting to bypass the per-claim rapidfuzz gate.  Every cited
+    # assertion must live in claims so the coverage check applies to it.
+    if tail and INDEX_MARKER_RE.search(tail):
+        log.warning("outreach: connective_text contains index markers; dropping to prevent bypass")
+        tail = ""
     if tail:
         paragraph = paragraph + " " + tail
 
