@@ -95,7 +95,7 @@ Explicitly excluded from this milestone. Each came up in research or PROJECT.md 
 
 ## Traceability
 
-Populated by the roadmapper. Each requirement maps to exactly one phase.
+Finalized by the roadmapper 2026-05-14. Each requirement maps to exactly one phase. The provisional mapping in the working-phase categories above was confirmed without changes.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -134,9 +134,9 @@ Populated by the roadmapper. Each requirement maps to exactly one phase.
 **Coverage:**
 
 - v1 requirements: 30 total
-- Mapped to phases: 30 (provisional, finalized by roadmapper)
+- Mapped to phases: 30 (finalized 2026-05-14)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-14*
-*Last updated: 2026-05-14 after initial definition*
+*Last updated: 2026-05-14 after roadmap finalized traceability*
