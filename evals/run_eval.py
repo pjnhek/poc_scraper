@@ -215,22 +215,43 @@ def build_nvidia_judge_client(settings: Settings) -> NvidiaClient:
         api_key = settings.calibration_judge_api_key
         base_url = settings.calibration_judge_base_url
         model = settings.calibration_judge_model
+        # The override target uses the DeepSeek-style thinking toggle
+        # (extra_body={"thinking": {"type": "enabled"}}), not NVIDIA's
+        # numeric thinking_budget. reasoning_budget MUST stay None so the
+        # client does not inject the NVIDIA-only thinking_budget key, which
+        # this endpoint does not accept. A thinking judge is wanted here for
+        # rubric rigor, matching the DeepSeek judge's thinking mode.
+        # A thinking model spends max_tokens on reasoning before the answer;
+        # the shared judge default (4096) truncates mid-reasoning and yields
+        # parse failures that _safe_judge would wrongly count as
+        # judge-failed. Give the override path generous headroom without
+        # touching the provider-agnostic default the DeepSeek judge shares.
+        override_max_tokens = max(settings.judge_max_tokens, 32768)
+        params = GenerationParams(
+            temperature=settings.judge_temperature,
+            top_p=settings.judge_top_p,
+            max_tokens=override_max_tokens,
+            reasoning_budget=None,
+            json_mode=False,
+            extra_body={"thinking": {"type": "enabled"}},
+        )
     else:
         api_key = settings.nvidia_api_key
         base_url = NVIDIA_BASE_URL
         model = settings.judge_model_nvidia
-    return NvidiaClient(
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-        max_in_flight=settings.llm_max_in_flight,
-        params=GenerationParams(
+        params = GenerationParams(
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,
             max_tokens=settings.judge_max_tokens,
             reasoning_budget=settings.judge_reasoning_budget,
             json_mode=False,
-        ),
+        )
+    return NvidiaClient(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        max_in_flight=settings.llm_max_in_flight,
+        params=params,
     )
 
 
