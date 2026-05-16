@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     writer_model_nvidia: str = "minimaxai/minimax-m2.7"
     judge_model_nvidia: str = "bytedance/seed-oss-36b-instruct"
 
+    # Cross-family calibration judge (EVAL-04 / D-08). The collusion signal
+    # only needs the second judge to be a DIFFERENT model family than the
+    # DeepSeek writer+judge; the specific provider is not load-bearing. The
+    # free NVIDIA endpoint is unreliable for a 25-record batch (drops
+    # connections, exhausts retries), so the cross-family judge is
+    # overridable via env. When all three are empty, calibration falls back
+    # to the NVIDIA judge (locked-matrix default). When set, any
+    # OpenAI-compatible endpoint works (the generic NvidiaClient speaks the
+    # OpenAI wire format). Vendor specifics live only in the gitignored .env;
+    # no vendor name appears in code or committed config.
+    calibration_judge_api_key: str = ""
+    calibration_judge_base_url: str = ""
+    calibration_judge_model: str = ""
+
     # DeepSeek defaults. Both on v4-flash for demo-friendly latency.
     # Writer runs without thinking; judge runs WITH thinking enabled
     # plus reasoning_effort="medium". The thinking-mode toggle creates
@@ -99,6 +113,20 @@ class Settings(BaseSettings):
         if self.resolved_provider == "deepseek":
             return self.judge_model_deepseek
         return self.judge_model_nvidia
+
+    @property
+    def calibration_judge_overridden(self) -> bool:
+        """True when an explicit cross-family calibration judge is configured.
+
+        Requires all three of api_key, base_url, and model so a half-set
+        override fails loud at config time rather than silently falling back
+        to NVIDIA mid-run.
+        """
+        return bool(
+            self.calibration_judge_api_key
+            and self.calibration_judge_base_url
+            and self.calibration_judge_model
+        )
 
     def require_for_pipeline(self) -> None:
         provider = self.resolved_provider

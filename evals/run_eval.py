@@ -177,29 +177,52 @@ async def run(split_filter: str | None = None) -> int:
 
 
 def _require_calibration_keys(settings: Settings) -> None:
-    """Fail fast before any API call if both judge keys are not set."""
+    """Fail fast before any API call if the two judge families are not usable.
+
+    The primary judge is always DeepSeek. The cross-family judge is the
+    configured override when present, otherwise NVIDIA (locked-matrix
+    default). Validating the resolved cross-family key here keeps the error
+    message accurate to whichever provider will actually be called.
+    """
     missing: list[str] = []
     if not settings.deepseek_api_key:
         missing.append("DEEPSEEK_API_KEY")
-    if not settings.nvidia_api_key:
-        missing.append("NVIDIA_API_KEY")
+    if settings.calibration_judge_overridden:
+        # All three override fields are set (see Settings property); nothing
+        # further to require for the cross-family side.
+        pass
+    elif not settings.nvidia_api_key:
+        missing.append("NVIDIA_API_KEY (or set CALIBRATION_JUDGE_* override)")
     if missing:
         raise RuntimeError(
-            f"cross-family calibration requires both judge keys: {', '.join(missing)}. "
+            f"cross-family calibration requires both judge families: {', '.join(missing)}. "
             "See .env.example."
         )
 
 
 def build_nvidia_judge_client(settings: Settings) -> NvidiaClient:
-    """Build NVIDIA judge explicitly for cross-family calibration (D-08).
+    """Build the cross-family calibration judge (D-08).
 
-    Called regardless of settings.resolved_provider so the DeepSeek and NVIDIA
-    families always both score the full labeled set.
+    Called regardless of settings.resolved_provider so two different model
+    families always both score the full labeled set. Uses the
+    CALIBRATION_JUDGE_* override when configured (any OpenAI-compatible
+    endpoint; NvidiaClient speaks the OpenAI wire format), else the NVIDIA
+    judge (locked-matrix default). The collusion signal only requires a
+    family distinct from the DeepSeek writer+judge; the specific vendor is
+    not load-bearing.
     """
+    if settings.calibration_judge_overridden:
+        api_key = settings.calibration_judge_api_key
+        base_url = settings.calibration_judge_base_url
+        model = settings.calibration_judge_model
+    else:
+        api_key = settings.nvidia_api_key
+        base_url = NVIDIA_BASE_URL
+        model = settings.judge_model_nvidia
     return NvidiaClient(
-        api_key=settings.nvidia_api_key,
-        base_url=NVIDIA_BASE_URL,
-        model=settings.judge_model_nvidia,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
         max_in_flight=settings.llm_max_in_flight,
         params=GenerationParams(
             temperature=settings.judge_temperature,
@@ -364,7 +387,11 @@ async def run_calibration() -> int:
 
     run_date = datetime.date.today().isoformat()
     ds_judge_name = settings.judge_model_deepseek
-    nv_judge_name = settings.judge_model_nvidia
+    nv_judge_name = (
+        settings.calibration_judge_model
+        if settings.calibration_judge_overridden
+        else settings.judge_model_nvidia
+    )
 
     out_dir = Path(__file__).parent
 
