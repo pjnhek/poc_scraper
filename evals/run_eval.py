@@ -50,6 +50,21 @@ class EvalRow:
     notes: str | None
 
 
+def _req_axis(exp: dict[str, object], name: str) -> float:
+    """Read a required 1-5 expected axis label, failing loud on a bad record.
+
+    A missing or out-of-range axis would otherwise silently load (e.g. as
+    0.0), violate the EvalScore ge=1 contract, and corrupt kappa with a
+    human value the judge can never match. Data errors fail at the boundary.
+    """
+    if name not in exp:
+        raise ValueError(f"labeled record missing expected.{name}")
+    v = float(cast(float, exp[name]))
+    if not 1.0 <= v <= 5.0:
+        raise ValueError(f"expected.{name}={v} out of 1-5 range")
+    return v
+
+
 def load_labeled(path: Path = LABELED_PATH) -> list[LabeledExample]:
     examples: list[LabeledExample] = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -69,11 +84,11 @@ def load_labeled(path: Path = LABELED_PATH) -> list[LabeledExample]:
                 cited_indices=[int(i) for i in d.get("cited_indices", [])],
                 split=str(d.get("split", "train")),
                 coverage_cells=list(d.get("coverage_cells", [])),
-                expected_groundedness=float(exp.get("groundedness", 0)),
-                expected_relevance=float(exp.get("icp_relevance", 0)),
-                expected_personalization=float(exp.get("personalization", 0)),
-                expected_specificity=float(exp.get("specificity", 1.0)),
-                expected_recency=float(exp.get("recency", 1.0)),
+                expected_groundedness=_req_axis(exp, "groundedness"),
+                expected_relevance=_req_axis(exp, "icp_relevance"),
+                expected_personalization=_req_axis(exp, "personalization"),
+                expected_specificity=_req_axis(exp, "specificity"),
+                expected_recency=_req_axis(exp, "recency"),
                 expected_eval_failed=bool(exp.get("eval_failed", False)),
             )
         )
