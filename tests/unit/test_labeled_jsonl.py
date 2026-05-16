@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from evals.run_eval import load_labeled
 
 LABELED_PATH = Path(__file__).parents[2] / "evals" / "labeled.jsonl"
@@ -24,7 +22,6 @@ def test_all_records_have_five_axis_expected_values() -> None:
         assert 1.0 <= ex.expected_recency <= 5.0
 
 
-@pytest.mark.skip(reason="labeled.jsonl not yet rebuilt; will pass after plan 03-04")
 def test_holdout_fraction_near_30_pct() -> None:
     examples = load_labeled(LABELED_PATH)
     holdout_count = sum(1 for ex in examples if ex.split == "holdout")
@@ -34,13 +31,11 @@ def test_holdout_fraction_near_30_pct() -> None:
     assert 0.15 <= holdout_count / total <= 0.45
 
 
-@pytest.mark.skip(reason="labeled.jsonl not yet rebuilt; will pass after plan 03-04")
 def test_all_records_have_coverage_cells() -> None:
     examples = load_labeled(LABELED_PATH)
     assert all(ex.coverage_cells for ex in examples)
 
 
-@pytest.mark.skip(reason="labeled.jsonl not yet rebuilt; will pass after plan 03-04")
 def test_no_eval_failed_true_except_sentinel_records() -> None:
     examples = load_labeled(LABELED_PATH)
     failed = [ex for ex in examples if ex.expected_eval_failed]

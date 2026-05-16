@@ -70,26 +70,29 @@ documented here rather than backfilled with synthetic data (D-02: all-real prove
 are recorded honestly). This honesty is itself part of the rigor claim: "Known gaps do not invalidate
 the eval; they bound the claim. COVERAGE.md is the evidence that the claim is bounded, not hidden."
 
-The following cells are anticipated to be difficult to fill naturally from a 10-domain source run:
+Outcome of the 2026-05-16 source run (10 domains, 25 labeled records). 17 of 18 cells are
+covered by real-provenance records. The single remaining gap is recorded honestly below rather
+than backfilled with synthetic data (D-02: all-real provenance; D-04: gaps recorded honestly).
 
-- **empty-enrichment**: requires a domain where Exa returns no about-page content and no news
-  results. If no domain in `inputs/accounts.csv` produces this condition, the cell will be
-  documented as a known gap. The code path is tested in integration tests separately; the absence
-  of a labeled example means the eval does not measure judge behavior on this failure, not that the
-  pipeline does not handle it.
+- **empty-enrichment**: COVERED. The warbyparker source domain returned only an
+  investor-relations page; enrichment was too thin to support any claim and all hooks were
+  suppressed. The example09-vp-cx record (empty paragraph, no citations) anchors this cell as a
+  real-provenance empty-enrichment example.
 
-- **blocked-scrape**: requires Browserbase to return a blocked or empty response on a live run.
-  Whether any domain in the source run triggers this depends on the domains selected and the state
-  of those sites at run time. If the source run does not produce a blocked-scrape record, the cell
-  is documented as a known gap and the failure mode is covered by the integration test layer instead
-  (Pitfall 9 mitigation).
+- **blocked-scrape**: KNOWN GAP (this run). No domain in `inputs/accounts.csv` triggered a
+  Browserbase blocked or empty response during the 2026-05-16 source run, so no real-provenance
+  record exists for this cell. Per D-02 it is not backfilled with synthetic data. The failure
+  mode is covered by the integration test layer instead (Pitfall 9 mitigation): the pipeline
+  logs the block and continues rather than failing the run. This gap bounds the eval claim (the
+  judge's behavior on a blocked-scrape hook is not measured by the labeled set); it does not
+  indicate the pipeline mishandles the path.
 
-- **judge-failed**: requires a record that specifically exercises the judge-failure sentinel
-  (eval_failed=true). Natural pipeline runs rarely produce judge failures in normal operation.
-  This record can be constructed by using a deliberately malformed input that causes the judge to
-  return unparseable output; if the source run does not naturally produce one and no such record is
-  constructed, this cell is documented as a known gap. The sentinel-collision fix in Phase 2
-  (eval_failed field on EvalScore) is the code-level mitigation regardless of eval-set coverage.
+- **judge-failed**: COVERED. Natural pipeline runs rarely produce judge failures, and the
+  2026-05-16 run produced none. Per the COVERAGE.md provision for a constructed sentinel, the
+  example10-judge-failed record reuses the example10-cto grounded paragraph and justifications
+  with `eval_failed: true` and all five axes at the sentinel floor. This record exists to verify
+  the harness distinguishes judge failure from writer fabrication (Pitfall 5); it is the only
+  constructed record in the set and it reuses real-provenance content.
 
 ## Cross-Family Calibration Note
 
