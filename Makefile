@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run eval eval-live eval-fixtures test smoke lint format typecheck clean
+.PHONY: install setup-sheet run eval eval-live eval-fixtures eval-calibration test smoke lint format typecheck clean
 
 install:
 	uv sync --extra dev
@@ -17,6 +17,9 @@ eval-live:
 
 eval-fixtures:
 	uv run python -m evals.run_eval
+
+eval-calibration:
+	uv run python -m evals.run_eval --calibration
 
 test:
 	uv run pytest -m "not smoke"
