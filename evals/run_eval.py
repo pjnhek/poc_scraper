@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
+import datetime
 import json
 import logging
 from dataclasses import dataclass
@@ -10,7 +12,7 @@ from typing import cast
 from evals.agreement import AXES, cohen_kappa_linear, pct_agreement
 from src.clients.nvidia_client import NVIDIA_BASE_URL, GenerationParams, NvidiaClient
 from src.config import Settings, get_settings
-from src.models import Citation, Contact, Justification, OutreachHook
+from src.models import Citation, Contact, EvalScore, Justification, OutreachHook
 from src.pipeline import build_judge_client
 
 from .rubric import EvalRubric
@@ -299,8 +301,6 @@ async def run_calibration() -> int:
     Excludes eval_failed=True examples from kappa computation and reports
     judge-failure rate separately (D-08, RESEARCH.md Pitfall E).
     """
-    import datetime
-
     settings = get_settings()
     _require_calibration_keys(settings)
 
@@ -310,8 +310,6 @@ async def run_calibration() -> int:
 
     deepseek_rubric = EvalRubric(build_judge_client(settings))
     nvidia_rubric = EvalRubric(build_nvidia_judge_client(settings))
-
-    from src.models import EvalScore
 
     async def _safe_judge(
         rubric: EvalRubric,
@@ -512,8 +510,6 @@ async def run_calibration() -> int:
 
 
 if __name__ == "__main__":
-    import argparse
-
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Run eval harness or cross-family calibration.")
     parser.add_argument(
