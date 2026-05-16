@@ -406,19 +406,30 @@ async def run_calibration() -> int:
         nv_h_kappa = cohen_kappa_linear(nv_vals, human_vals)
         nv_h_pct = pct_agreement(nv_vals, human_vals)
 
-        # Document single-class kappa collapse (agreement.py returns 1.0 with k==1 guard).
-        for pair_name, kappa_val, labels_a, labels_b in [
-            ("NVIDIA vs DeepSeek", nv_ds_kappa, nv_vals, ds_vals),
-            ("DeepSeek vs human", ds_h_kappa, ds_vals, human_vals),
-            ("NVIDIA vs human", nv_h_kappa, nv_vals, human_vals),
+        # Classify degenerate kappa by inspecting the data directly,
+        # decoupled from the 1.0 sentinel (agreement.py returns 1.0 both
+        # for a true single-class collapse AND for the asymmetric pe>=1
+        # case where raters actually disagreed). Three cases:
+        #   - both raters constant on the SAME value: kappa truly undefined.
+        #   - exactly one rater constant: pe>=1 degenerate, NOT agreement.
+        #   - neither constant: real perfect agreement, no note.
+        for pair_name, labels_a, labels_b in [
+            ("NVIDIA vs DeepSeek", nv_vals, ds_vals),
+            ("DeepSeek vs human", ds_vals, human_vals),
+            ("NVIDIA vs human", nv_vals, human_vals),
         ]:
-            if kappa_val == 1.0:
-                all_same_a = len(set(labels_a)) == 1
-                all_same_b = len(set(labels_b)) == 1
-                if all_same_a or all_same_b:
-                    single_class_notes.append(
-                        f"{axis} ({pair_name}): NOTE: single-class, kappa undefined"
-                    )
+            all_same_a = len(set(labels_a)) == 1
+            all_same_b = len(set(labels_b)) == 1
+            if all_same_a and all_same_b and labels_a[0] == labels_b[0]:
+                single_class_notes.append(
+                    f"{axis} ({pair_name}): single-class, kappa undefined"
+                    " (both raters constant on one value)"
+                )
+            elif all_same_a != all_same_b:
+                single_class_notes.append(
+                    f"{axis} ({pair_name}): degenerate kappa=1.0 -- one rater"
+                    " constant while the other varied (pe>=1, not agreement)"
+                )
 
         inter_judge[axis] = {"kappa": round(nv_ds_kappa, 3), "pct_agree": round(nv_ds_pct, 3)}
         ds_vs_human[axis] = {"kappa": round(ds_h_kappa, 3), "pct_agree": round(ds_h_pct, 3)}
@@ -475,7 +486,7 @@ async def run_calibration() -> int:
         f"- NVIDIA judge failures: {nv_fail_count}.",
     ]
     if single_class_notes:
-        notes_lines.append("- Single-class kappa (kappa undefined, reported as 1.0):")
+        notes_lines.append("- Kappa caveats (degenerate or undefined cases):")
         for note in single_class_notes:
             notes_lines.append(f"  - {note}")
 
