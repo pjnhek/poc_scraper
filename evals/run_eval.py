@@ -380,60 +380,72 @@ async def run_calibration() -> int:
         nv_fail_count,
     )
 
-    # Per-axis kappa for all three pairs.
-    inter_judge: dict[str, dict[str, float]] = {}
-    ds_vs_human: dict[str, dict[str, float]] = {}
-    nv_vs_human: dict[str, dict[str, float]] = {}
+    # Per-axis kappa for all three pairs. kappa is None when undefined
+    # (fewer than 2 valid observations) so Phase 4 consumers never read a
+    # degenerate 0/1-sample value as real agreement evidence.
+    inter_judge: dict[str, dict[str, float | None]] = {}
+    ds_vs_human: dict[str, dict[str, float | None]] = {}
+    nv_vs_human: dict[str, dict[str, float | None]] = {}
     single_class_notes: list[str] = []
 
-    for axis in AXES:
-        exp_attr = _AXIS_TO_EXPECTED[axis]
-        act_attr = _AXIS_TO_ACTUAL[axis]
-        human_vals = [float(getattr(examples[i], exp_attr)) for i in valid_indices]
-        ds_vals = [float(getattr(ds_scores[i], act_attr)) for i in valid_indices]
-        nv_vals = [float(getattr(nv_scores[i], act_attr)) for i in valid_indices]
+    # n < 2 makes kappa mathematically meaningless: a single observation
+    # (or none) cannot estimate chance agreement. Guard ABOVE the per-axis
+    # comprehensions so we never build vals or call kappa on a degenerate
+    # set, and so the artifact records kappa: null with an explicit reason
+    # rather than a fabricated 0.0 or a 1-sample value reported as real.
+    if n_valid < 2:
+        reason = (
+            f"only {n_valid} valid record(s) after excluding judge failures"
+            " and expected_eval_failed sentinels; kappa undefined for n < 2"
+        )
+        for axis in AXES:
+            inter_judge[axis] = {"kappa": None, "pct_agree": None}
+            ds_vs_human[axis] = {"kappa": None, "pct_agree": None}
+            nv_vs_human[axis] = {"kappa": None, "pct_agree": None}
+        single_class_notes.append(reason)
+    else:
+        for axis in AXES:
+            exp_attr = _AXIS_TO_EXPECTED[axis]
+            act_attr = _AXIS_TO_ACTUAL[axis]
+            human_vals = [float(getattr(examples[i], exp_attr)) for i in valid_indices]
+            ds_vals = [float(getattr(ds_scores[i], act_attr)) for i in valid_indices]
+            nv_vals = [float(getattr(nv_scores[i], act_attr)) for i in valid_indices]
 
-        if n_valid == 0:
-            inter_judge[axis] = {"kappa": 0.0, "pct_agree": 0.0}
-            ds_vs_human[axis] = {"kappa": 0.0, "pct_agree": 0.0}
-            nv_vs_human[axis] = {"kappa": 0.0, "pct_agree": 0.0}
-            continue
+            nv_ds_kappa = cohen_kappa_linear(nv_vals, ds_vals)
+            nv_ds_pct = pct_agreement(nv_vals, ds_vals)
+            ds_h_kappa = cohen_kappa_linear(ds_vals, human_vals)
+            ds_h_pct = pct_agreement(ds_vals, human_vals)
+            nv_h_kappa = cohen_kappa_linear(nv_vals, human_vals)
+            nv_h_pct = pct_agreement(nv_vals, human_vals)
 
-        nv_ds_kappa = cohen_kappa_linear(nv_vals, ds_vals)
-        nv_ds_pct = pct_agreement(nv_vals, ds_vals)
-        ds_h_kappa = cohen_kappa_linear(ds_vals, human_vals)
-        ds_h_pct = pct_agreement(ds_vals, human_vals)
-        nv_h_kappa = cohen_kappa_linear(nv_vals, human_vals)
-        nv_h_pct = pct_agreement(nv_vals, human_vals)
+            # Classify degenerate kappa by inspecting the data directly,
+            # decoupled from the 1.0 sentinel (agreement.py returns 1.0
+            # both for a true single-class collapse AND for the asymmetric
+            # pe>=1 case where raters actually disagreed). Three cases:
+            #   - both raters constant on the SAME value: truly undefined.
+            #   - exactly one rater constant: pe>=1 degenerate, NOT agree.
+            #   - neither constant: real perfect agreement, no note.
+            for pair_name, labels_a, labels_b in [
+                ("NVIDIA vs DeepSeek", nv_vals, ds_vals),
+                ("DeepSeek vs human", ds_vals, human_vals),
+                ("NVIDIA vs human", nv_vals, human_vals),
+            ]:
+                all_same_a = len(set(labels_a)) == 1
+                all_same_b = len(set(labels_b)) == 1
+                if all_same_a and all_same_b and labels_a[0] == labels_b[0]:
+                    single_class_notes.append(
+                        f"{axis} ({pair_name}): single-class, kappa undefined"
+                        " (both raters constant on one value)"
+                    )
+                elif all_same_a != all_same_b:
+                    single_class_notes.append(
+                        f"{axis} ({pair_name}): degenerate kappa=1.0 -- one rater"
+                        " constant while the other varied (pe>=1, not agreement)"
+                    )
 
-        # Classify degenerate kappa by inspecting the data directly,
-        # decoupled from the 1.0 sentinel (agreement.py returns 1.0 both
-        # for a true single-class collapse AND for the asymmetric pe>=1
-        # case where raters actually disagreed). Three cases:
-        #   - both raters constant on the SAME value: kappa truly undefined.
-        #   - exactly one rater constant: pe>=1 degenerate, NOT agreement.
-        #   - neither constant: real perfect agreement, no note.
-        for pair_name, labels_a, labels_b in [
-            ("NVIDIA vs DeepSeek", nv_vals, ds_vals),
-            ("DeepSeek vs human", ds_vals, human_vals),
-            ("NVIDIA vs human", nv_vals, human_vals),
-        ]:
-            all_same_a = len(set(labels_a)) == 1
-            all_same_b = len(set(labels_b)) == 1
-            if all_same_a and all_same_b and labels_a[0] == labels_b[0]:
-                single_class_notes.append(
-                    f"{axis} ({pair_name}): single-class, kappa undefined"
-                    " (both raters constant on one value)"
-                )
-            elif all_same_a != all_same_b:
-                single_class_notes.append(
-                    f"{axis} ({pair_name}): degenerate kappa=1.0 -- one rater"
-                    " constant while the other varied (pe>=1, not agreement)"
-                )
-
-        inter_judge[axis] = {"kappa": round(nv_ds_kappa, 3), "pct_agree": round(nv_ds_pct, 3)}
-        ds_vs_human[axis] = {"kappa": round(ds_h_kappa, 3), "pct_agree": round(ds_h_pct, 3)}
-        nv_vs_human[axis] = {"kappa": round(nv_h_kappa, 3), "pct_agree": round(nv_h_pct, 3)}
+            inter_judge[axis] = {"kappa": round(nv_ds_kappa, 3), "pct_agree": round(nv_ds_pct, 3)}
+            ds_vs_human[axis] = {"kappa": round(ds_h_kappa, 3), "pct_agree": round(ds_h_pct, 3)}
+            nv_vs_human[axis] = {"kappa": round(nv_h_kappa, 3), "pct_agree": round(nv_h_pct, 3)}
 
     run_date = datetime.date.today().isoformat()
     ds_judge_name = settings.judge_model_deepseek
@@ -463,17 +475,26 @@ async def run_calibration() -> int:
     log.info("wrote %s", json_path)
 
     # Write CALIBRATION.md (human-readable artifact).
-    def _kappa_row(axis: str, data: dict[str, dict[str, float]]) -> str:
+    def _fmt_kappa(k: float | None) -> str:
+        return "n/a" if k is None else f"{k:.3f}"
+
+    def _fmt_pct(p: float | None) -> str:
+        return "n/a" if p is None else f"{p:.1%}"
+
+    def _kappa_row(axis: str, data: dict[str, dict[str, float | None]]) -> str:
         k = data[axis]["kappa"]
         p = data[axis]["pct_agree"]
-        return f"| {axis} | {k:.3f} | {p:.1%} |"
+        return f"| {axis} | {_fmt_kappa(k)} | {_fmt_pct(p)} |"
 
     def _accuracy_row(axis: str) -> str:
         ds_k = ds_vs_human[axis]["kappa"]
         ds_p = ds_vs_human[axis]["pct_agree"]
         nv_k = nv_vs_human[axis]["kappa"]
         nv_p = nv_vs_human[axis]["pct_agree"]
-        return f"| {axis} | {ds_k:.3f} ({ds_p:.1%}) | {nv_k:.3f} ({nv_p:.1%}) |"
+        return (
+            f"| {axis} | {_fmt_kappa(ds_k)} ({_fmt_pct(ds_p)})"
+            f" | {_fmt_kappa(nv_k)} ({_fmt_pct(nv_p)}) |"
+        )
 
     inter_rows = "\n".join(_kappa_row(ax, inter_judge) for ax in AXES)
     accuracy_rows = "\n".join(_accuracy_row(ax) for ax in AXES)
