@@ -221,12 +221,14 @@ def build_nvidia_judge_client(settings: Settings) -> NvidiaClient:
         # client does not inject the NVIDIA-only thinking_budget key, which
         # this endpoint does not accept. A thinking judge is wanted here for
         # rubric rigor, matching the DeepSeek judge's thinking mode.
-        # A thinking model spends max_tokens on reasoning before the answer;
-        # the shared judge default (4096) truncates mid-reasoning and yields
-        # parse failures that _safe_judge would wrongly count as
-        # judge-failed. Give the override path generous headroom without
-        # touching the provider-agnostic default the DeepSeek judge shares.
-        override_max_tokens = max(settings.judge_max_tokens, 32768)
+        #
+        # The cross-family judge gets its OWN token budget, deliberately
+        # decoupled from settings.judge_max_tokens (which is tuned small for
+        # the DeepSeek production judge, whose responses time out the
+        # connection above ~8k). A thinking judge spends the budget on its
+        # reasoning trace before the JSON answer; this target (Kimi k2.x and
+        # similar) tolerates and needs the headroom that DeepSeek does not.
+        override_max_tokens = 32768
         params = GenerationParams(
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,

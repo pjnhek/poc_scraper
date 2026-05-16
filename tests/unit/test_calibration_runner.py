@@ -1,3 +1,12 @@
+# mypy: disable-error-code=arg-type
+#
+# The Settings fixtures below build a defaults dict and splat it as
+# **kwargs into the pydantic-settings Settings(). mypy cannot reconcile a
+# **dict[str, object] unpack with pydantic's generated, per-field-typed
+# __init__ (a known pydantic+mypy limitation; test_config.py sidesteps it
+# only by passing kwargs individually). This is test-only and CI scopes
+# mypy to `src evals` (.github/workflows/ci.yml), not tests/, so the
+# annotation documents intent rather than silencing a checked surface.
 from __future__ import annotations
 
 import pytest
@@ -14,14 +23,36 @@ from src.config import Settings
 # ---------------------------------------------------------------------------
 
 
-def _settings(**overrides: str) -> Settings:
-    """Build a Settings with both keys present by default."""
-    base = {
+def _settings(**overrides: object) -> Settings:
+    """Build a Settings for the NVIDIA-fallback path by default.
+
+    _env_file=None disables the real .env (pydantic-settings feature, same
+    isolation pattern as test_config.py), so the developer's ambient
+    CALIBRATION_JUDGE_* values cannot leak in and flip these fallback-path
+    tests. Override-path behavior has its own fixture and dedicated tests.
+
+    overrides is typed object (not str): Settings fields are heterogeneous
+    (Path, int, str) and pydantic validates/coerces each at construction.
+    """
+    base: dict[str, object] = {
         "deepseek_api_key": "ds-key",
         "nvidia_api_key": "nv-key",
     }
     base.update(overrides)
-    return Settings(**base)
+    return Settings(_env_file=None, **base)  # type: ignore[call-arg]
+
+
+def _settings_override(**overrides: object) -> Settings:
+    """Build a Settings with the cross-family judge override active."""
+    base: dict[str, object] = {
+        "deepseek_api_key": "ds-key",
+        "nvidia_api_key": "",
+        "calibration_judge_api_key": "xf-key",
+        "calibration_judge_base_url": "https://example.test/v1",
+        "calibration_judge_model": "test-cross-family-model",
+    }
+    base.update(overrides)
+    return Settings(_env_file=None, **base)  # type: ignore[call-arg]
 
 
 def test_require_calibration_keys_passes_when_both_present() -> None:
@@ -34,8 +65,23 @@ def test_require_calibration_keys_raises_when_deepseek_missing() -> None:
 
 
 def test_require_calibration_keys_raises_when_nvidia_missing() -> None:
+    # Fallback path (no override configured): NVIDIA is the cross-family
+    # judge, so its key is required.
     with pytest.raises(RuntimeError, match="NVIDIA_API_KEY"):
         _require_calibration_keys(_settings(nvidia_api_key=""))
+
+
+def test_require_calibration_keys_passes_when_override_set_without_nvidia() -> None:
+    # Override path: the cross-family judge is the configured override, so
+    # a missing NVIDIA_API_KEY must NOT block calibration.
+    _require_calibration_keys(_settings_override())  # must not raise
+
+
+def test_require_calibration_keys_still_requires_deepseek_under_override() -> None:
+    # The primary judge is always DeepSeek; the override only replaces the
+    # cross-family side.
+    with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
+        _require_calibration_keys(_settings_override(deepseek_api_key=""))
 
 
 def test_require_calibration_keys_raises_both_missing_lists_both() -> None:
@@ -81,6 +127,33 @@ def test_build_nvidia_judge_client_json_mode_false() -> None:
     s = _settings()
     client = build_nvidia_judge_client(s)
     assert client._params.json_mode is False
+
+
+def test_build_judge_client_uses_override_endpoint_and_model() -> None:
+    # When the cross-family override is configured, the client must target
+    # the override base_url + model, NOT NVIDIA.
+    s = _settings_override()
+    client = build_nvidia_judge_client(s)
+    assert client._model == "test-cross-family-model"
+    assert str(client._client.base_url).startswith("https://example.test/v1")
+
+
+def test_build_judge_client_override_uses_thinking_toggle_not_budget() -> None:
+    # The override target uses the DeepSeek-style extra_body thinking toggle;
+    # reasoning_budget must stay None so the NVIDIA-only thinking_budget key
+    # is never injected into a request the endpoint would reject.
+    s = _settings_override()
+    client = build_nvidia_judge_client(s)
+    assert client._params.extra_body == {"thinking": {"type": "enabled"}}
+    assert client._params.reasoning_budget is None
+
+
+def test_build_judge_client_override_token_budget_decoupled() -> None:
+    # The cross-family judge gets its own large budget, independent of the
+    # small DeepSeek-tuned judge_max_tokens default.
+    s = _settings_override(judge_max_tokens="8192")
+    client = build_nvidia_judge_client(s)
+    assert client._params.max_tokens == 32768
 
 
 # ---------------------------------------------------------------------------
