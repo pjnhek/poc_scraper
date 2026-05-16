@@ -12,9 +12,16 @@ def _ex(id_: str = "x", g: float = 4.0, i: float = 4.0, p: float = 4.0) -> Label
         contact_role="VP CX",
         paragraph="p",
         citation_urls=["https://x.com/a"],
+        justifications=[],
+        cited_indices=[],
+        split="train",
+        coverage_cells=["rich-enrichment"],
         expected_groundedness=g,
         expected_relevance=i,
         expected_personalization=p,
+        expected_specificity=3.0,
+        expected_recency=3.0,
+        expected_eval_failed=False,
     )
 
 
@@ -24,6 +31,8 @@ def _row(ex: LabeledExample, g: float, i: float, p: float, notes: str = "ok") ->
         actual_groundedness=g,
         actual_relevance=i,
         actual_personalization=p,
+        actual_specificity=3.0,
+        actual_recency=3.0,
         notes=notes,
     )
 
