@@ -98,6 +98,21 @@ def test_run_calibration_is_coroutine() -> None:
     coro.close()  # prevent "coroutine never awaited" warning
 
 
+def test_run_calibration_wraps_judge_errors_as_eval_failed() -> None:
+    # Regression: a persistently-timing-out judge (NVIDIA free-tier exhausting
+    # tenacity retries, or the known DeepSeek empty-content flake) must NOT
+    # abort the whole run. run_calibration must wrap each judge call so a
+    # raised exception becomes an eval_failed=True sentinel excluded from kappa.
+    import inspect
+
+    import evals.run_eval as mod
+
+    src = inspect.getsource(mod.run_calibration)
+    assert "_safe_judge" in src
+    assert "except Exception" in src
+    assert "eval_failed=True" in src
+
+
 def test_run_calibration_returns_int_on_missing_keys() -> None:
 
     # When both keys are missing, run_calibration must raise RuntimeError
