@@ -66,15 +66,20 @@ class Settings(BaseSettings):
     # Sent as a top-level kwarg, separate from thinking-mode toggle.
     judge_reasoning_effort_deepseek: str = "medium"
 
-    # Generation params (provider-agnostic). Writer hot for creativity,
-    # judge cold for consistency.
+    # Generation params (provider-agnostic). Current reasoning models
+    # (DeepSeek v4, Kimi k2.x, and the o-series / Gemini families) are
+    # tuned for temperature 1.0 and degrade if it is altered; the reasoning
+    # trace, not a cold sampler, supplies judge consistency now. So both
+    # roles run at 1.0. max_tokens must cover the reasoning trace AND the
+    # answer for thinking models, or the JSON answer truncates into a parse
+    # failure (miscounted as a judge failure in calibration).
     writer_temperature: float = 1.0
     writer_top_p: float = 0.95
     writer_max_tokens: int = 8192
 
-    judge_temperature: float = 0.3
+    judge_temperature: float = 1.0
     judge_top_p: float = 0.95
-    judge_max_tokens: int = 4096
+    judge_max_tokens: int = 32768
     # NVIDIA-specific reasoning budget. -1 = unlimited, 0 = disabled,
     # positive = cap. Only applies when llm_provider == "nvidia" and the
     # judge model is a reasoning model (Seed-OSS, Nemotron reasoning).
