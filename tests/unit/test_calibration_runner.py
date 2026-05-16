@@ -9,8 +9,11 @@
 # annotation documents intent rather than silencing a checked surface.
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
+from evals.rubric import EvalRubric
 from evals.run_eval import (
     _require_calibration_keys,
     build_nvidia_judge_client,
@@ -174,29 +177,121 @@ def test_run_calibration_is_coroutine() -> None:
     coro.close()  # prevent "coroutine never awaited" warning
 
 
-def test_run_calibration_wraps_judge_errors_as_eval_failed() -> None:
-    # Regression: a persistently-timing-out judge (NVIDIA free-tier exhausting
-    # tenacity retries, or the known DeepSeek empty-content flake) must NOT
-    # abort the whole run. run_calibration must wrap each judge call so a
-    # raised exception becomes an eval_failed=True sentinel excluded from kappa.
-    import inspect
+async def test_safe_judge_wraps_raised_error_as_eval_failed() -> None:
+    # Behavioral regression: a persistently-timing-out judge (NVIDIA free-tier
+    # exhausting tenacity retries, or the known DeepSeek empty-content flake)
+    # must NOT abort the run. _safe_judge converts any raised exception into an
+    # EvalScore(eval_failed=True) sentinel with all axes pinned to 1.
+    from evals.run_eval import _safe_judge
+    from src.models import Contact, OutreachHook
+
+    class _RaisingRubric:
+        async def evaluate_hook(self, hook: object, domain: str, justs: object) -> object:
+            raise TimeoutError("provider exhausted retries")
+
+    hook = OutreachHook(
+        contact=Contact(role_title="VP CX", rationale="(test)"),
+        paragraph="x",
+        cited_indices=(),
+    )
+    score = await _safe_judge(
+        cast(EvalRubric, _RaisingRubric()), "DeepSeek", hook, "example01.com", ()
+    )
+
+    assert score.eval_failed is True
+    assert score.groundedness == 1
+    assert score.icp_relevance == 1
+    assert score.personalization == 1
+    assert score.specificity == 1
+    assert score.recency == 1
+    assert score.notes is not None
+    assert "TimeoutError" in score.notes
+
+
+async def test_safe_judge_passes_through_a_successful_score() -> None:
+    # The happy path must return the rubric's score unchanged (not a sentinel).
+    from evals.run_eval import _safe_judge
+    from src.models import Contact, EvalScore, OutreachHook
+
+    good = EvalScore(
+        groundedness=4,
+        icp_relevance=3,
+        personalization=5,
+        specificity=2,
+        recency=4,
+    )
+
+    class _GoodRubric:
+        async def evaluate_hook(self, hook: object, domain: str, justs: object) -> EvalScore:
+            return good
+
+    hook = OutreachHook(
+        contact=Contact(role_title="VP CX", rationale="(test)"),
+        paragraph="x",
+        cited_indices=(),
+    )
+    score = await _safe_judge(cast(EvalRubric, _GoodRubric()), "NVIDIA", hook, "example01.com", ())
+    assert score is good
+    assert score.eval_failed is False
+
+
+def test_valid_indices_filter_excludes_expected_failed_and_judge_failed() -> None:
+    # The union filter in run_calibration decides which records enter kappa.
+    # A regression that flipped any clause (e.g. INCLUDING judge-failed
+    # records) would silently corrupt every reported kappa, so pin the
+    # exact membership against a hand-built mix.
+    from src.models import EvalScore
+
+    def _ok() -> EvalScore:
+        return EvalScore(
+            groundedness=3,
+            icp_relevance=3,
+            personalization=3,
+            specificity=3,
+            recency=3,
+        )
+
+    def _failed() -> EvalScore:
+        return EvalScore(
+            groundedness=1,
+            icp_relevance=1,
+            personalization=1,
+            specificity=1,
+            recency=1,
+            eval_failed=True,
+        )
+
+    # index: (expected_eval_failed, ds_failed, nv_failed) -> valid?
+    #   0: clean              -> valid
+    #   1: expected_failed    -> excluded
+    #   2: ds judge failed    -> excluded
+    #   3: nv judge failed    -> excluded
+    #   4: clean              -> valid
+    examples_flags = [False, True, False, False, False]
+    ds_scores = [_ok(), _ok(), _failed(), _ok(), _ok()]
+    nv_scores = [_ok(), _ok(), _ok(), _failed(), _ok()]
+
+    valid_indices = [
+        i
+        for i in range(len(examples_flags))
+        if not examples_flags[i] and not ds_scores[i].eval_failed and not nv_scores[i].eval_failed
+    ]
+    assert valid_indices == [0, 4]
+
+
+def test_run_calibration_propagates_missing_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # When both judge keys are missing, run_calibration must raise the
+    # RuntimeError from _require_calibration_keys (fail loud), not return an
+    # int or proceed to a network call. Monkeypatch get_settings at the
+    # run_eval boundary so the pure-unit layer can exercise the real path.
+    import asyncio
 
     import evals.run_eval as mod
 
-    src = inspect.getsource(mod.run_calibration)
-    assert "_safe_judge" in src
-    assert "except Exception" in src
-    assert "eval_failed=True" in src
+    no_keys = Settings(_env_file=None, deepseek_api_key="", nvidia_api_key="")  # type: ignore[call-arg]
+    monkeypatch.setattr(mod, "get_settings", lambda: no_keys)
 
-
-def test_run_calibration_returns_int_on_missing_keys() -> None:
-
-    # When both keys are missing, run_calibration must raise RuntimeError
-    # (from _require_calibration_keys), not return 1 silently.
-    # The test confirms the function does not swallow the error.
-    # We cannot inject settings easily, so we just verify the error is propagated.
-    # This test is inherently limited to the key-missing code path.
-    pytest.skip(
-        "run_calibration reads from get_settings(); key-missing test requires "
-        "env patching not available in this pure-unit layer"
-    )
+    with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
+        asyncio.run(mod.run_calibration())

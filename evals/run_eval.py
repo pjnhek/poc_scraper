@@ -295,6 +295,36 @@ _AXIS_TO_ACTUAL: dict[str, str] = {
 }
 
 
+async def _safe_judge(
+    rubric: EvalRubric,
+    judge_name: str,
+    hook: OutreachHook,
+    domain: str,
+    justs: tuple[Justification, ...],
+) -> EvalScore:
+    """Score one hook, converting any raised provider error into a judge-failure.
+
+    A persistently-timing-out judge (the NVIDIA free-tier endpoint exhausting
+    its tenacity retries, or the known DeepSeek empty-content flake reraising)
+    must NOT abort the whole 25-record calibration run. The failed record is
+    marked eval_failed=True so it is excluded from kappa and counted in the
+    per-judge failure rate.
+    """
+    try:
+        return await rubric.evaluate_hook(hook, domain, justs)
+    except Exception as exc:  # noqa: BLE001 -- provider errors are heterogeneous
+        log.warning("%s judge raised %s: %s", judge_name, type(exc).__name__, exc)
+        return EvalScore(
+            groundedness=1,
+            icp_relevance=1,
+            personalization=1,
+            specificity=1,
+            recency=1,
+            eval_failed=True,
+            notes=f"(judge call raised {type(exc).__name__})",
+        )
+
+
 async def run_calibration() -> int:
     """Score the full labeled set with both judges; write CALIBRATION.md and calibration.json.
 
@@ -310,35 +340,6 @@ async def run_calibration() -> int:
 
     deepseek_rubric = EvalRubric(build_judge_client(settings))
     nvidia_rubric = EvalRubric(build_nvidia_judge_client(settings))
-
-    async def _safe_judge(
-        rubric: EvalRubric,
-        judge_name: str,
-        hook: OutreachHook,
-        domain: str,
-        justs: tuple[Justification, ...],
-    ) -> EvalScore:
-        """Score one hook, converting any raised provider error into a judge-failure.
-
-        A persistently-timing-out judge (the NVIDIA free-tier endpoint exhausting
-        its tenacity retries, or the known DeepSeek empty-content flake reraising)
-        must NOT abort the whole 25-record calibration run. The failed record is
-        marked eval_failed=True so it is excluded from kappa and counted in the
-        per-judge failure rate.
-        """
-        try:
-            return await rubric.evaluate_hook(hook, domain, justs)
-        except Exception as exc:  # noqa: BLE001 -- provider errors are heterogeneous
-            log.warning("%s judge raised %s: %s", judge_name, type(exc).__name__, exc)
-            return EvalScore(
-                groundedness=1,
-                icp_relevance=1,
-                personalization=1,
-                specificity=1,
-                recency=1,
-                eval_failed=True,
-                notes=f"(judge call raised {type(exc).__name__})",
-            )
 
     ds_scores: list[EvalScore] = []
     nv_scores: list[EvalScore] = []
