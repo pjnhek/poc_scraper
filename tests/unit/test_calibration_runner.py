@@ -138,22 +138,25 @@ def test_build_judge_client_uses_override_endpoint_and_model() -> None:
     assert str(client._client.base_url).startswith("https://example.test/v1")
 
 
-def test_build_judge_client_override_uses_thinking_toggle_not_budget() -> None:
-    # The override target uses the DeepSeek-style extra_body thinking toggle;
-    # reasoning_budget must stay None so the NVIDIA-only thinking_budget key
-    # is never injected into a request the endpoint would reject.
+def test_build_judge_client_override_no_thinking_toggle() -> None:
+    # The cross-family judge is a NON-reasoning instruction-follower
+    # (moonshot-v1-32k class). A thinking toggle was tried and rejected:
+    # reasoning models return empty content / never return on the rubric
+    # prompt. extra_body must be empty and reasoning_budget None so the
+    # NVIDIA-only thinking_budget key is never injected into this endpoint.
     s = _settings_override()
     client = build_nvidia_judge_client(s)
-    assert client._params.extra_body == {"thinking": {"type": "enabled"}}
+    assert client._params.extra_body == {}
     assert client._params.reasoning_budget is None
 
 
 def test_build_judge_client_override_token_budget_decoupled() -> None:
-    # The cross-family judge gets its own large budget, independent of the
-    # small DeepSeek-tuned judge_max_tokens default.
+    # The cross-family judge gets its own modest budget, independent of the
+    # DeepSeek-tuned judge_max_tokens default. 4096 is generous for the
+    # ~270-token JSON the judge emits and avoids runaway-length timeouts.
     s = _settings_override(judge_max_tokens="8192")
     client = build_nvidia_judge_client(s)
-    assert client._params.max_tokens == 32768
+    assert client._params.max_tokens == 4096
 
 
 # ---------------------------------------------------------------------------

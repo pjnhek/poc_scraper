@@ -215,27 +215,29 @@ def build_nvidia_judge_client(settings: Settings) -> NvidiaClient:
         api_key = settings.calibration_judge_api_key
         base_url = settings.calibration_judge_base_url
         model = settings.calibration_judge_model
-        # The override target uses the DeepSeek-style thinking toggle
-        # (extra_body={"thinking": {"type": "enabled"}}), not NVIDIA's
-        # numeric thinking_budget. reasoning_budget MUST stay None so the
-        # client does not inject the NVIDIA-only thinking_budget key, which
-        # this endpoint does not accept. A thinking judge is wanted here for
-        # rubric rigor, matching the DeepSeek judge's thinking mode.
+        # The cross-family judge does claim-decomposition + JSON output. A
+        # NON-reasoning instruction-following model is the right tool: it
+        # follows the rubric and emits ~1k chars of JSON in seconds.
+        # Reasoning/thinking models were tried and rejected here: a Kimi
+        # k2.6 (thinking) call on this exact rubric prompt returns EMPTY
+        # content (the documented judge-empty-response flake, reasoning
+        # exhausts the budget before any answer) or never returns within
+        # 4min. moonshot-v1-32k (non-reasoning) answers correctly in ~6s.
         #
-        # The cross-family judge gets its OWN token budget, deliberately
-        # decoupled from settings.judge_max_tokens (which is tuned small for
-        # the DeepSeek production judge, whose responses time out the
-        # connection above ~8k). A thinking judge spends the budget on its
-        # reasoning trace before the JSON answer; this target (Kimi k2.x and
-        # similar) tolerates and needs the headroom that DeepSeek does not.
-        override_max_tokens = 32768
+        # So: no thinking toggle (extra_body empty), reasoning_budget=None
+        # (the NVIDIA-only thinking_budget key must never be injected into
+        # this endpoint), modest 4096 token budget (observed JSON output is
+        # ~270 tokens even for a multi-claim hook; 4096 is generous and
+        # avoids the runaway-length timeouts seen at 32768). Opt back into
+        # thinking only if a future override endpoint needs it, via a new
+        # setting; do not hardcode it on.
+        override_max_tokens = 4096
         params = GenerationParams(
             temperature=settings.judge_temperature,
             top_p=settings.judge_top_p,
             max_tokens=override_max_tokens,
             reasoning_budget=None,
             json_mode=False,
-            extra_body={"thinking": {"type": "enabled"}},
         )
     else:
         api_key = settings.nvidia_api_key
