@@ -1,0 +1,75 @@
+{
+  "run_date": "2026-05-16",
+  "deepseek_judge": "deepseek-v4-flash",
+  "nvidia_judge": "moonshot-v1-32k",
+  "n_records": 25,
+  "n_valid_for_kappa": 24,
+  "deepseek_fail_count": 0,
+  "nvidia_fail_count": 0,
+  "inter_judge": {
+    "groundedness": {
+      "kappa": 0.176,
+      "pct_agree": 0.167
+    },
+    "icp_relevance": {
+      "kappa": 0.2,
+      "pct_agree": 0.292
+    },
+    "personalization": {
+      "kappa": 0.155,
+      "pct_agree": 0.375
+    },
+    "specificity": {
+      "kappa": 0.232,
+      "pct_agree": 0.333
+    },
+    "recency": {
+      "kappa": 0.478,
+      "pct_agree": 0.417
+    }
+  },
+  "deepseek_vs_human": {
+    "groundedness": {
+      "kappa": 0.277,
+      "pct_agree": 0.167
+    },
+    "icp_relevance": {
+      "kappa": 0.462,
+      "pct_agree": 0.583
+    },
+    "personalization": {
+      "kappa": 0.358,
+      "pct_agree": 0.417
+    },
+    "specificity": {
+      "kappa": 0.432,
+      "pct_agree": 0.333
+    },
+    "recency": {
+      "kappa": 0.45,
+      "pct_agree": 0.333
+    }
+  },
+  "nvidia_vs_human": {
+    "groundedness": {
+      "kappa": 0.198,
+      "pct_agree": 0.167
+    },
+    "icp_relevance": {
+      "kappa": 0.206,
+      "pct_agree": 0.208
+    },
+    "personalization": {
+      "kappa": 0.386,
+      "pct_agree": 0.542
+    },
+    "specificity": {
+      "kappa": 0.321,
+      "pct_agree": 0.333
+    },
+    "recency": {
+      "kappa": 0.505,
+      "pct_agree": 0.458
+    }
+  }
+}
