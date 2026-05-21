@@ -1,0 +1,128 @@
+# Phase 4: Eval Narrative
+
+**Run date:** {{ run_date }}
+**Judge model:** {{ judge_model }}
+**Judge provider:** {{ judge_provider }}
+**Holdout records:** {{ n_records }}
+
+This report answers the six rigor questions from PITFALLS.md Pitfall 8 in order, with concrete numbers sourced from the committed eval artifacts (calibration.json, run-log.json, labeled.jsonl, COVERAGE.md). The renderer makes zero LLM calls; the output is byte-stable given the same inputs.
+
+## 1. What the writer produces
+
+A grounded outreach paragraph that cites retrieved evidence with `[N]` markers tied to a numbered justification list. The example below is the highest expected-groundedness record in `evals/labeled.jsonl` (deterministic pick by `(expected_groundedness, id)` ascending; D-07).
+
+**Example record:** `{{ example_hook.id }}` ({{ example_hook.domain }}), contact role `{{ example_hook.contact_role }}`, expected groundedness `{{ "%.1f" | format(example_hook.expected_groundedness) }}`.
+
+> {{ example_hook.paragraph }}
+
+| Claim | Cited indices | Evidence summary | Evidence URL |
+|-------|---------------|------------------|--------------|
+{% for pair in example_hook.pairs -%}
+| {{ pair.claim }} | {{ pair.indices }} | {{ pair.evidence_summary }} | {{ pair.evidence_url }} |
+{% endfor %}
+
+## 2. What the judge checks
+
+A categorical 1-5 rubric per NeMo guidance (1-10 numeric judges drift). The judge is invoked once per labeled record and emits a JSON object: a `claims[]` array (each claim mapped to a supporting justification index or `uncited`) plus four 1-5 scalars (icp_relevance, personalization, specificity, recency). Groundedness is computed from the claims array, not asked of the judge directly, so a confident judge cannot inflate the groundedness signal by skipping claim decomposition.
+
+The five axes:
+
+1. **groundedness** -- fraction of claims supported by a cited justification, mapped to 1-5 (floor of 1.0, ceiling of 5.0).
+2. **icp_relevance** -- how closely the account matches the rubric definition in `configs/icp.yaml`.
+3. **personalization** -- how account-specific the paragraph reads, vs generic.
+4. **specificity** -- whether the claims are concrete (numbers, dates, named events) or hand-wavy.
+5. **recency** -- whether the cited evidence is recent (last 90 days) or stale.
+
+Judge model for this run: `{{ judge_model }}` ({{ judge_provider }}).
+
+## 3. The dataset
+
+Labeled set: `{{ labeled_count }}` records in `evals/labeled.jsonl`.
+
+Split counts:
+
+| Split | Count |
+|-------|-------|
+{% for split, count in split_counts.items() -%}
+| {{ split }} | {{ count }} |
+{% endfor %}
+
+The coverage matrix below is `evals/COVERAGE.md` embedded verbatim (D-12). Every cell traces to a named pitfall.
+
+{{ coverage_md }}
+
+## 4. The headline number
+
+**Mean judge groundedness on the holdout slice: `{{ "%.2f" | format(headline_groundedness) }}` / 5.0** ({{ n_records }} records, judge `{{ judge_model }}`).
+
+The categorical 1-5 mean (not a pass-rate) preserves NeMo's categorical-over-numeric guidance; reducing it to a binary at >=4 would collapse signal.
+
+Per-axis means on the same holdout slice:
+
+| Axis | Mean (1-5) |
+|------|------------|
+{% for row in axis_means -%}
+| {{ row.axis }} | {{ "%.2f" | format(row.mean) }} |
+{% endfor %}
+
+## 5. What this eval does not catch
+
+The judge and the writer share a model family. A same-family judge has the same blind spots as the writer, so high judge agreement is not a verdict, it is one signal, not a verdict. Cross-family agreement (DeepSeek vs NVIDIA) is the antidote: where the two families disagree, the judge's confidence is bounded by that disagreement.
+
+The numbers below are transcribed verbatim from `evals/calibration.json`. Phase 3 scored all `{{ calibration.n_records }}` labeled records with both judges; `{{ calibration.n_valid_for_kappa }}` records passed the eval_failed filter and entered kappa computation. See `evals/CALIBRATION.md` for the underlying narrative.
+
+### Inter-judge agreement (NVIDIA vs DeepSeek)
+
+| Axis | Kappa (linear-weighted) | % Exact Agreement |
+|------|------------------------|-------------------|
+{% for row in calibration.inter_judge -%}
+| {{ row.axis }} | {{ row.kappa }} | {{ row.pct_agree }} |
+{% endfor %}
+
+### DeepSeek vs human
+
+| Axis | Kappa (linear-weighted) | % Exact Agreement |
+|------|------------------------|-------------------|
+{% for row in calibration.deepseek_vs_human -%}
+| {{ row.axis }} | {{ row.kappa }} | {{ row.pct_agree }} |
+{% endfor %}
+
+### NVIDIA vs human
+
+| Axis | Kappa (linear-weighted) | % Exact Agreement |
+|------|------------------------|-------------------|
+{% for row in calibration.nvidia_vs_human -%}
+| {{ row.axis }} | {{ row.kappa }} | {{ row.pct_agree }} |
+{% endfor %}
+
+> Kappa is undefined when all labels collapse to a single class; see `evals/CALIBRATION.md` for the underlying data.
+
+## 6. One worked low-scoring failure case
+
+The worst-groundedness record on the holdout slice, selected deterministically (sort by `(actual.groundedness, id)` ascending; lowest wins).
+
+**Record:** `{{ worst.id }}` ({{ worst.domain }}). Actual groundedness `{{ "%.1f" | format(worst.actual.groundedness) }}` vs labeled expectation `{{ "%.1f" | format(worst.expected.groundedness) }}`.
+
+Paragraph (verbatim):
+
+> {{ worst.paragraph }}
+
+Claim-vs-evidence pairing:
+
+| Claim | Cited indices | Evidence summary | Evidence URL |
+|-------|---------------|------------------|--------------|
+{% for pair in worst.pairs -%}
+| {{ pair.claim }} | {{ pair.indices }} | {{ pair.evidence_summary }} | {{ pair.evidence_url }} |
+{% endfor %}
+
+Expected vs actual axis scores:
+
+| Axis | Expected | Actual |
+|------|----------|--------|
+| groundedness | {{ "%.1f" | format(worst.expected.groundedness) }} | {{ "%.1f" | format(worst.actual.groundedness) }} |
+| icp_relevance | {{ "%.1f" | format(worst.expected.icp_relevance) }} | {{ "%.1f" | format(worst.actual.icp_relevance) }} |
+| personalization | {{ "%.1f" | format(worst.expected.personalization) }} | {{ "%.1f" | format(worst.actual.personalization) }} |
+| specificity | {{ "%.1f" | format(worst.expected.specificity) }} | {{ "%.1f" | format(worst.actual.specificity) }} |
+| recency | {{ "%.1f" | format(worst.expected.recency) }} | {{ "%.1f" | format(worst.actual.recency) }} |
+
+> Median is the lower-index record when the holdout count is even (D-04a). Best record on this slice: `{{ best.id }}` (actual groundedness `{{ "%.1f" | format(best.groundedness) }}`); median: `{{ median.id }}` (actual groundedness `{{ "%.1f" | format(median.groundedness) }}`).
