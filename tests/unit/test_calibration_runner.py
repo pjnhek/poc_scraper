@@ -9,6 +9,8 @@
 # annotation documents intent rather than silencing a checked surface.
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -20,6 +22,7 @@ from evals.run_eval import (
     run_calibration,
 )
 from src.config import Settings
+from src.models import EvalScore
 
 # ---------------------------------------------------------------------------
 # _require_calibration_keys
@@ -295,3 +298,124 @@ def test_run_calibration_propagates_missing_keys(
 
     with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
         asyncio.run(mod.run_calibration())
+
+
+# ---------------------------------------------------------------------------
+# run(emit_log=True) -- functional tests for --emit-log serialization (D-02)
+# ---------------------------------------------------------------------------
+
+
+class _CountingRubric:
+    """Stub judge that returns a fixed EvalScore and counts invocations.
+
+    The call counter is the single-pass gate: --emit-log MUST reuse the
+    existing rubric.evaluate_hook loop in run() and not introduce a second
+    judge pass for serialization. Asserting counter == len(rows) after the
+    --emit-log call surfaces any future drift that adds a second pass.
+    """
+
+    def __init__(self) -> None:
+        self.n_calls = 0
+
+    async def evaluate_hook(self, hook: object, domain: str, justs: object) -> EvalScore:
+        self.n_calls += 1
+        return EvalScore(
+            groundedness=4,
+            icp_relevance=3,
+            personalization=5,
+            specificity=2,
+            recency=4,
+            notes="(stub judge)",
+        )
+
+
+async def test_emit_log_writes_run_log_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Functional test: invoking run(emit_log=True) against the holdout split
+    # with a stub judge must (1) call the judge exactly once per holdout
+    # record (single-pass gate), (2) write run-log.json to the patched
+    # path with all five axes in both expected and actual, and (3) emit
+    # judge_provider + judge_model fields sourced from settings.
+    import evals.run_eval as mod
+
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        deepseek_api_key="ds-key",
+        nvidia_api_key="",
+        llm_provider="deepseek",
+    )
+    monkeypatch.setattr(mod, "get_settings", lambda: settings)
+
+    # Patch the rubric so no real LLM call happens. The factory below
+    # captures the same _CountingRubric instance so the test can read
+    # n_calls after the run completes.
+    counter = _CountingRubric()
+    monkeypatch.setattr(mod, "EvalRubric", lambda _client: counter)
+
+    # Patch the judge-client builder to a dummy so settings keys do not
+    # need to be real; _CountingRubric never invokes the client anyway.
+    monkeypatch.setattr(mod, "build_judge_client", lambda _s: object())
+
+    # Patch RUN_LOG_PATH to tmp_path so the committed artifact is never touched.
+    run_log_target = tmp_path / "run-log.json"
+    monkeypatch.setattr(mod, "RUN_LOG_PATH", run_log_target)
+
+    rc = await mod.run(split_filter="holdout", emit_log=True)
+    assert rc == 0
+
+    # Single-pass gate: stub call count equals the holdout-record count.
+    examples = mod.load_labeled()
+    n_holdout = sum(1 for ex in examples if ex.split == "holdout")
+    assert (
+        counter.n_calls == n_holdout
+    ), f"expected exactly {n_holdout} judge invocations, saw {counter.n_calls}"
+
+    # File written to the patched path.
+    assert run_log_target.exists()
+    text = run_log_target.read_text(encoding="utf-8")
+    assert text.endswith("\n"), "run-log.json must end with a trailing newline"
+
+    payload = json.loads(text)
+    assert payload["split"] == "holdout"
+    assert payload["n_records"] == n_holdout
+    assert payload["judge_provider"] == "deepseek"
+    assert payload["judge_model"] == settings.judge_model_deepseek
+    assert len(payload["rows"]) == n_holdout
+
+    for row in payload["rows"]:
+        for axis in ("groundedness", "icp_relevance", "personalization", "specificity", "recency"):
+            assert axis in row["expected"], f"missing expected.{axis}"
+            assert axis in row["actual"], f"missing actual.{axis}"
+            assert 1.0 <= float(row["expected"][axis]) <= 5.0
+            assert 1.0 <= float(row["actual"][axis]) <= 5.0
+        assert isinstance(row["expected"]["eval_failed"], bool)
+
+
+async def test_emit_log_false_does_not_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Negative case: run(emit_log=False) must NOT create run-log.json,
+    # even when --split is set. Guards against future drift that always
+    # writes the artifact.
+    import evals.run_eval as mod
+
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        deepseek_api_key="ds-key",
+        nvidia_api_key="",
+        llm_provider="deepseek",
+    )
+    monkeypatch.setattr(mod, "get_settings", lambda: settings)
+
+    counter = _CountingRubric()
+    monkeypatch.setattr(mod, "EvalRubric", lambda _client: counter)
+    monkeypatch.setattr(mod, "build_judge_client", lambda _s: object())
+
+    # Patch RUN_LOG_PATH to tmp_path so the committed artifact is never touched.
+    run_log_target = tmp_path / "run-log.json"
+    monkeypatch.setattr(mod, "RUN_LOG_PATH", run_log_target)
+
+    rc = await mod.run(split_filter="holdout", emit_log=False)
+    assert rc == 0
+    assert not run_log_target.exists()
