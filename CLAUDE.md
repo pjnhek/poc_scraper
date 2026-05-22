@@ -18,7 +18,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 - No em-dashes in any markdown that will be published (README, eval reports). Use commas, parentheses, or rewrite.
 - If you hit a real trade-off, stop and ask. Don't guess.
 - Don't add comments that explain WHAT the code does. Only add a comment if the WHY isn't obvious from the names.
-- This repo is intended to be public. Do not name specific companies, vendors, or verticals in code, prompts, or commit messages. Keep the ICP definition abstract and edit `configs/icp.yaml` for vertical-specific runs.
+- This repo is intended to be public. The project is framed as a hypothetical GTM research planner: a fictional company has a product to sell, and the pipeline researches real prospect companies (Mercury, Notion, Linear, Faire, Retool, etc.) to decide which ones to prioritize. Real prospect names are required because the artifact only demonstrates value if it researches real accounts. Keep the seller side (the hypothetical company, its ICP, its product) abstract in `configs/icp.yaml` so any vendor in any vertical can retarget the pipeline by editing that one file. Vendor-specific names belong in `configs/icp.yaml` only, never in code, prompts, or commit messages. A pre-commit guard (`scripts/check_public_discipline.py` + local `.secrets-denylist`) blocks any names that would compromise this framing.
 
 ## Stack (locked, don't drift)
 
@@ -108,7 +108,7 @@ A generic account-research prototype. Given a CSV of company domains, it produce
 
 ### Constraints
 
-- **Public repo discipline**: No specific company, vendor, or vertical names in code, prompts, configs, commit messages, or eval data — The repo is intended to be public; a leak makes it unshareable and kills the hiring artifact. Per CLAUDE.md, the ICP definition stays abstract and vertical-specific runs happen by editing `configs/icp.yaml` locally.
+- **Public repo discipline**: The project is framed as a hypothetical GTM research planner. Real prospect company names (Mercury, Notion, Linear, Faire, Retool, etc.) are required throughout the eval set and outreach drafts because the pipeline researches real accounts and the artifact must demonstrate that value. The seller side (the hypothetical vendor and its ICP) stays vendor-neutral and lives in `configs/icp.yaml`; vendor-specific names never appear in code, prompts, or commit messages. A pre-commit guard (`scripts/check_public_discipline.py` + local `.secrets-denylist`) enforces this — Why: the repo is public, and keeping the seller abstract makes the pipeline retargetable to any vendor in any vertical without code changes.
 - **CLAUDE.md scope is the boundary**: No feedback loop, CRM automation, webapp/dashboard, multi-tenant config, or custom caching layer — These are v2/v3 per the locked project scope. Restating here so the roadmapper does not drift toward them when audit findings surface adjacent ideas.
 - **Stack is locked**: Python 3.11+, uv, DeepSeek/NVIDIA OpenAI-compatible clients, Exa primary + Browserbase fallback, Google Sheets API, strict mypy, conventional commits, no emojis in code or commit messages, no em-dashes in published markdown — Per CLAUDE.md; changes require explicit discussion.
 - **Grounded claims only**: Every outreach claim must trace to a retrieval; unciteable claims get dropped — This is the project's core value; it is a constraint on every code path that produces user-visible text, not a feature to be toggled.
