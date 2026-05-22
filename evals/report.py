@@ -44,6 +44,60 @@ REFRESH_COMMAND = "uv run python -m evals.run_eval --split holdout --emit-log"
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
+# Common abbreviations that end in a period and trigger a false sentence
+# break under `_SENTENCE_SPLIT_RE`. The markered-path branch in
+# `_pair_claims_to_evidence` still needs sentence-granular splits to place
+# inline `[N]` markers per claim; we cannot drop the walker. Instead we
+# post-process the naive split and rejoin fragments whose preceding token is
+# one of these abbreviations. The list is intentionally narrow: only forms
+# that have actually appeared (or are highly likely to appear) in the
+# labeled-set justification summaries. Add more as new patterns surface;
+# overshoot risks under-splitting real two-sentence claims.
+_ABBREV = frozenset(
+    {
+        "N.A.",
+        "Inc.",
+        "U.S.",
+        "etc.",
+        "i.e.",
+        "e.g.",
+        "Co.",
+        "Ltd.",
+        "Corp.",
+        "Mr.",
+        "Mrs.",
+        "Dr.",
+    }
+)
+
+
+def _split_sentences(paragraph: str) -> list[str]:
+    """Split a paragraph into sentences, rejoining false breaks at known abbreviations.
+
+    The base splitter `_SENTENCE_SPLIT_RE` over-splits on tokens like "N.A.",
+    "Inc.", "U.S.", "etc." because they end in a period. Without this
+    rejoin, a justification summary or paragraph that mentions such a token
+    fragments into multiple table rows, each with only a piece of the
+    intended claim. Today no labeled paragraph triggers this, but the
+    defect is one labeling pass away from silently corrupting Section 1 /
+    Section 6 -- guard it now rather than after a regression ships.
+    """
+    raw = [s.strip() for s in _SENTENCE_SPLIT_RE.split(paragraph) if s.strip()]
+    if not raw:
+        return []
+    merged: list[str] = [raw[0]]
+    for piece in raw[1:]:
+        prev = merged[-1]
+        # Look at the last whitespace-separated token of the prior fragment.
+        # If it matches a known abbreviation, the split was spurious and the
+        # current piece is a continuation, not a new sentence.
+        last_token = prev.rsplit(None, 1)[-1] if prev else ""
+        if last_token in _ABBREV:
+            merged[-1] = f"{prev} {piece}"
+        else:
+            merged.append(piece)
+    return merged
+
 
 # ---------------------------------------------------------------------------
 # Run-log schema (consumed; emitted by evals/run_eval.py::_build_run_log_payload)
@@ -283,7 +337,7 @@ def _pair_claims_to_evidence(example: LabeledExample) -> list[dict[str, str]]:
             )
         return pairs
 
-    sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(paragraph) if s.strip()]
+    sentences = _split_sentences(paragraph)
     pairs = []
     for sentence in sentences:
         indices: list[int] = []

@@ -482,6 +482,38 @@ def test_pair_claims_to_evidence_empty_paragraph_returns_empty() -> None:
     assert _pair_claims_to_evidence(example) == []
 
 
+def test_pair_claims_to_evidence_does_not_split_at_abbreviations() -> None:
+    # WR-03 regression: the naive `(?<=[.!?])\s+` splitter would treat the
+    # period in "N.A." (or "Inc.", "U.S.", "etc.") as a sentence boundary
+    # and fragment one claim into two table rows. The rejoin guard in
+    # `_split_sentences` must keep these abbreviations attached to their
+    # surrounding sentence so the marker placement and the evidence pairing
+    # both stay aligned with the writer's intent.
+    paragraph = (
+        "Acme Bank, N.A. launched a new product [1]."
+        " Acme Inc. grew headcount by 20% [2]."
+        " The U.S. expansion went live [1]."
+    )
+    example = _ex(
+        "abbrev",
+        paragraph=paragraph,
+        justifications=[
+            {"index": 1, "summary": "Acme product launch.", "url": "https://example.test/p"},
+            {"index": 2, "summary": "Acme headcount growth.", "url": "https://example.test/h"},
+        ],
+    )
+    pairs = _pair_claims_to_evidence(example)
+    # Three real sentences, NOT five (which is what the naive splitter would
+    # produce by breaking at "N.A. ", "Inc. ", "U.S. ").
+    assert len(pairs) == 3
+    assert pairs[0]["indices"] == "[1]"
+    assert "N.A." in pairs[0]["claim"]
+    assert pairs[1]["indices"] == "[2]"
+    assert "Inc." in pairs[1]["claim"]
+    assert pairs[2]["indices"] == "[1]"
+    assert "U.S." in pairs[2]["claim"]
+
+
 # ---------------------------------------------------------------------------
 # Calibration ingest (W-04)
 # ---------------------------------------------------------------------------
