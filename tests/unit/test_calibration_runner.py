@@ -183,14 +183,24 @@ def test_run_calibration_is_coroutine() -> None:
 async def test_safe_judge_wraps_raised_error_as_eval_failed() -> None:
     # Behavioral regression: a persistently-timing-out judge (NVIDIA free-tier
     # exhausting tenacity retries, or the known DeepSeek empty-content flake)
-    # must NOT abort the run. _safe_judge converts any raised exception into an
-    # EvalScore(eval_failed=True) sentinel with all axes pinned to 1.
+    # must NOT abort the run. _safe_judge converts any provider exception in
+    # the narrow tuple (Phase 5 D-01 / D-03: RateLimitError, APIStatusError,
+    # APIError, ValidationError) into an EvalScore(eval_failed=True) sentinel
+    # with all axes pinned to 1. APIError is the class tenacity reraises after
+    # exhausting retries on the writer/judge stack.
+    import httpx
+    from openai import APIError
+
     from evals.run_eval import _safe_judge
     from src.models import Contact, OutreachHook
 
     class _RaisingRubric:
         async def evaluate_hook(self, hook: object, domain: str, justs: object) -> object:
-            raise TimeoutError("provider exhausted retries")
+            raise APIError(
+                "provider exhausted retries",
+                request=httpx.Request("POST", "https://example.com"),
+                body=None,
+            )
 
     hook = OutreachHook(
         contact=Contact(role_title="VP CX", rationale="(test)"),
@@ -208,7 +218,7 @@ async def test_safe_judge_wraps_raised_error_as_eval_failed() -> None:
     assert score.specificity == 1
     assert score.recency == 1
     assert score.notes is not None
-    assert "TimeoutError" in score.notes
+    assert "APIError" in score.notes
 
 
 async def test_safe_judge_passes_through_a_successful_score() -> None:

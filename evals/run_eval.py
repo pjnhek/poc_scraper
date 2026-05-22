@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from openai import APIError, APIStatusError, RateLimitError
+from pydantic import ValidationError
+
 from evals.agreement import AXES, cohen_kappa_linear, pct_agreement
 from src.clients.nvidia_client import NVIDIA_BASE_URL, GenerationParams, NvidiaClient
 from src.config import Settings, get_settings
@@ -378,7 +381,7 @@ async def _safe_judge(
     """
     try:
         return await rubric.evaluate_hook(hook, domain, justs)
-    except Exception as exc:  # noqa: BLE001 -- provider errors are heterogeneous
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
         log.warning("%s judge raised %s: %s", judge_name, type(exc).__name__, exc)
         return EvalScore(
             groundedness=1,

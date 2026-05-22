@@ -56,8 +56,8 @@ class BrowserbaseClient:
     async def render(self, url: str) -> RenderedPage | None:
         try:
             return await self._render_with_retry(url)
-        except Exception as exc:
-            log.warning("browserbase render failed for %s: %s", url, exc)
+        except (httpx.HTTPError, BrowserbaseError) as exc:
+            log.warning("browserbase render failed [%s] for %s: %s", type(exc).__name__, url, exc)
             return None
 
     async def _render_with_retry(self, url: str) -> RenderedPage:
