@@ -38,7 +38,7 @@ class FailingAnthropic:
         self.fail_on = fail_on
 
     async def synthesize(
-        self, system: str, context: str, user_prompt: str, max_tokens=None
+        self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
     ) -> LLMResponse:
         if self.fail_on in system:
             # APIError is in the narrow tuple per Phase 5 D-01 so the per-stage
@@ -84,7 +84,7 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
             self.outreach_calls = 0
 
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "extract structured firmographics" in system:
                 return LLMResponse(
@@ -161,7 +161,7 @@ async def test_judge_failure_status_precedence() -> None:
 
     class JudgeFailingLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -219,7 +219,7 @@ async def test_all_hooks_suppressed_status() -> None:
 
     class AllEmptyHooksLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -278,7 +278,7 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
 
     class EvalCrashingLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -329,3 +329,41 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
     # D-03: eval exception with non-empty hooks must be judge_failed, not clean.
     assert sa.status == AccountStatus.judge_failed
     assert sa.eval_score is None
+
+
+@pytest.mark.asyncio
+async def test_empty_enrichment_renders_graceful_sheet_row() -> None:
+    """HARD-03 + D-11: Exa returns 0 AND Browserbase returns None.
+
+    The enricher returns Enrichment(firmographics=None, news=()) and is_empty
+    fires the early-return at src/pipeline.py:78-81, producing an unscoreable
+    row with status=hook_suppressed and error="empty enrichment". The writer
+    LLM is never invoked along this path; FailingAnthropic(fail_on="__never_match__")
+    is wired only to confirm that property.
+
+    D-09: assertion reaches into src/sheets.py::_build_row so the graceful-row
+    promise is verified at the actual unit that converts ScoredAccount to the
+    Sheet payload, not just at the ScoredAccount layer.
+    """
+    deps = build_deps(
+        writer=FailingAnthropic(fail_on="__never_match__"),
+        judge=FailingAnthropic(fail_on="__never_match__"),
+        exa=FakeExa(about=[], news=[]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="empty.com"), deps)
+    assert sa.status == AccountStatus.hook_suppressed
+    assert sa.error == "empty enrichment"
+
+    from src.sheets import HEADERS, _build_row
+
+    row = _build_row(sa)
+    assert row[HEADERS.index("domain")] == "empty.com"
+    # _build_row writes sa.status directly (a StrEnum), not sa.status.value;
+    # compare against the enum member to mirror the existing assertion shape
+    # at tests/unit/test_sheets_rows.py::test_build_rows_writes_account_data:92.
+    assert row[HEADERS.index("status")] == AccountStatus.hook_suppressed
+    assert row[HEADERS.index("icp_total")] == ""
+    assert row[HEADERS.index("verdict")] == ""
+    assert row[HEADERS.index("hook_1")] == ""
+    assert row[HEADERS.index("error")] == "empty enrichment"
