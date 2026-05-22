@@ -12,6 +12,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from .retry import retry_after_aware_wait
+
 EXA_BASE_URL = "https://api.exa.ai"
 
 
@@ -70,7 +72,7 @@ class ExaClient:
     async def _search(self, payload: dict[str, Any]) -> list[ExaResult]:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(4),
-            wait=wait_exponential(multiplier=1, min=1, max=15),
+            wait=retry_after_aware_wait(fallback=wait_exponential(multiplier=1, min=1, max=15)),
             retry=retry_if_exception_type((httpx.HTTPError,)),
             reraise=True,
         ):
