@@ -619,6 +619,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split",
         default=None,
+        choices=["train", "holdout"],
         help="Filter labeled examples by split ('train' or 'holdout').",
     )
     parser.add_argument(
