@@ -9,7 +9,7 @@ This report answers the six rigor questions from PITFALLS.md Pitfall 8 in order,
 
 ## 1. What the writer produces
 
-A grounded outreach paragraph that cites retrieved evidence with `[N]` markers tied to a numbered justification list. The example below is the highest expected-groundedness record in `evals/labeled.jsonl` (deterministic pick by `(expected_groundedness, id)` ascending; D-07).
+A grounded outreach paragraph that names retrieved evidence tied to a numbered justification list. Two paragraph shapes appear in `evals/labeled.jsonl`: some carry inline `[N]` markers (claim-level cites) and some carry record-level `cited_indices` only (the older writer shape). The table below pairs claims per sentence when inline markers exist; otherwise it surfaces the record's cited justifications one row each, marked `(paragraph-level cite)`. The example below is the highest expected-groundedness record in `evals/labeled.jsonl` (deterministic pick by `(expected_groundedness, id)` ascending; D-07).
 
 **Example record:** `example10-cto` (example10.com), contact role `Chief Technology Officer`, expected groundedness `5.0`.
 
@@ -17,11 +17,11 @@ A grounded outreach paragraph that cites retrieved evidence with `[N]` markers t
 
 | Claim | Cited indices | Evidence summary | Evidence URL |
 |-------|---------------|------------------|--------------|
-| Zocdoc has invested in AI with the launch of the AI-Informed Patient Report. | (no citations) |  |  |
-| Zocdoc's integration with Yelp for real-time appointment booking likely increases patient support inquiries. | (no citations) |  |  |
-| Zocdoc's mission is to make healthcare work for patients. | (no citations) |  |  |
-| Given your AI investments and high-volume patient interactions, could AI-powered support automation help you reduce ticket volume and improve patient satisfaction? | (no citations) |  |  |
-| Let's discuss. | (no citations) |  |  |
+| (paragraph-level cite) | [1] | The healthcare industry should work for patients | https://www.zocdoc.com/about/ |
+| (paragraph-level cite) | [6] | Zocdoc Now Powers Real-Time Appointment Booking for Patients on Yelp | https://www.prnewswire.com/news-releases/zocdoc-now-powers-real-time-appointment-booking-for-patients-on-yelp-302748519.html |
+| (paragraph-level cite) | [8] | Zocdoc Launches The AI-Informed Patient Report, Revealing How Patient Use of AI Is Reshaping the Patient-Provider Relationship | http://www.newswire.ca/en/releases/archive/March2026/24/c3655.html |
+| (paragraph-level cite) | [9] | Zocdoc Launches The AI-Informed Patient Report, Revealing How Patient Use of AI Is Reshaping the Patient-Provider Relationship | https://finance.yahoo.com/news/zocdoc-launches-ai-informed-patient-130000265.html |
+| (paragraph-level cite) | [10] | Zocdoc and Yelp Integrate to Streamline Doctor Appt. Bookings | https://hitconsultant.net/2026/04/21/zocdoc-yelp-partnership-real-time-healthcare-appointment-booking/ |
 
 
 ## 2. What the judge checks
@@ -229,17 +229,16 @@ Paragraph (verbatim):
 
 > Linear is a system for product development used by B2B teams. Linear offers enterprise features tailored for larger organizations. Linear recently launched an AI agent to help with issue triage and updates. Linear integrates with Microsoft Teams to streamline workflows. Linear regularly releases updates including multi-level sub-teams. Given your focus on CSAT and time-to-resolution, I'd love to explore how our AI-powered automation could complement your support workflow. Would you be open to a brief chat?
 
-Claim-vs-evidence pairing:
+Claim-vs-evidence pairing (rows marked `(paragraph-level cite)` indicate the writer attached citations to the record rather than per sentence; see Section 1):
 
 | Claim | Cited indices | Evidence summary | Evidence URL |
 |-------|---------------|------------------|--------------|
-| Linear is a system for product development used by B2B teams. | (no citations) |  |  |
-| Linear offers enterprise features tailored for larger organizations. | (no citations) |  |  |
-| Linear recently launched an AI agent to help with issue triage and updates. | (no citations) |  |  |
-| Linear integrates with Microsoft Teams to streamline workflows. | (no citations) |  |  |
-| Linear regularly releases updates including multi-level sub-teams. | (no citations) |  |  |
-| Given your focus on CSAT and time-to-resolution, I'd love to explore how our AI-powered automation could complement your support workflow. | (no citations) |  |  |
-| Would you be open to a brief chat? | (no citations) |  |  |
+| (paragraph-level cite) | [2] | Linear – The system for product development | https://linear.app/ |
+| (paragraph-level cite) | [3] | Linear – The system for product development | https://linear.app/homepage |
+| (paragraph-level cite) | [5] | Linear for Enteprise | https://linear.app/enterprise |
+| (paragraph-level cite) | [6] | Introducing Linear Agent – Changelog | https://linear.app/changelog/2026-03-24-introducing-linear-agent |
+| (paragraph-level cite) | [8] | Linear for Microsoft Teams – Changelog | https://linear.app/changelog/2026-04-16-linear-for-microsoft-teams |
+| (paragraph-level cite) | [10] | Multi-level sub-teams – Changelog | https://linear.app/changelog/2026-04-09-multi-level-sub-teams |
 
 
 Expected vs actual axis scores:

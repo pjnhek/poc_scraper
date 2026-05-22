@@ -9,7 +9,7 @@ This report answers the six rigor questions from PITFALLS.md Pitfall 8 in order,
 
 ## 1. What the writer produces
 
-A grounded outreach paragraph that cites retrieved evidence with `[N]` markers tied to a numbered justification list. The example below is the highest expected-groundedness record in `evals/labeled.jsonl` (deterministic pick by `(expected_groundedness, id)` ascending; D-07).
+A grounded outreach paragraph that names retrieved evidence tied to a numbered justification list. Two paragraph shapes appear in `evals/labeled.jsonl`: some carry inline `[N]` markers (claim-level cites) and some carry record-level `cited_indices` only (the older writer shape). The table below pairs claims per sentence when inline markers exist; otherwise it surfaces the record's cited justifications one row each, marked `(paragraph-level cite)`. The example below is the highest expected-groundedness record in `evals/labeled.jsonl` (deterministic pick by `(expected_groundedness, id)` ascending; D-07).
 
 **Example record:** `{{ example_hook.id }}` ({{ example_hook.domain }}), contact role `{{ example_hook.contact_role }}`, expected groundedness `{{ "%.1f" | format(example_hook.expected_groundedness) }}`.
 
@@ -107,7 +107,7 @@ Paragraph (verbatim):
 
 > {{ worst.paragraph }}
 
-Claim-vs-evidence pairing:
+Claim-vs-evidence pairing (rows marked `(paragraph-level cite)` indicate the writer attached citations to the record rather than per sentence; see Section 1):
 
 | Claim | Cited indices | Evidence summary | Evidence URL |
 |-------|---------------|------------------|--------------|

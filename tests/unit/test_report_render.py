@@ -391,6 +391,54 @@ def test_pair_claims_to_evidence_returns_indices_and_summaries() -> None:
     assert pairs[2]["indices"] == "(no citations)"
 
 
+def test_pair_claims_to_evidence_record_level_fallback_when_no_markers() -> None:
+    # The writer's older paragraph shape (and most rows in the committed
+    # labeled.jsonl) carries citations on the record via `cited_indices`
+    # rather than inline `[N]` markers. The renderer must surface those
+    # citations per justification row instead of emitting "(no citations)"
+    # for every claim and silently contradicting the surrounding narrative.
+    example = LabeledExample(
+        id="rec-no-markers",
+        domain="rec-no-markers.com",
+        contact_role="VP CX",
+        paragraph="Acme launched payroll. Acme grew headcount.",
+        citation_urls=["https://example.test/p", "https://example.test/h"],
+        justifications=[
+            {"index": 1, "summary": "Acme expands into payroll.", "url": "https://example.test/p"},
+            {"index": 2, "summary": "Acme headcount +20%.", "url": "https://example.test/h"},
+        ],
+        cited_indices=[1, 2],
+        split="holdout",
+        coverage_cells=["rich-enrichment"],
+        expected_groundedness=4.0,
+        expected_relevance=3.0,
+        expected_personalization=3.0,
+        expected_specificity=3.0,
+        expected_recency=3.0,
+        expected_eval_failed=False,
+    )
+    pairs = _pair_claims_to_evidence(example)
+    # One row per cited_index, in the record's declared order.
+    assert len(pairs) == 2
+    assert pairs[0]["indices"] == "[1]"
+    assert pairs[0]["claim"] == "(paragraph-level cite)"
+    assert pairs[0]["evidence_summary"] == "Acme expands into payroll."
+    assert pairs[0]["evidence_url"] == "https://example.test/p"
+    assert pairs[1]["indices"] == "[2]"
+    assert pairs[1]["evidence_summary"] == "Acme headcount +20%."
+    # And critically: zero "(no citations)" rows for a record that actually
+    # carries citations on the record.
+    assert all(p["indices"] != "(no citations)" for p in pairs)
+
+
+def test_pair_claims_to_evidence_empty_paragraph_returns_empty() -> None:
+    # Sentinel records (e.g. the empty-enrichment row in labeled.jsonl)
+    # carry an empty paragraph; the table must collapse to zero rows so the
+    # template renders no body, not a misleading "(no citations)" line.
+    example = _ex("empty", paragraph="")
+    assert _pair_claims_to_evidence(example) == []
+
+
 # ---------------------------------------------------------------------------
 # Calibration ingest (W-04)
 # ---------------------------------------------------------------------------

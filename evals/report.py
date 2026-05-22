@@ -215,14 +215,28 @@ def _fmt_pct(p: float | None) -> str:
 
 
 def _pair_claims_to_evidence(example: LabeledExample) -> list[dict[str, str]]:
-    """Walk the paragraph sentence by sentence; pair each [N] to its justification.
+    """Pair the paragraph's claims to their cited justifications for a table.
 
     Returns a list of dicts ready for the template to iterate:
         {"claim": str, "indices": str, "evidence_summary": str, "evidence_url": str}
 
-    Sentences without a marker render `indices = "(no citations)"`. Per D-11
-    no editorial prose is added; the renderer surfaces only what the labeled
-    record already says.
+    Two paragraph shapes are produced by the writer over time and both occur
+    in `evals/labeled.jsonl`:
+
+    1. Paragraphs that contain inline `[N]` markers (e.g. "Mercury launched
+       Insights [6].") -- this branch walks sentence by sentence and pairs
+       each in-line marker to the matching justification. Sentences without a
+       marker render `indices = "(no citations)"`.
+    2. Paragraphs with no inline markers but a populated `cited_indices` on
+       the record (the older shape; the writer attached citations at the
+       record level rather than per claim) -- this branch surfaces one row
+       per cited index with the matching justification summary and url, with
+       the claim column marked `(paragraph-level cite)`. Without this
+       fallback every cell in Section 1 / Section 6 for this paragraph shape
+       would read "(no citations)" and contradict the surrounding narrative.
+
+    Empty paragraphs return `[]`. Per D-11 no editorial prose is added; the
+    renderer surfaces only what the labeled record already says.
     """
     _, justifications = to_hook(example)
     by_index = {j.index: j for j in justifications}
@@ -231,8 +245,35 @@ def _pair_claims_to_evidence(example: LabeledExample) -> list[dict[str, str]]:
     if not paragraph:
         return []
 
+    has_inline_markers = INDEX_MARKER_RE.search(paragraph) is not None
+
+    if not has_inline_markers:
+        # Record-level citation fallback. Iterate `cited_indices` in the
+        # record's declared order so the table is byte-stable across runs.
+        if not example.cited_indices:
+            return [
+                {
+                    "claim": "(no inline markers; no record-level citations)",
+                    "indices": "",
+                    "evidence_summary": "",
+                    "evidence_url": "",
+                }
+            ]
+        pairs: list[dict[str, str]] = []
+        for n in example.cited_indices:
+            just = by_index.get(n)
+            pairs.append(
+                {
+                    "claim": "(paragraph-level cite)",
+                    "indices": f"[{n}]",
+                    "evidence_summary": just.summary if just else "",
+                    "evidence_url": str(just.citation.url) if just else "",
+                }
+            )
+        return pairs
+
     sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(paragraph) if s.strip()]
-    pairs: list[dict[str, str]] = []
+    pairs = []
     for sentence in sentences:
         indices: list[int] = []
         for match in INDEX_MARKER_RE.finditer(sentence):
