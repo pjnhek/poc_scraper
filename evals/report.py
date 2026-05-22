@@ -135,9 +135,14 @@ def _check_freshness(run_log_path: Path, labeled_path: Path) -> None:
     """
     if not run_log_path.exists():
         raise FileNotFoundError(f"{run_log_path} missing; refresh with: {REFRESH_COMMAND}")
-    if run_log_path.stat().st_mtime < labeled_path.stat().st_mtime:
+    # Same-second mtime ties (HFS+, FAT, fresh git clone where checkout order
+    # is non-deterministic, or an operator who edits labeled.jsonl and re-emits
+    # the run-log within one filesystem tick) must be treated as stale. A
+    # strict `<` lets ties slip through and the snapshot ships underspecified.
+    if run_log_path.stat().st_mtime <= labeled_path.stat().st_mtime:
         raise RuntimeError(
-            f"{run_log_path} stale (older than {labeled_path});" f" refresh with: {REFRESH_COMMAND}"
+            f"{run_log_path} stale (older than or tied with {labeled_path});"
+            f" refresh with: {REFRESH_COMMAND}"
         )
 
 

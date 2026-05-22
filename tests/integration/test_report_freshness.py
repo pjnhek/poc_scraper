@@ -78,12 +78,18 @@ def test_main_succeeds_with_fresh_run_log(tmp_path: Path, monkeypatch: pytest.Mo
     REPORT.md under tmp_path. The committed evals/REPORT.md is never touched.
     """
     paths = _stage_artifacts(tmp_path)
-    # Force run_log mtime strictly newer than labeled mtime; copy2 preserves
-    # source mtimes which on the committed artifacts are arbitrarily ordered.
-    new = time.time() + 60
-    os.utime(paths["run_log"], (new, new))
-    older = time.time() - 60
+    # Force run_log mtime strictly newer than labeled mtime. Backdate labeled
+    # rather than future-date run_log: NFS, sandboxed CI runners, and some
+    # FAT-family filesystems clamp or reject mtimes set in the future, while
+    # backdating with `time.time() - N` is universally supported. The
+    # relative ordering (labeled older than run_log) is the only thing
+    # `_check_freshness` reads. We explicitly stamp run_log to "now" so the
+    # ordering does not depend on copy2's preserved source mtimes, which on
+    # a fresh git clone arrive in non-deterministic checkout order.
+    now = time.time()
+    older = now - 120
     os.utime(paths["labeled"], (older, older))
+    os.utime(paths["run_log"], (now, now))
 
     _repoint_report_module(monkeypatch, paths)
 

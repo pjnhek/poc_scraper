@@ -574,11 +574,14 @@ def test_freshness_precheck_fresh_run_log_passes(tmp_path: Path) -> None:
     labeled = tmp_path / "labeled.jsonl"
     run_log = tmp_path / "run-log.json"
     labeled.write_text('{"id":"x"}\n', encoding="utf-8")
-    time.sleep(0.01)
     run_log.write_text("{}\n", encoding="utf-8")
-    # Ensure run_log mtime is strictly newer than labeled mtime.
-    new = time.time() + 60
-    os.utime(run_log, (new, new))
+    # Force labeled strictly older than run_log via backdating; future-dating
+    # run_log with `time.time() + N` is rejected or clamped by NFS, sandboxed
+    # CI runners, and some FAT-family filesystems. Backdating is universally
+    # supported and the relative ordering is the only thing the precheck
+    # reads.
+    older = time.time() - 120
+    os.utime(labeled, (older, older))
 
     # Must not raise.
     _check_freshness(run_log_path=run_log, labeled_path=labeled)
