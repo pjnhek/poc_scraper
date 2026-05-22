@@ -53,11 +53,11 @@ The coverage matrix below is `evals/COVERAGE.md` embedded verbatim (D-12). Every
 
 ## 4. The headline number
 
-**Mean judge groundedness on the holdout slice: `{{ "%.2f" | format(headline_groundedness) }}` / 5.0** ({{ n_records }} records, judge `{{ judge_model }}`).
+**Mean judge groundedness on the {{ split }} slice: `{{ "%.2f" | format(headline_groundedness) }}` / 5.0** ({{ n_records }} records, judge `{{ judge_model }}`).
 
 The categorical 1-5 mean (not a pass-rate) preserves NeMo's categorical-over-numeric guidance; reducing it to a binary at >=4 would collapse signal.
 
-Per-axis means on the same holdout slice:
+Per-axis means on the same {{ split }} slice:
 
 | Axis | Mean (1-5) |
 |------|------------|
@@ -99,7 +99,7 @@ The numbers below are transcribed verbatim from `evals/calibration.json`. Phase 
 
 ## 6. One worked low-scoring failure case
 
-The worst-groundedness record on the holdout slice, selected deterministically (sort by `(actual.groundedness, id)` ascending; lowest wins).
+The worst-groundedness record on the {{ split }} slice, selected deterministically (sort by `(actual.groundedness, id)` ascending; lowest wins).
 
 **Record:** `{{ worst.id }}` ({{ worst.domain }}). Actual groundedness `{{ "%.1f" | format(worst.actual.groundedness) }}` vs labeled expectation `{{ "%.1f" | format(worst.expected.groundedness) }}`.
 

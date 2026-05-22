@@ -326,6 +326,49 @@ def test_section_6_renders_claim_evidence_pairs_from_labeled_record() -> None:
 
 
 # ---------------------------------------------------------------------------
+# run_log.split guard (CR-03): REPORT.md narrative is holdout-only.
+# ---------------------------------------------------------------------------
+
+
+def test_render_rejects_non_holdout_split_with_refresh_command() -> None:
+    # COVERAGE.md commits the headline number to the holdout slice. A
+    # `make eval-fixtures` run with no --split flag writes split="all",
+    # and without this guard the renderer would silently print the
+    # all-set mean under "holdout slice" language. The guard must fire
+    # for every non-holdout value and embed the refresh command so the
+    # operator knows how to fix it.
+    rows = [_row("a", groundedness=3.0), _row("b", groundedness=4.0)]
+    examples = [_ex("a"), _ex("b")]
+    calib = Calibration.model_validate(_synthetic_calibration_payload())
+    for bad_split in ("all", "train"):
+        payload = _synthetic_run_log_payload(rows)
+        payload["split"] = bad_split
+        run_log = RunLog.model_validate(payload)
+        with pytest.raises(ValueError, match="holdout") as exc_info:
+            _render(
+                run_log=run_log,
+                calibration=calib,
+                examples=examples,
+                coverage_md="# coverage\n",
+            )
+        assert _REFRESH_COMMAND_LITERAL in str(exc_info.value)
+
+
+def test_run_log_schema_rejects_unknown_split_value() -> None:
+    # Pydantic's Literal["all","train","holdout"] catches typos at
+    # schema-validation time rather than letting them flow into _render.
+    # This converts the WR-02-style "--split holdou" typo into an
+    # immediate, named failure.
+    from pydantic import ValidationError
+
+    rows = [_row("a", groundedness=3.0)]
+    payload = _synthetic_run_log_payload(rows)
+    payload["split"] = "holdou"
+    with pytest.raises(ValidationError):
+        RunLog.model_validate(payload)
+
+
+# ---------------------------------------------------------------------------
 # _fmt_kappa / _fmt_pct (D-10)
 # ---------------------------------------------------------------------------
 

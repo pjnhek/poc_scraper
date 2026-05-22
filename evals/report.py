@@ -21,6 +21,7 @@ import json
 import logging
 import re
 from pathlib import Path
+from typing import Literal
 
 import jinja2
 from pydantic import ConfigDict, Field
@@ -75,7 +76,12 @@ class RunLogRow(_Frozen):
 
 class RunLog(_Frozen):
     run_date: str
-    split: str
+    # Closed set: matches the argparse choices in evals/run_eval.py and
+    # forces silent typos (e.g. "holdou") to fail at schema validation
+    # instead of producing a run-log the renderer would later treat as
+    # the holdout slice. The headline number REPORT.md prints is the
+    # holdout slice only; _render enforces this with a runtime guard.
+    split: Literal["all", "train", "holdout"]
     judge_model: str
     judge_provider: str
     n_records: int
@@ -360,8 +366,18 @@ def _render(
     """Build the template context and render the single Jinja2 template.
 
     Raises KeyError if the audit-slice's worst id is missing from
-    labeled.jsonl (B-02 drift gate).
+    labeled.jsonl (B-02 drift gate). Raises ValueError if run_log.split is
+    not "holdout"; the report's headline language and the COVERAGE.md
+    process commitment both name the holdout slice specifically, so a
+    train-set or all-set run-log would silently ship the wrong number.
     """
+    if run_log.split != "holdout":
+        raise ValueError(
+            f"run-log.split={run_log.split!r} but REPORT.md is the holdout-slice"
+            " narrative (per COVERAGE.md). Refresh the run-log with:"
+            f" {REFRESH_COMMAND}"
+        )
+
     examples_by_id: dict[str, LabeledExample] = {ex.id: ex for ex in examples}
     rows = list(run_log.rows)
     worst, best, median = _select_audit_slice(rows)
