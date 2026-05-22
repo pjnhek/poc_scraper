@@ -367,3 +367,82 @@ async def test_empty_enrichment_renders_graceful_sheet_row() -> None:
     assert row[HEADERS.index("verdict")] == ""
     assert row[HEADERS.index("hook_1")] == ""
     assert row[HEADERS.index("error")] == "empty enrichment"
+
+
+@pytest.mark.asyncio
+async def test_citation_drop_renders_hook_suppressed_row() -> None:
+    """HARD-03 + D-10: writer emits empty claims list -> hook_suppressed row.
+
+    With ``{"claims":[],"connective_text":""}`` from the outreach writer,
+    src/citations.py::assemble_paragraph returns ("", ()) and the resulting
+    OutreachHook has paragraph="" and cited_indices=(). With three contacts
+    the suppression applies to all three hooks, so D-03 precedence flips the
+    final status to hook_suppressed regardless of eval result.
+
+    The existing test_all_hooks_suppressed_status above already proves the
+    status flip; the incremental value here per D-09 is the _build_row reach:
+    confirm that the hook column renders as the empty string when the
+    citation gate suppresses the paragraph end-to-end.
+    """
+
+    class EmptyClaimLLM:
+        async def synthesize(
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+        ) -> LLMResponse:
+            if "You are a sales analyst" in system:
+                return LLMResponse(
+                    text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}'
+                )
+            if "score companies against an ICP rubric" in system:
+                return LLMResponse(
+                    text=(
+                        '{"support_volume":5,"support_volume_reason":"r",'
+                        '"ai_maturity":5,"ai_maturity_reason":"r",'
+                        '"stage_fit":5,"stage_fit_reason":"r",'
+                        '"channel_breadth":5,"channel_breadth_reason":"r",'
+                        '"justification":"ok"}'
+                    )
+                )
+            if "propose the top 3 buyer personas" in system:
+                return LLMResponse(
+                    text=(
+                        '[{"role_title":"a","rationale":"r"},'
+                        '{"role_title":"b","rationale":"r"},'
+                        '{"role_title":"c","rationale":"r"}]'
+                    )
+                )
+            if "You write outreach claims from a seller" in system:
+                # D-10 trigger: empty claims list -> assemble_paragraph returns
+                # ("", ()) -> hook with empty paragraph -> hook_suppressed.
+                return LLMResponse(text='{"claims":[],"connective_text":""}')
+            if "LLM judge evaluating" in system:
+                return LLMResponse(
+                    text=(
+                        '{"claims":[{"text":"x","supported_by":1}],'
+                        '"icp_relevance":3,"personalization":3,'
+                        '"specificity":2,"recency":2}'
+                    )
+                )
+            raise AssertionError(f"unscripted: {system[:60]}")
+
+    deps = build_deps(
+        writer=EmptyClaimLLM(),
+        judge=EmptyClaimLLM(),
+        exa=FakeExa(about=[_exa_about()]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="x.com"), deps)
+    assert sa.status == AccountStatus.hook_suppressed
+    # With empty claims, OutreachGenerator builds a hook with paragraph=""
+    # rather than skipping the persona. Verify the shape that drives _build_row.
+    assert len(sa.hooks) == 3
+    assert all(h.paragraph == "" for h in sa.hooks)
+
+    from src.sheets import HEADERS, _build_row
+
+    row = _build_row(sa)
+    assert row[HEADERS.index("domain")] == "x.com"
+    assert row[HEADERS.index("status")] == AccountStatus.hook_suppressed
+    assert row[HEADERS.index("hook_1")] == ""
+    assert row[HEADERS.index("hook_2")] == ""
+    assert row[HEADERS.index("hook_3")] == ""
