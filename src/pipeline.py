@@ -19,6 +19,14 @@ from .clients.nvidia_client import (
     NvidiaClient,
 )
 from .clients.protocols import BrowserbaseLike, ExaLike, LLMClient
+from .clients.replay import (
+    RecordingBrowserbase,
+    RecordingExa,
+    RecordingLLM,
+    ReplayBrowserbase,
+    ReplayExa,
+    ReplayLLM,
+)
 from .config import Settings, get_settings
 from .contacts import ContactExtractor
 from .csv_io import read_accounts
@@ -264,14 +272,37 @@ async def main(settings: Settings | None = None) -> int:
     log.info("loaded %d accounts from %s", len(accounts), settings.accounts_csv)
 
     async with httpx.AsyncClient(timeout=60.0) as http:
-        exa = ExaClient(api_key=settings.exa_api_key, client=http)
-        bb = BrowserbaseClient(
-            api_key=settings.browserbase_api_key,
-            project_id=settings.browserbase_project_id,
-            client=http,
-        )
-        writer = _build_writer(settings)
-        judge = _build_judge(settings)
+        exa: ExaLike
+        bb: BrowserbaseLike
+        writer: LLMClient
+        judge: LLMClient
+        if settings.demo_bundle is not None:
+            # D-15: replay mode swaps every external client for the JSON-backed
+            # stubs. Live providers are never contacted; require_for_pipeline
+            # has already skipped the API-key checks above.
+            exa = ReplayExa(settings.demo_bundle)
+            bb = ReplayBrowserbase(settings.demo_bundle)
+            writer = ReplayLLM(settings.demo_bundle, role="writer")
+            judge = ReplayLLM(settings.demo_bundle, role="judge")
+        else:
+            exa = ExaClient(api_key=settings.exa_api_key, client=http)
+            bb = BrowserbaseClient(
+                api_key=settings.browserbase_api_key,
+                project_id=settings.browserbase_project_id,
+                client=http,
+            )
+            writer = _build_writer(settings)
+            judge = _build_judge(settings)
+            if settings.record_bundle is not None:
+                # D-17: post-construction wrap so the inner clients own
+                # request formation. The wrappers only tee the response to
+                # disk for later replay.
+                exa = RecordingExa(inner=exa, bundle_dir=settings.record_bundle)
+                bb = RecordingBrowserbase(inner=bb, bundle_dir=settings.record_bundle)
+                writer = RecordingLLM(
+                    inner=writer, bundle_dir=settings.record_bundle, role="writer"
+                )
+                judge = RecordingLLM(inner=judge, bundle_dir=settings.record_bundle, role="judge")
         deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
 
         scored = await run_pipeline(accounts, deps, concurrency=settings.pipeline_concurrency)

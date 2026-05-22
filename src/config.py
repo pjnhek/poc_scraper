@@ -105,6 +105,17 @@ class Settings(BaseSettings):
 
     accounts_csv: Path = Path("inputs/accounts.csv")
 
+    # Replay mode (D-15): when set, build_deps swaps real Exa/Browserbase/LLM
+    # clients for the ReplayExa/ReplayBrowserbase/ReplayLLM stubs in
+    # src/clients/replay.py pointed at this directory. No live API calls;
+    # require_for_pipeline skips the API-key checks in this mode.
+    demo_bundle: Path | None = None
+    # Recording mode (D-17): when set, build_deps wraps the real clients in
+    # the tee wrappers in src/clients/replay.py that mirror each
+    # request/response to this directory. Live API keys are still required
+    # because the inner clients still call the live providers.
+    record_bundle: Path | None = None
+
     @property
     def resolved_provider(self) -> LLMProvider:
         if self.llm_provider:
@@ -140,6 +151,11 @@ class Settings(BaseSettings):
         )
 
     def require_for_pipeline(self) -> None:
+        # Replay mode reads from disk; no live API keys required. Recording
+        # mode (record_bundle) still requires live keys because the wrappers
+        # call the real clients, so there is no early-return for it (D-15).
+        if self.demo_bundle is not None:
+            return
         provider = self.resolved_provider
         missing: list[str] = []
         if provider == "deepseek" and not self.deepseek_api_key:

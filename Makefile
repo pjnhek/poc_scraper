@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean
+.PHONY: install setup-sheet run run-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean
 
 install:
 	uv sync --extra dev
@@ -9,6 +9,9 @@ setup-sheet:
 
 run:
 	uv run python -m src.pipeline
+
+run-demo:
+	DEMO_BUNDLE=fixtures/demo-bundle uv run python -m src.pipeline
 
 eval: eval-live
 
