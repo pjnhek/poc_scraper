@@ -180,7 +180,7 @@ Per-axis means on the same holdout slice:
 
 ## 5. What this eval does not catch
 
-The judge and the writer share a model family. A same-family judge has the same blind spots as the writer, so high judge agreement is not a verdict, it is one signal, not a verdict. Cross-family agreement (DeepSeek vs NVIDIA) is the antidote: where the two families disagree, the judge's confidence is bounded by that disagreement.
+The judge and the writer share a model family. A same-family judge has the same blind spots as the writer, so high judge agreement is one signal, not a verdict. Cross-family agreement (DeepSeek vs NVIDIA) is the antidote: where the two families disagree, the judge's confidence is bounded by that disagreement.
 
 The numbers below are transcribed verbatim from `evals/calibration.json`. Phase 3 scored all `25` labeled records with both judges; `24` records passed the eval_failed filter and entered kappa computation. See `evals/CALIBRATION.md` for the underlying narrative.
 

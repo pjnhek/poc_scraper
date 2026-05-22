@@ -730,7 +730,13 @@ def test_section_5_contains_framing_note() -> None:
         coverage_md="# coverage\n",
     )
 
-    assert "one signal, not a verdict" in rendered
+    # The framing note now reads "high judge agreement is one signal,
+    # not a verdict." -- one clause, not two. The earlier phrasing
+    # ("...is not a verdict, it is one signal, not a verdict.") repeated
+    # "not a verdict" twice in the same sentence; assert the cleaned form
+    # is present AND that the doubled-verdict preamble is gone.
+    assert "high judge agreement is one signal, not a verdict." in rendered
+    assert "not a verdict, it is one signal" not in rendered
 
 
 # ---------------------------------------------------------------------------
