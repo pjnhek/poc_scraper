@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
+from openai import APIError
 
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
@@ -39,7 +41,14 @@ class FailingAnthropic:
         self, system: str, context: str, user_prompt: str, max_tokens=None
     ) -> LLMResponse:
         if self.fail_on in system:
-            raise RuntimeError(f"deliberate failure on '{self.fail_on}'")
+            # APIError is in the narrow tuple per Phase 5 D-01 so the per-stage
+            # except block degrades to a ScoredAccount.unscoreable row instead
+            # of propagating per D-04.
+            raise APIError(
+                f"deliberate failure on '{self.fail_on}'",
+                request=httpx.Request("POST", "https://example.com"),
+                body=None,
+            )
         return LLMResponse(text="{}")
 
 
@@ -102,7 +111,12 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
             if "You write outreach claims from a seller" in system:
                 self.outreach_calls += 1
                 if self.outreach_calls == 2:
-                    raise RuntimeError("transient outreach failure")
+                    # APIError is in the outreach stage's narrow tuple (D-01).
+                    raise APIError(
+                        "transient outreach failure",
+                        request=httpx.Request("POST", "https://example.com"),
+                        body=None,
+                    )
                 # Return a claim citing justification [1]; rapidfuzz gate passes
                 # because the claim text overlaps with the snippet content.
                 return LLMResponse(
@@ -296,7 +310,13 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
                     )
                 )
             if "LLM judge evaluating" in system:
-                raise RuntimeError("eval network error")
+                # APIError is in the eval stage's narrow tuple (D-01); per D-04
+                # any other class would now propagate as a crash.
+                raise APIError(
+                    "eval network error",
+                    request=httpx.Request("POST", "https://example.com"),
+                    body=None,
+                )
             raise AssertionError(f"unscripted: {system[:60]}")
 
     deps = build_deps(

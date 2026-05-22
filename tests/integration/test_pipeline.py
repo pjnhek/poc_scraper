@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from src.clients.browserbase_client import RenderedPage
@@ -168,7 +169,9 @@ async def test_one_account_failure_does_not_kill_pipeline() -> None:
         async def search_about(self, domain: str, num_results: int = 5) -> list[ExaResult]:
             self.count += 1
             if self.count == 1:
-                raise RuntimeError("upstream blew up")
+                # httpx.HTTPError is in the enrich stage's narrow tuple (D-01).
+                # Per D-04, RuntimeError would now propagate and abort the pipeline.
+                raise httpx.HTTPError("upstream blew up")
             return self.about
 
     exa = FlakyExa()

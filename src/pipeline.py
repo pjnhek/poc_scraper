@@ -5,10 +5,12 @@ import logging
 from dataclasses import dataclass
 
 import httpx
+from openai import APIError, APIStatusError, RateLimitError
+from pydantic import ValidationError
 
 from evals.rubric import EvalRubric
 
-from .clients.browserbase_client import BrowserbaseClient
+from .clients.browserbase_client import BrowserbaseClient, BrowserbaseError
 from .clients.exa_client import ExaClient
 from .clients.nvidia_client import (
     DEEPSEEK_BASE_URL,
@@ -57,12 +59,19 @@ def build_deps(
 async def process_account(account: Account, deps: Deps) -> ScoredAccount:
     try:
         enrichment = await deps.enricher.enrich(account)
-    except Exception as exc:
-        log.warning("enrich failed for %s: %s", account.domain, exc)
+    except (
+        httpx.HTTPError,
+        BrowserbaseError,
+        RateLimitError,
+        APIStatusError,
+        APIError,
+        ValidationError,
+    ) as exc:
+        log.warning("enrich failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         return ScoredAccount.unscoreable(
             account,
             Enrichment(account=account),
-            f"enrich failed: {exc}",
+            f"enrich failed [{type(exc).__name__}]: {exc}",
             status=AccountStatus.hook_suppressed,
         )
 
@@ -73,10 +82,13 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         score = await deps.scorer.score(enrichment)
-    except Exception as exc:
-        log.warning("score failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("score failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         return ScoredAccount.unscoreable(
-            account, enrichment, f"score failed: {exc}", status=AccountStatus.hook_suppressed
+            account,
+            enrichment,
+            f"score failed [{type(exc).__name__}]: {exc}",
+            status=AccountStatus.hook_suppressed,
         )
     if score is None:
         return ScoredAccount.unscoreable(
@@ -88,16 +100,22 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         contacts = await deps.contacts.extract(enrichment, score)
-    except Exception as exc:
-        log.warning("contacts failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("contacts failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         contacts = ()
 
     hooks = []
     for c in contacts:
         try:
             hook = await deps.outreach.generate(c, enrichment, score)
-        except Exception as exc:
-            log.warning("outreach failed for %s/%s: %s", account.domain, c.role_title, exc)
+        except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+            log.warning(
+                "outreach failed [%s] for %s/%s: %s",
+                type(exc).__name__,
+                account.domain,
+                c.role_title,
+                exc,
+            )
             continue
         hooks.append(hook)
 
@@ -112,8 +130,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         eval_score = await deps.eval_rubric.evaluate_account(sa)
-    except Exception as exc:
-        log.warning("eval failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("eval failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         eval_score = None
 
     # D-03 precedence: worst-observability-first so a judge failure is never masked.
