@@ -31,15 +31,12 @@ HEADERS: tuple[str, ...] = (
     "contact_1_role",
     "contact_1_rationale",
     "hook_1",
-    "hook_1_citations",
     "contact_2_role",
     "contact_2_rationale",
     "hook_2",
-    "hook_2_citations",
     "contact_3_role",
     "contact_3_rationale",
     "hook_3",
-    "hook_3_citations",
     "eval_groundedness",
     "eval_icp_relevance",
     "eval_personalization",
@@ -58,14 +55,34 @@ class SheetWriteResult:
     sheet_title: str
 
 
-def build_rows(scored: list[ScoredAccount]) -> list[list[str]]:
+def build_rows(
+    scored: list[ScoredAccount],
+    *,
+    sources_sheet_id: int | None = None,
+    sources_lookup: dict[tuple[str, int], int] | None = None,
+) -> list[list[str]]:
     rows: list[list[str]] = [list(HEADERS)]
     for sa in scored:
-        rows.append(_build_row(sa))
+        sources_row_for_account = None
+        first_index = _first_justification_index(sa)
+        if sources_lookup is not None and first_index is not None:
+            sources_row_for_account = sources_lookup.get((sa.account.domain, first_index))
+        rows.append(
+            _build_row(
+                sa,
+                sources_sheet_id=sources_sheet_id,
+                sources_row_for_account=sources_row_for_account,
+            )
+        )
     return rows
 
 
-def _build_row(sa: ScoredAccount) -> list[str]:
+def _build_row(
+    sa: ScoredAccount,
+    *,
+    sources_sheet_id: int | None = None,
+    sources_row_for_account: int | None = None,
+) -> list[str]:
     f = sa.enrichment.firmographics
     bd = sa.score.breakdown if sa.score is not None else None
     contacts = list(sa.contacts) + [None, None, None]
@@ -76,6 +93,10 @@ def _build_row(sa: ScoredAccount) -> list[str]:
     score_justification = (
         _format_score_justification(sa.score, justifications_by_index) if sa.score else ""
     )
+    if sources_sheet_id is not None and sources_row_for_account is not None:
+        score_justification = _hyperlink_formula(
+            sources_sheet_id, sources_row_for_account, score_justification
+        )
 
     row: list[str] = [
         sa.account.domain,
@@ -97,8 +118,10 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         h = hooks[i]
         row.append(c.role_title if c else "")
         row.append(c.rationale if c else "")
-        row.append(h.paragraph if h else "")
-        row.append(_format_hook_citations(h, justifications_by_index) if h else "")
+        hook_cell = h.paragraph if h else ""
+        if sources_sheet_id is not None and sources_row_for_account is not None:
+            hook_cell = _hyperlink_formula(sources_sheet_id, sources_row_for_account, hook_cell)
+        row.append(hook_cell)
     row.extend(
         [
             _fmt(ev.groundedness) if ev else "",
@@ -112,8 +135,14 @@ def _build_row(sa: ScoredAccount) -> list[str]:
     return row
 
 
+def _first_justification_index(sa: ScoredAccount) -> int | None:
+    if not sa.enrichment.justifications:
+        return None
+    return min(j.index for j in sa.enrichment.justifications)
+
+
 def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
-    """Compose the score's justification cell with supporting evidence inline.
+    """Compose the score's justification cell with supporting evidence markers.
 
     If the writer omits supporting_indices entirely (which it shouldn't,
     per the prompt) we still surface the gap to the reader as
@@ -122,27 +151,45 @@ def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
     visible instead of indistinguishable from a "no evidence" verdict.
     """
     parts = [score.justification.strip() if score.justification else ""]
-    supports = [
-        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
-        for i in score.supporting_indices
-        if i in by_index
-    ]
+    supports = [f"[{i}]" for i in score.supporting_indices if i in by_index]
     if supports:
-        parts.append("Supporting: " + "; ".join(supports))
+        parts.append("Supporting: " + " ".join(supports))
     elif by_index:
         parts.append("Supporting: (writer returned no supporting indices)")
     return " ".join(p for p in parts if p)
 
 
-def _format_hook_citations(hook: Any, by_index: dict[int, Any]) -> str:
-    """Render the hook's cited justifications as '[1] summary (url); [3] summary (url)'."""
-    if not hook.cited_indices:
+def _hyperlink_formula(target_sheet_id: int, target_row: int, display_text: str) -> str:
+    if not display_text:
         return ""
-    return "; ".join(
-        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
-        for i in hook.cited_indices
-        if i in by_index
-    )
+    escaped = display_text.replace('"', '""')
+    return f'=HYPERLINK("#gid={target_sheet_id}&range=A{target_row}", "{escaped}")'
+
+
+def build_sources_rows(scored: list[ScoredAccount]) -> list[list[str]]:
+    rows = [["domain", "index", "summary", "url", "source"]]
+    for sa in scored:
+        for justification in sorted(sa.enrichment.justifications, key=lambda j: j.index):
+            rows.append(
+                [
+                    sa.account.domain,
+                    str(justification.index),
+                    justification.summary,
+                    str(justification.citation.url),
+                    justification.citation.source,
+                ]
+            )
+    return rows
+
+
+def _sources_row_lookup(scored: list[ScoredAccount]) -> dict[tuple[str, int], int]:
+    lookup: dict[tuple[str, int], int] = {}
+    next_row = 2
+    for sa in scored:
+        for justification in sorted(sa.enrichment.justifications, key=lambda j: j.index):
+            lookup[(sa.account.domain, justification.index)] = next_row
+            next_row += 1
+    return lookup
 
 
 def _fmt(v: float) -> str:
