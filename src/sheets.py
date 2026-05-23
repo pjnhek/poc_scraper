@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .icp_config import ICPConfig
-from .models import Account, ScoredAccount
+from .models import Account, AccountStatus, ScoredAccount
 
 log = logging.getLogger(__name__)
 
@@ -151,6 +151,7 @@ def _fmt(v: float) -> str:
 
 RUBRIC_TAB_TITLE = "Rubric"
 INPUTS_TAB_TITLE = "Inputs"
+LEGEND_TAB_TITLE = "Legend"
 
 
 def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
@@ -213,8 +214,8 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
     rows.append(
         [
             f"When groundedness drops below {config.eval.groundedness_flag_threshold:.1f}, "
-            "the eval_groundedness cell turns red text. The row keeps its verdict "
-            "color (strong = green, borderline = yellow, weak = pink).",
+            "the eval_groundedness cell turns red text. Whole-row background comes from "
+            "AccountStatus; see the Legend tab for status colors and precedence.",
         ]
     )
     rows.append([])
@@ -257,28 +258,56 @@ def build_inputs_rows(
     return rows
 
 
-VERDICT_COLORS: dict[str, dict[str, float]] = {
-    "strong": {"red": 0.82, "green": 0.95, "blue": 0.82},
-    "borderline": {"red": 1.0, "green": 0.97, "blue": 0.80},
-    "weak": {"red": 1.0, "green": 0.85, "blue": 0.85},
+ACCOUNT_STATUS_COLORS: dict[AccountStatus, dict[str, float]] = {
+    AccountStatus.clean: {"red": 1.0, "green": 1.0, "blue": 1.0},
+    AccountStatus.low_groundedness: {"red": 1.0, "green": 0.97, "blue": 0.80},
+    AccountStatus.hook_suppressed: {"red": 1.0, "green": 0.90, "blue": 0.78},
+    AccountStatus.judge_failed: {"red": 0.88, "green": 0.88, "blue": 0.88},
 }
 
 FLAG_TEXT_COLOR: dict[str, float] = {"red": 0.8, "green": 0.0, "blue": 0.0}
 
+ACCOUNT_STATUS_MEANINGS: dict[AccountStatus, str] = {
+    AccountStatus.clean: "All claims grounded; no eval flags.",
+    AccountStatus.low_groundedness: "Hook content shipped but eval groundedness fell below threshold.",
+    AccountStatus.hook_suppressed: (
+        "One or more outreach hooks were dropped because claims failed citation coverage."
+    ),
+    AccountStatus.judge_failed: (
+        "Judge call did not return a parseable score; eval is out-of-band, NOT a content failure."
+    ),
+}
 
-def verdict_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
-    """Map of row index (1-based, header is row 0) to verdict background color.
 
-    Strong verdict gets green, borderline gets yellow, weak gets no color.
-    Eval-flagged rows are signaled separately by red text on the
-    eval_groundedness cell (see `flagged_eval_rows`), so the row's verdict
-    color is never overridden.
-    """
+def _legend_color_label(status: AccountStatus) -> str:
+    color = ACCOUNT_STATUS_COLORS[status]
+    if color["red"] == color["green"] == color["blue"]:
+        return "white" if color["red"] >= 0.99 else "gray"
+    if color["green"] >= 0.95:
+        return "yellow"
+    return "orange"
+
+
+def build_legend_rows() -> list[list[str]]:
+    rows = [["status", "color", "meaning", "precedence"]]
+    for status in AccountStatus:
+        rows.append(
+            [
+                status.value,
+                _legend_color_label(status),
+                ACCOUNT_STATUS_MEANINGS[status],
+                STATUS_LEGEND,
+            ]
+        )
+    return rows
+
+
+def account_status_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
     out: dict[int, dict[str, float]] = {}
     for i, sa in enumerate(scored):
         idx = i + 1
-        if sa.score and sa.score.verdict in VERDICT_COLORS:
-            out[idx] = VERDICT_COLORS[sa.score.verdict]
+        if sa.status != AccountStatus.clean:
+            out[idx] = ACCOUNT_STATUS_COLORS[sa.status]
     return out
 
 
@@ -343,6 +372,11 @@ class SheetsWriter:
                 build_inputs_rows(accounts, source_path="inputs/accounts.csv"),
                 existing_tabs,
             )
+
+        self._refresh_named_tab(
+            service, spreadsheet_id, LEGEND_TAB_TITLE, build_legend_rows(), existing_tabs
+        )
+        self._apply_legend_tab_colors(service, spreadsheet_id)
 
         self._add_tab(service, spreadsheet_id, results_title, existing_tabs)
         results_rows = build_rows(scored)
@@ -411,7 +445,7 @@ class SheetsWriter:
         sheet_title: str,
         scored: list[ScoredAccount],
     ) -> None:
-        colors = verdict_row_colors(scored)
+        colors = account_status_row_colors(scored)
         if not colors:
             return
         sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
@@ -430,6 +464,30 @@ class SheetsWriter:
                 }
             }
             for idx, color in sorted(colors.items())
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_legend_tab_colors(self, service: Any, spreadsheet_id: str) -> None:
+        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, LEGEND_TAB_TITLE)
+        if sheet_id is None:
+            return
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": row_idx,
+                        "endRowIndex": row_idx + 1,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {"backgroundColor": ACCOUNT_STATUS_COLORS[status]}
+                    },
+                    "fields": "userEnteredFormat.backgroundColor",
+                }
+            }
+            for row_idx, status in enumerate(AccountStatus, start=1)
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}
