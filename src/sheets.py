@@ -324,6 +324,55 @@ ACCOUNT_STATUS_COLORS: dict[AccountStatus, dict[str, float]] = {
 
 FLAG_TEXT_COLOR: dict[str, float] = {"red": 0.8, "green": 0.0, "blue": 0.0}
 
+# D-13 width classes. Pixel values picked inside the documented ranges so
+# narrow numeric columns stay scannable and hook paragraphs (the "wide"
+# class) read as multi-sentence prose without horizontal scroll.
+WIDTH_CLASS_PX: dict[str, int] = {
+    "narrow": 110,
+    "medium": 180,
+    "wide": 400,
+    "extra": 250,
+}
+
+# D-13 per-column class. Every HEADERS entry MUST appear exactly once so the
+# results tab never falls back to the Sheets default width on first open.
+# The covers-every-header invariant is asserted in test_sheets_rows.py.
+COLUMN_WIDTHS: dict[str, str] = {
+    "domain": "narrow",
+    "status": "narrow",
+    "name": "medium",
+    "industry": "medium",
+    "headcount": "medium",
+    "tech_signals": "medium",
+    "icp_total": "narrow",
+    "verdict": "narrow",
+    "support_volume": "narrow",
+    "ai_maturity": "narrow",
+    "stage_fit": "narrow",
+    "channel_breadth": "narrow",
+    "justification": "wide",
+    "contact_1_role": "medium",
+    "contact_1_rationale": "medium",
+    "hook_1": "wide",
+    "contact_2_role": "medium",
+    "contact_2_rationale": "medium",
+    "hook_2": "wide",
+    "contact_3_role": "medium",
+    "contact_3_rationale": "medium",
+    "hook_3": "wide",
+    "eval_groundedness": "narrow",
+    "eval_icp_relevance": "narrow",
+    "eval_personalization": "narrow",
+    "eval_specificity": "narrow",
+    "eval_recency": "narrow",
+    "error": "extra",
+}
+
+# D-14 wrap columns: hook paragraphs and the score justification render as
+# multi-sentence prose, so they need wrap to grow vertically rather than
+# spill horizontally.
+WRAP_COLUMN_NAMES: tuple[str, ...] = ("hook_1", "hook_2", "hook_3", "justification")
+
 ACCOUNT_STATUS_MEANINGS: dict[AccountStatus, str] = {
     AccountStatus.clean: "All claims grounded; no eval flags.",
     AccountStatus.low_groundedness: "Hook content shipped but eval groundedness fell below threshold.",
@@ -451,6 +500,16 @@ class SheetsWriter:
         self._write_values(service, spreadsheet_id, results_title, results_rows)
         self._apply_row_colors(service, spreadsheet_id, results_title, scored)
         self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)
+
+        # D-12/D-13/D-14: one sheet_id lookup powers all three formatting
+        # passes so the writer stays gentle on the discovery API.
+        results_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, results_title)
+        if results_sheet_id is not None:
+            self._apply_freeze_panes(service, spreadsheet_id, results_sheet_id)
+            self._apply_column_widths(service, spreadsheet_id, results_sheet_id)
+            self._apply_wrap_strategy(
+                service, spreadsheet_id, results_sheet_id, num_data_rows=len(scored)
+            )
 
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
         log.info("wrote %d rows to %s tab %s", len(results_rows) - 1, url, results_title)
@@ -598,6 +657,87 @@ class SheetsWriter:
                 }
             }
             for idx in flagged
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_freeze_panes(self, service: Any, spreadsheet_id: str, sheet_id: int) -> None:
+        """D-12: pin row 1 (header) and columns A-B (domain, status).
+
+        Vertical scroll keeps weight-baked headers visible; horizontal scroll
+        keeps the AccountStatus column pinned so the viewer never loses row
+        identity. Two-column freeze is hard-coded because D-12 locks the count.
+        """
+        request = {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheet_id,
+                    "gridProperties": {"frozenRowCount": 1, "frozenColumnCount": 2},
+                },
+                "fields": "gridProperties.frozenRowCount,gridProperties.frozenColumnCount",
+            }
+        }
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": [request]}
+        ).execute()
+
+    def _apply_column_widths(self, service: Any, spreadsheet_id: str, sheet_id: int) -> None:
+        """D-13: size each column by its width class in a single batchUpdate.
+
+        One request per HEADERS entry keeps the mapping obvious in API
+        traffic; the per-class collapsing optimization is intentionally
+        deferred since 28 requests sit far under the Sheets per-batchUpdate
+        limit.
+        """
+        requests = [
+            {
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": col_index,
+                        "endIndex": col_index + 1,
+                    },
+                    "properties": {"pixelSize": WIDTH_CLASS_PX[COLUMN_WIDTHS[name]]},
+                    "fields": "pixelSize",
+                }
+            }
+            for col_index, name in enumerate(HEADERS)
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_wrap_strategy(
+        self,
+        service: Any,
+        spreadsheet_id: str,
+        sheet_id: int,
+        num_data_rows: int,
+    ) -> None:
+        """D-14: WRAP hook + justification columns so prose grows vertically.
+
+        Range is row 1 (first data row) through num_data_rows + 1 (exclusive
+        end). An empty data range still issues the request as a no-op so
+        future-added rows inherit the format on subsequent runs.
+        """
+        end_row = num_data_rows + 1
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": HEADERS.index(name),
+                        "endColumnIndex": HEADERS.index(name) + 1,
+                    },
+                    "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                    "fields": "userEnteredFormat.wrapStrategy",
+                }
+            }
+            for name in WRAP_COLUMN_NAMES
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}
