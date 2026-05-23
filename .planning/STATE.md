@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-05-23T05:24:03.163Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-05-23T05:26:16.640Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 8
@@ -94,6 +94,10 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 05 Plan 04: ReplayMissError intentionally OUTSIDE pipeline narrow exception tuples so missing fixtures crash, not degrade rows
 - [Phase ?]: Phase 05 Plan 04: max_tokens is part of the LLM request hash so future capped calls do not silently collide with default-None fixtures
 - [Phase ?]: Phase 05 Plan 04: functional test records bundle via real process_account through Recording* wrappers, not hand-crafted prompts, so the round-trip is robust to upstream edits
+- [Phase 06-01]: clean result rows use no-fill while the Legend clean row receives explicit white RGB
+- [Phase 06-01]: low_groundedness=1.00/0.97/0.80, hook_suppressed=1.00/0.90/0.78, judge_failed=0.88/0.88/0.88
+- [Phase 06-01]: judge_failed is gray because it represents judge failure, not writer fabrication
+- [Phase 06-01]: Rubric tab wording now points to AccountStatus and Legend instead of verdict colors
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-23T05:23:49.937Z
-Stopped at: Phase 6 context gathered
+Last session: 2026-05-23T05:26:16.633Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
