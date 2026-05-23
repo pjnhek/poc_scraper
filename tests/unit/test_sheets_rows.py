@@ -16,15 +16,22 @@ from src.models import (
     ScoredAccount,
 )
 from src.sheets import (
+    ACCOUNT_STATUS_COLORS,
     HEADERS,
-    VERDICT_COLORS,
+    LEGEND_TAB_TITLE,
+    STATUS_LEGEND,
+    account_status_row_colors,
+    build_legend_rows,
     build_rows,
     flagged_eval_rows,
-    verdict_row_colors,
 )
 
 
-def _scored(domain: str = "examplefintech.com", flag: bool = False) -> ScoredAccount:
+def _scored(
+    domain: str = "examplefintech.com",
+    flag: bool = False,
+    status: AccountStatus = AccountStatus.clean,
+) -> ScoredAccount:
     acc = Account(domain=domain)
     citation = Citation.make(url="https://example.com/news", source="exa", snippet="snippet")
     enr = Enrichment(
@@ -70,7 +77,7 @@ def _scored(domain: str = "examplefintech.com", flag: bool = False) -> ScoredAcc
     )
     return ScoredAccount(
         account=acc,
-        status=AccountStatus.clean,
+        status=status,
         enrichment=enr,
         score=score,
         contacts=contacts,
@@ -148,21 +155,36 @@ def test_flagged_eval_rows_empty_when_no_eval() -> None:
     assert flagged_eval_rows([]) == []
 
 
-def test_verdict_colors_strong_gets_green() -> None:
-    items = [_scored(domain="strong.com")]
-    colors = verdict_row_colors(items)
-    assert colors == {1: VERDICT_COLORS["strong"]}
+def test_account_status_colors_palette_complete() -> None:
+    assert set(ACCOUNT_STATUS_COLORS) == set(AccountStatus)
+    for color in ACCOUNT_STATUS_COLORS.values():
+        assert all(0.0 <= component <= 1.0 for component in color.values())
 
 
-def test_verdict_color_unchanged_when_eval_is_flagged() -> None:
-    # New behavior: row keeps its verdict color even when eval flags it.
-    # The flag now shows up as red text on the eval_groundedness cell only.
-    items = [_scored(domain="strong.com", flag=True)]
-    colors = verdict_row_colors(items)
-    assert colors == {1: VERDICT_COLORS["strong"]}
+def test_account_status_colors_clean_omitted_from_row_colors() -> None:
+    assert account_status_row_colors([_scored(status=AccountStatus.clean)]) == {}
 
 
-def test_all_verdicts_get_a_color() -> None:
-    """Every verdict bucket maps to a color so weak rows aren't visually
-    indistinguishable from blank/failed rows in the demo sheet."""
-    assert set(VERDICT_COLORS.keys()) == {"strong", "borderline", "weak"}
+def test_account_status_colors_judge_failed_is_gray_not_red() -> None:
+    color = ACCOUNT_STATUS_COLORS[AccountStatus.judge_failed]
+    assert abs(color["red"] - color["green"]) <= 0.05
+    assert abs(color["green"] - color["blue"]) <= 0.05
+    assert color["red"] <= 0.92
+
+
+def test_account_status_colors_hook_suppressed_distinct_from_clean() -> None:
+    color = ACCOUNT_STATUS_COLORS[AccountStatus.hook_suppressed]
+    assert color != {"red": 1.0, "green": 1.0, "blue": 1.0}
+    assert any(component < 0.95 for component in color.values())
+
+
+def test_build_legend_rows_emits_four_states() -> None:
+    rows = build_legend_rows()
+    assert LEGEND_TAB_TITLE == "Legend"
+    assert rows[0] == ["status", "color", "meaning", "precedence"]
+    assert [row[0] for row in rows[1:]] == [status.value for status in AccountStatus]
+
+
+def test_build_legend_rows_publishes_precedence_string() -> None:
+    rendered = "\n".join(cell for row in build_legend_rows() for cell in row)
+    assert STATUS_LEGEND in rendered
