@@ -20,9 +20,12 @@ from src.sheets import (
     HEADERS,
     LEGEND_TAB_TITLE,
     STATUS_LEGEND,
+    _hyperlink_formula,
+    _sources_row_lookup,
     account_status_row_colors,
     build_legend_rows,
     build_rows,
+    build_sources_rows,
     flagged_eval_rows,
 )
 
@@ -89,10 +92,19 @@ def _scored(
 def test_build_rows_starts_with_headers() -> None:
     rows = build_rows([_scored()])
     assert rows[0] == list(HEADERS)
+    assert len(HEADERS) == 28
+    assert "hook_1_citations" not in HEADERS
+    assert "hook_2_citations" not in HEADERS
+    assert "hook_3_citations" not in HEADERS
 
 
 def test_build_rows_writes_account_data() -> None:
-    rows = build_rows([_scored()])
+    sa = _scored()
+    rows = build_rows(
+        [sa],
+        sources_sheet_id=123,
+        sources_lookup=_sources_row_lookup([sa]),
+    )
     row = rows[1]
     headers = rows[0]
     assert row[0] == "examplefintech.com"
@@ -101,17 +113,23 @@ def test_build_rows_writes_account_data() -> None:
     assert row[headers.index("icp_total")] == "4.4"
     assert row[headers.index("verdict")] == "strong"
     assert "VP CX" in row
-    assert any("example.com/news" in cell for cell in row)
+    assert row[headers.index("hook_1")].startswith('=HYPERLINK("#gid=')
 
 
 def test_justification_cell_includes_supporting_evidence() -> None:
     sa = _scored()
-    rows = build_rows([sa])
+    rows = build_rows(
+        [sa],
+        sources_sheet_id=123,
+        sources_lookup=_sources_row_lookup([sa]),
+    )
     row = rows[1]
     headers = rows[0]
     just_cell = row[headers.index("justification")]
+    assert just_cell.startswith('=HYPERLINK("#gid=')
     assert "Supporting:" in just_cell
     assert "[1]" in just_cell
+    assert "https://" not in just_cell
 
 
 def test_justification_cell_flags_missing_supporting_indices() -> None:
@@ -122,10 +140,15 @@ def test_justification_cell_flags_missing_supporting_indices() -> None:
     assert sa.score is not None
     bare_score = sa.score.model_copy(update={"supporting_indices": ()})
     sa_bare = sa.model_copy(update={"score": bare_score})
-    rows = build_rows([sa_bare])
+    rows = build_rows(
+        [sa_bare],
+        sources_sheet_id=123,
+        sources_lookup=_sources_row_lookup([sa_bare]),
+    )
     row = rows[1]
     headers = rows[0]
     just_cell = row[headers.index("justification")]
+    assert just_cell.startswith('=HYPERLINK("#gid=')
     assert "no supporting indices" in just_cell
 
 
@@ -139,7 +162,62 @@ def test_build_rows_handles_unscoreable() -> None:
     assert rows[1][1] == AccountStatus.hook_suppressed
     assert rows[1][headers.index("icp_total")] == ""
     assert rows[1][headers.index("verdict")] == ""
+    assert rows[1][headers.index("hook_1")] == ""
     assert rows[1][-1] == "no enrichment"
+
+
+def test_hyperlink_formula_basic() -> None:
+    assert _hyperlink_formula(123, 5, "hello") == '=HYPERLINK("#gid=123&range=A5", "hello")'
+
+
+def test_hyperlink_formula_escapes_quotes() -> None:
+    assert (
+        _hyperlink_formula(123, 5, 'he said "hi"')
+        == '=HYPERLINK("#gid=123&range=A5", "he said ""hi""")'
+    )
+
+
+def test_hyperlink_formula_empty_text() -> None:
+    assert _hyperlink_formula(123, 5, "") == ""
+
+
+def test_build_sources_rows_header() -> None:
+    rows = build_sources_rows([_scored()])
+    assert rows[0] == ["domain", "index", "summary", "url", "source"]
+
+
+def test_build_sources_rows_emits_one_per_justification() -> None:
+    base = _scored()
+    citation = Citation.make(url="https://example.com/second", source="browserbase")
+    justifications = base.enrichment.justifications + (
+        Justification(index=2, summary="second", citation=citation),
+        Justification(index=3, summary="third", citation=citation),
+    )
+    enrichment = base.enrichment.model_copy(update={"justifications": justifications})
+    sa = base.model_copy(update={"enrichment": enrichment})
+
+    rows = build_sources_rows([sa])
+
+    assert len(rows) == 4
+    assert [row[0] for row in rows[1:]] == ["examplefintech.com"] * 3
+    assert [row[1] for row in rows[1:]] == ["1", "2", "3"]
+    assert rows[1][3] == "https://example.com/news"
+    assert rows[2][3] == "https://example.com/second"
+    assert rows[2][4] == "browserbase"
+
+
+def test_build_sources_rows_omits_unscoreable() -> None:
+    acc = Account(domain="dead.com")
+    enr = Enrichment(account=acc)
+    sa = ScoredAccount.unscoreable(acc, enr, "no enrichment")
+    rows = build_sources_rows([sa])
+    assert rows == [["domain", "index", "summary", "url", "source"]]
+
+
+def test_sources_row_lookup_returns_first_data_row_two() -> None:
+    sa = _scored()
+    lookup = _sources_row_lookup([sa])
+    assert lookup[(sa.account.domain, 1)] == 2
 
 
 def test_flagged_eval_rows_picks_up_low_groundedness() -> None:
