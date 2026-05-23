@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-05-23T05:38:22.660Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-05-23T05:47:24.268Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 26
-  completed_plans: 24
-  percent: 92
+  completed_plans: 25
+  percent: 96
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 06 (sheet-polish) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-05-23
 
-Progress: [█████████░] 92%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 92%
 | Phase 05-failure-mode-hardening P04 | 22m | - tasks | - files |
 | Phase 06-sheet-polish P01 | 7min | 2 tasks | 3 files |
 | Phase 06-sheet-polish P02 | 6min | 2 tasks | 4 files |
+| Phase 06-sheet-polish P03 | 3min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Recent decisions affecting current work:
 - [Phase 06 Plan 02]: Sources tab is per-run using <results_title>-sources with schema domain/index/summary/url/source.
 - [Phase 06 Plan 02]: Hook and score justification cells use whole-cell HYPERLINK formulas targeting the first source row for the account.
 - [Phase 06 Plan 02]: Results HEADERS shrank to 28 columns by dropping hook_N_citations; Sources tab owns citation URLs.
+- [Phase 06 Plan 03]: Axis display labels are computed from configs/icp.yaml at write time while internal HEADERS remain snake_case for lookups and width mapping.
 
 ### Pending Todos
 
@@ -122,6 +124,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-23T05:38:07.730Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-05-23T05:47:24.261Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None

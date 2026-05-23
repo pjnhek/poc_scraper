@@ -188,7 +188,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06-03-PLAN.md -- Wave 3: Per-axis weight-baked display labels (POLISH-03): axis_display_labels(config) helper, build_rows projects display labels onto row 0 when config provided, snake_case HEADERS preserved for HEADERS.index() lookups
+- [x] 06-03-PLAN.md -- Wave 3: Per-axis weight-baked display labels (POLISH-03): axis_display_labels(config) helper, build_rows projects display labels onto row 0 when config provided, snake_case HEADERS preserved for HEADERS.index() lookups
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
