@@ -399,6 +399,7 @@ class SheetsWriter:
         service = self._build_service()
         run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         results_title = f"run-{run_id}"
+        sources_title = f"{results_title}-sources"
 
         if self._spreadsheet_id:
             spreadsheet_id = self._spreadsheet_id
@@ -426,7 +427,16 @@ class SheetsWriter:
         self._apply_legend_tab_colors(service, spreadsheet_id)
 
         self._add_tab(service, spreadsheet_id, results_title, existing_tabs)
-        results_rows = build_rows(scored)
+        self._add_tab(service, spreadsheet_id, sources_title, existing_tabs)
+        sources_rows = build_sources_rows(scored)
+        self._write_values(service, spreadsheet_id, sources_title, sources_rows)
+        sources_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sources_title)
+        sources_lookup = _sources_row_lookup(scored)
+        results_rows = build_rows(
+            scored,
+            sources_sheet_id=sources_sheet_id,
+            sources_lookup=sources_lookup,
+        )
         self._write_values(service, spreadsheet_id, results_title, results_rows)
         self._apply_row_colors(service, spreadsheet_id, results_title, scored)
         self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)

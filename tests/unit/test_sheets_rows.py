@@ -93,9 +93,8 @@ def test_build_rows_starts_with_headers() -> None:
     rows = build_rows([_scored()])
     assert rows[0] == list(HEADERS)
     assert len(HEADERS) == 28
-    assert "hook_1_citations" not in HEADERS
-    assert "hook_2_citations" not in HEADERS
-    assert "hook_3_citations" not in HEADERS
+    for hook_index in range(1, 4):
+        assert f"hook_{hook_index}_citations" not in HEADERS
 
 
 def test_build_rows_writes_account_data() -> None:
