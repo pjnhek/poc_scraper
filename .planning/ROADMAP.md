@@ -184,7 +184,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-02-PLAN.md -- Wave 2: Per-run Sources tab + HYPERLINK citations (POLISH-02): shrink HEADERS by 3 columns, delete _format_hook_citations, simplify _format_score_justification, add build_sources_rows + _hyperlink_formula + _sources_row_lookup, hook + justification cells become HYPERLINK formulas
+- [x] 06-02-PLAN.md -- Wave 2: Per-run Sources tab + HYPERLINK citations (POLISH-02): shrink HEADERS by 3 columns, delete _format_hook_citations, simplify _format_score_justification, add build_sources_rows + _hyperlink_formula + _sources_row_lookup, hook + justification cells become HYPERLINK formulas
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -237,7 +237,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 3. Eval Set Expansion | 6/6 | Complete   | 2026-05-16 |
 | 4. Eval Narrative | 3/3 | Complete   | 2026-05-22 |
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
-| 6. Sheet Polish | 1/4 | In Progress|  |
+| 6. Sheet Polish | 2/4 | In Progress|  |
 | 7. Public-Repo Audit | 0/TBD | Not started | - |
 | 8. README and Loom Refresh | 0/TBD | Not started | - |
 

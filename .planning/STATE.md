@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-05-23T05:26:16.640Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-05-23T05:38:22.660Z"
 last_activity: 2026-05-23
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 26
-  completed_plans: 23
-  percent: 63
+  completed_plans: 24
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 06 (sheet-polish) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-05-23
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 88%
 | Phase 05-failure-mode-hardening P03 | 10m | 2 tasks | 1 files |
 | Phase 05-failure-mode-hardening P04 | 22m | - tasks | - files |
 | Phase 06-sheet-polish P01 | 7min | 2 tasks | 3 files |
+| Phase 06-sheet-polish P02 | 6min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Recent decisions affecting current work:
 - [Phase 06-01]: low_groundedness=1.00/0.97/0.80, hook_suppressed=1.00/0.90/0.78, judge_failed=0.88/0.88/0.88
 - [Phase 06-01]: judge_failed is gray because it represents judge failure, not writer fabrication
 - [Phase 06-01]: Rubric tab wording now points to AccountStatus and Legend instead of verdict colors
+- [Phase 06 Plan 02]: Sources tab is per-run using <results_title>-sources with schema domain/index/summary/url/source.
+- [Phase 06 Plan 02]: Hook and score justification cells use whole-cell HYPERLINK formulas targeting the first source row for the account.
+- [Phase 06 Plan 02]: Results HEADERS shrank to 28 columns by dropping hook_N_citations; Sources tab owns citation URLs.
 
 ### Pending Todos
 
@@ -118,6 +122,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-23T05:26:16.633Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-05-23T05:38:07.730Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
