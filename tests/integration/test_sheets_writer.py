@@ -16,7 +16,13 @@ from src.models import (
     RubricBreakdown,
     ScoredAccount,
 )
-from src.sheets import SheetsWriter
+from src.sheets import (
+    ACCOUNT_STATUS_COLORS,
+    LEGEND_TAB_TITLE,
+    STATUS_LEGEND,
+    SheetsWriter,
+    build_legend_rows,
+)
 
 
 class FakeRequest:
@@ -92,6 +98,32 @@ class FakeService:
         return self._sheets
 
 
+def _sheet_id(title: str) -> int:
+    return int(FakeSpreadsheets._sheet_meta(title)["properties"]["sheetId"])
+
+
+def _repeat_cell_requests(fake: FakeService) -> list[dict[str, Any]]:
+    return [
+        request
+        for call in fake.spreadsheets().batch_calls
+        for request in call["body"]["requests"]
+        if "repeatCell" in request
+    ]
+
+
+def _background_requests(fake: FakeService, sheet_id: int) -> list[dict[str, Any]]:
+    return [
+        request
+        for request in _repeat_cell_requests(fake)
+        if request["repeatCell"]["fields"] == "userEnteredFormat.backgroundColor"
+        and request["repeatCell"]["range"]["sheetId"] == sheet_id
+    ]
+
+
+def _color_tuple(color: dict[str, float]) -> tuple[float, float, float]:
+    return color["red"], color["green"], color["blue"]
+
+
 def _scored(domain: str, flag: bool) -> ScoredAccount:
     from src.models import Justification
 
@@ -145,7 +177,9 @@ def test_creates_new_spreadsheet_when_no_id() -> None:
     assert len(sheets.create_calls) == 1
     body = sheets.create_calls[0]["body"]
     assert body["properties"]["title"].startswith("poc_scraper run-")
-    update = sheets._values.update_calls[0]
+    update = next(
+        call for call in sheets._values.update_calls if call["range"].startswith(result.sheet_title)
+    )
     assert update["spreadsheetId"] == "fake-sid"
     rows = update["body"]["values"]
     assert rows[0][0] == "domain"
@@ -162,25 +196,31 @@ def test_appends_tab_when_spreadsheet_id_provided() -> None:
     add_calls = [
         c for c in sheets.batch_calls if any("addSheet" in r for r in c["body"]["requests"])
     ]
-    assert len(add_calls) == 1
+    added_titles = {
+        request["addSheet"]["properties"]["title"]
+        for call in add_calls
+        for request in call["body"]["requests"]
+        if "addSheet" in request
+    }
+    assert added_titles == {LEGEND_TAB_TITLE, result.sheet_title}
 
 
-def test_flagged_row_keeps_verdict_color_with_red_text_on_eval_cell() -> None:
+def test_account_status_drives_row_tint_red_text_persists_on_eval_cell() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
-    writer.write([_scored("good.com", flag=False), _scored("bad.com", flag=True)])
-    sheets = fake.spreadsheets()
-    repeat_calls = [
-        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
-    ]
+    result = writer.write(
+        [
+            _scored("good.com", flag=False, status=AccountStatus.clean),
+            _scored("bad.com", flag=True, status=AccountStatus.low_groundedness),
+        ]
+    )
+    repeat_calls = _repeat_cell_requests(fake)
 
-    # Both rows get a verdict-color background (borderline yellow).
-    bg_calls = [
-        r for r in repeat_calls if r["repeatCell"]["fields"] == "userEnteredFormat.backgroundColor"
-    ]
-    assert len(bg_calls) == 2
+    bg_calls = _background_requests(fake, _sheet_id(result.sheet_title))
+    assert len(bg_calls) == 1
+    bg = bg_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    assert bg == ACCOUNT_STATUS_COLORS[AccountStatus.low_groundedness]
 
-    # Flagged row gets a red foreground on the eval_groundedness cell only.
     text_calls = [r for r in repeat_calls if "textFormat" in r["repeatCell"]["fields"]]
     assert len(text_calls) == 1
     flagged = text_calls[0]
@@ -205,6 +245,7 @@ def test_writes_rubric_and_inputs_tabs_when_provided() -> None:
     written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
     assert "Rubric" in written_titles
     assert "Inputs" in written_titles
+    assert LEGEND_TAB_TITLE in written_titles
     assert any(t.startswith("run-") for t in written_titles)
 
 
@@ -216,6 +257,50 @@ def test_omits_rubric_and_inputs_when_kwargs_missing() -> None:
     written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
     assert "Rubric" not in written_titles
     assert "Inputs" not in written_titles
+    assert LEGEND_TAB_TITLE in written_titles
+
+
+def test_legend_tab_is_written_on_every_run() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    updated_ranges = [call["range"] for call in sheets._values.update_calls]
+    cleared_ranges = [call["range"] for call in sheets._values.clear_calls]
+    assert any(range_name.startswith(f"{LEGEND_TAB_TITLE}!") for range_name in updated_ranges)
+    assert any(range_name.startswith(f"{LEGEND_TAB_TITLE}!") for range_name in cleared_ranges)
+
+
+def test_legend_tab_rows_match_account_status_palette() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    legend_update = next(
+        call
+        for call in sheets._values.update_calls
+        if call["range"].startswith(f"{LEGEND_TAB_TITLE}!")
+    )
+    rows = legend_update["body"]["values"]
+    rendered = "\n".join(cell for row in rows for cell in row)
+    assert rows == build_legend_rows()
+    for status in AccountStatus:
+        assert status.value in rendered
+    assert STATUS_LEGEND in rendered
+
+
+def test_legend_tab_rows_get_palette_tinting() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    bg_calls = _background_requests(fake, _sheet_id(LEGEND_TAB_TITLE))
+    assert len(bg_calls) == 4
+    actual = {
+        _color_tuple(call["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"])
+        for call in bg_calls
+    }
+    expected = {_color_tuple(ACCOUNT_STATUS_COLORS[status]) for status in AccountStatus}
+    assert actual == expected
 
 
 def test_rubric_tab_is_cleared_before_rewriting() -> None:
@@ -235,7 +320,7 @@ def test_rubric_tab_is_cleared_before_rewriting() -> None:
     assert "Inputs" in cleared_titles
 
 
-def test_unscoreable_row_has_no_color() -> None:
+def test_unscoreable_row_gets_hook_suppressed_tint() -> None:
     from src.models import Account, Enrichment, ScoredAccount
 
     fake = FakeService()
@@ -243,9 +328,8 @@ def test_unscoreable_row_has_no_color() -> None:
     sa = ScoredAccount.unscoreable(
         Account(domain="dead.com"), Enrichment(account=Account(domain="dead.com")), "no data"
     )
-    writer.write([sa])
-    sheets = fake.spreadsheets()
-    repeat_calls = [
-        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
-    ]
-    assert repeat_calls == []
+    result = writer.write([sa])
+    bg_calls = _background_requests(fake, _sheet_id(result.sheet_title))
+    assert len(bg_calls) == 1
+    bg = bg_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    assert bg == ACCOUNT_STATUS_COLORS[AccountStatus.hook_suppressed]
