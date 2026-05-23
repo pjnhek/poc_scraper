@@ -208,7 +208,18 @@ Plans:
   3. A deny-list grep over `git log --all -p` has been run and the result recorded with an explicit rewrite-vs-document decision. (Satisfied 2026-05-14: history rewritten; decision logged.)
   4. A pre-commit hook blocks the hiring company name (any case) in staged content or paths before it can ship. (Satisfied 2026-05-14: scripts/check_public_discipline.py + local-only .secrets-denylist.)
 
-**Plans**: TBD (likely a single verification plan: re-run the deny-list grep against current refs, confirm guard active, formalize the decision-log entry)
+**Plans**: 3 plans
+
+Plans:
+
+**Wave 1** (parallel)
+
+- [ ] 07-01-PLAN.md -- scripts/verify_public_repo.py + make verify-public-repo target (REPO-01, REPO-03): re-runnable worktree+history grep over .secrets-denylist patterns; counts-only output per D-11
+- [ ] 07-02-PLAN.md -- tests/unit/test_check_public_discipline.py (REPO-04): parametrized content-match and path-match coverage for the pre-commit guard; uses publishable fake term per D-05
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07-03-PLAN.md -- 07-FINDINGS.md + REQUIREMENTS.md flip + README Local setup (REPO-01, REPO-03, REPO-04): atomic D-12 commit closing all three requirements with audit evidence
 
 ### Phase 8: README and Loom Refresh
 
@@ -238,7 +249,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 4. Eval Narrative | 3/3 | Complete   | 2026-05-22 |
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
-| 7. Public-Repo Audit | 0/TBD | Not started | - |
+| 7. Public-Repo Audit | 0/3 | Not started | - |
 | 8. README and Loom Refresh | 0/TBD | Not started | - |
 
 ---
