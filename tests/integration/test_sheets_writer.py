@@ -18,8 +18,11 @@ from src.models import (
 )
 from src.sheets import (
     ACCOUNT_STATUS_COLORS,
+    COLUMN_WIDTHS,
+    HEADERS,
     LEGEND_TAB_TITLE,
     STATUS_LEGEND,
+    WIDTH_CLASS_PX,
     SheetsWriter,
     _sources_row_lookup,
     build_legend_rows,
@@ -394,3 +397,115 @@ def test_unscoreable_row_gets_hook_suppressed_tint() -> None:
     assert len(bg_calls) == 1
     bg = bg_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
     assert bg == ACCOUNT_STATUS_COLORS[AccountStatus.hook_suppressed]
+
+
+def _requests_of_kind(fake: FakeService, kind: str) -> list[dict[str, Any]]:
+    return [
+        request
+        for call in fake.spreadsheets().batch_calls
+        for request in call["body"]["requests"]
+        if kind in request
+    ]
+
+
+def test_column_widths_covers_every_header() -> None:
+    assert set(COLUMN_WIDTHS.keys()) == set(HEADERS)
+    assert set(COLUMN_WIDTHS.values()).issubset(set(WIDTH_CLASS_PX.keys()))
+
+
+def test_results_tab_gets_frozen_row_and_two_frozen_columns() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    freeze_requests = [
+        req["updateSheetProperties"]
+        for req in _requests_of_kind(fake, "updateSheetProperties")
+        if req["updateSheetProperties"]["properties"]["sheetId"] == results_sid
+    ]
+    assert len(freeze_requests) == 1
+    props = freeze_requests[0]["properties"]
+    assert props["gridProperties"]["frozenRowCount"] == 1
+    assert props["gridProperties"]["frozenColumnCount"] == 2
+
+
+def test_results_tab_column_widths_match_class_mapping() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    width_requests = [
+        req["updateDimensionProperties"]
+        for req in _requests_of_kind(fake, "updateDimensionProperties")
+        if req["updateDimensionProperties"]["range"]["sheetId"] == results_sid
+    ]
+    assert len(width_requests) == len(HEADERS) == 28
+
+    observed = {
+        (req["range"]["startIndex"], req["properties"]["pixelSize"]) for req in width_requests
+    }
+    expected = {(col, WIDTH_CLASS_PX[COLUMN_WIDTHS[name]]) for col, name in enumerate(HEADERS)}
+    assert observed == expected
+    for req in width_requests:
+        assert req["range"]["dimension"] == "COLUMNS"
+        assert req["range"]["endIndex"] == req["range"]["startIndex"] + 1
+        assert req["fields"] == "pixelSize"
+
+
+def test_hook_and_justification_columns_get_wrap_strategy() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    wrap_requests = [
+        req["repeatCell"]
+        for req in _repeat_cell_requests(fake)
+        if req["repeatCell"]["range"].get("sheetId") == results_sid
+        and req["repeatCell"]["cell"].get("userEnteredFormat", {}).get("wrapStrategy") == "WRAP"
+    ]
+    assert len(wrap_requests) == 4
+
+    start_cols = {req["range"]["startColumnIndex"] for req in wrap_requests}
+    expected_cols = {
+        HEADERS.index(name) for name in ("hook_1", "hook_2", "hook_3", "justification")
+    }
+    assert start_cols == expected_cols
+
+    for req in wrap_requests:
+        assert req["range"]["startRowIndex"] == 1
+        assert req["range"]["endRowIndex"] == 2
+        assert req["range"]["endColumnIndex"] == req["range"]["startColumnIndex"] + 1
+        assert req["fields"] == "userEnteredFormat.wrapStrategy"
+
+
+def test_freeze_and_width_and_wrap_skipped_on_empty_scored_list() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([])
+    results_sid = _sheet_id(result.sheet_title)
+
+    freeze_requests = [
+        req
+        for req in _requests_of_kind(fake, "updateSheetProperties")
+        if req["updateSheetProperties"]["properties"]["sheetId"] == results_sid
+    ]
+    width_requests = [
+        req
+        for req in _requests_of_kind(fake, "updateDimensionProperties")
+        if req["updateDimensionProperties"]["range"]["sheetId"] == results_sid
+    ]
+    wrap_requests = [
+        req
+        for req in _repeat_cell_requests(fake)
+        if req["repeatCell"]["range"].get("sheetId") == results_sid
+        and req["repeatCell"]["cell"].get("userEnteredFormat", {}).get("wrapStrategy") == "WRAP"
+    ]
+    assert len(freeze_requests) == 1
+    assert len(width_requests) == 28
+    assert len(wrap_requests) == 4
+    for req in wrap_requests:
+        assert req["repeatCell"]["range"]["startRowIndex"] == 1
+        assert req["repeatCell"]["range"]["endRowIndex"] == 1
