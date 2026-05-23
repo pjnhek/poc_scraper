@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-05-23T05:47:24.268Z"
-last_activity: 2026-05-23
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-05-23T05:58:00.000Z"
+last_activity: 2026-05-23 -- Phase 06 completed
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 26
-  completed_plans: 25
-  percent: 96
+  completed_plans: 26
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-14)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 06 — sheet-polish
+**Current focus:** Phase 06 — sheet-polish (COMPLETE)
 
 ## Current Position
 
-Phase: 06 (sheet-polish) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-05-23
+Phase: 06 (sheet-polish) — COMPLETE
+Plan: 4 of 4 (complete)
+Status: Phase 06 complete; ready for Phase 07 (public-repo audit)
+Last activity: 2026-05-23 -- Phase 06 Plan 04 completed (POLISH-04: freeze, widths, wrap)
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 96%
 | Phase 06-sheet-polish P01 | 7min | 2 tasks | 3 files |
 | Phase 06-sheet-polish P02 | 6min | 2 tasks | 4 files |
 | Phase 06-sheet-polish P03 | 3min | 1 tasks | 2 files |
+| Phase 06-sheet-polish P04 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,9 @@ Recent decisions affecting current work:
 - [Phase 06 Plan 02]: Hook and score justification cells use whole-cell HYPERLINK formulas targeting the first source row for the account.
 - [Phase 06 Plan 02]: Results HEADERS shrank to 28 columns by dropping hook_N_citations; Sources tab owns citation URLs.
 - [Phase 06 Plan 03]: Axis display labels are computed from configs/icp.yaml at write time while internal HEADERS remain snake_case for lookups and width mapping.
+- [Phase 06 Plan 04]: WIDTH_CLASS_PX pixel values lock at narrow=110, medium=180, wide=400, extra=250; COLUMN_WIDTHS covers every HEADERS entry exactly once (13 narrow, 10 medium, 4 wide, 1 extra = 28).
+- [Phase 06 Plan 04]: SheetsWriter calls _lookup_sheet_id once for the results tab and passes the int to the freeze, widths, and wrap helpers so the writer issues a single GET to discovery for all three formatting passes.
+- [Phase 06 Plan 04]: Empty scored list still issues all three formatting requests so a future-added row inherits the formatting on subsequent runs; the empty wrap range (startRowIndex=1, endRowIndex=1) is a Sheets-API-tolerated no-op.
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-23T05:47:24.261Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-05-23T05:58:00.000Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None

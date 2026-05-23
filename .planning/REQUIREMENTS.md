@@ -47,7 +47,7 @@ Requirements for the demo-ready v1 milestone. Each maps to exactly one roadmap p
 - [x] **POLISH-01**: Render the four `AccountStatus` states with distinct sheet visuals (clean, low-groundedness, hook-suppressed, judge-failed); whole-row tinting so the demo audience reads the state at a glance.
 - [x] **POLISH-02**: Make `[N]` citation markers hyperlinks into a `Sources` tab that lists the resolved URLs per row.
 - [x] **POLISH-03**: Break the ICP score into per-axis columns (one column per rubric axis from `configs/icp.yaml`) so a viewer sees the breakdown, not just the total.
-- [ ] **POLISH-04**: Apply freeze panes and column widths sized for the demo so the Sheet reads cleanly on first open.
+- [x] **POLISH-04**: Apply freeze panes and column widths sized for the demo so the Sheet reads cleanly on first open.
 
 ### Public-Repo Audit
 
@@ -121,7 +121,7 @@ Finalized by the roadmapper 2026-05-14. Each requirement maps to exactly one pha
 | POLISH-01 | Phase 6 | Complete |
 | POLISH-02 | Phase 6 | Complete |
 | POLISH-03 | Phase 6 | Complete |
-| POLISH-04 | Phase 6 | Pending |
+| POLISH-04 | Phase 6 | Complete |
 | REPO-01 | Phase 7 | Pending |
 | REPO-02 | Phase 7 | Withdrawn (scope narrowed 2026-05-14) |
 | REPO-03 | Phase 7 | Pending |

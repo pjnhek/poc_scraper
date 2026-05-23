@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Eval Set Expansion** - Coverage matrix, expanded labeled set, deterministic train/holdout split, cross-family calibration slice (completed 2026-05-16)
 - [x] **Phase 4: Eval Narrative** - Committed `evals/REPORT.md` plus `make eval-report` that makes the rigor legible to a non-author reader (completed 2026-05-21)
 - [x] **Phase 5: Failure-Mode Hardening** - Narrowed exceptions, `Retry-After` parsing, integration coverage for empty enrichment and citation-drop, optional cached demo bundle (completed 2026-05-22)
-- [ ] **Phase 6: Sheet Polish** - Four `AccountStatus` visuals, hyperlinked citations to a Sources tab, per-axis score columns, freeze panes
+- [x] **Phase 6: Sheet Polish** - Four `AccountStatus` visuals, hyperlinked citations to a Sources tab, per-axis score columns, freeze panes (completed 2026-05-23)
 - [ ] **Phase 7: Public-Repo Audit** - Company-name audit: the hiring company name appears nowhere in code, configs, fixtures, or history; secret-scanning pre-commit hook. Real prospect domains and vendor names are acceptable.
 - [ ] **Phase 8: README and Loom Refresh** - Front-loaded README, architecture diagram, failure-mode gallery, "what this gets wrong" section, re-recorded Loom pinned to a commit SHA
 
@@ -192,7 +192,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 06-04-PLAN.md -- Wave 4: Freeze panes + column widths + wrap strategy (POLISH-04): COLUMN_WIDTHS + WIDTH_CLASS_PX dicts (narrow/medium/wide/extra), _apply_freeze_panes / _apply_column_widths / _apply_wrap_strategy helpers wired after _write_values
+- [x] 06-04-PLAN.md -- Wave 4: Freeze panes + column widths + wrap strategy (POLISH-04): COLUMN_WIDTHS + WIDTH_CLASS_PX dicts (narrow/medium/wide/extra), _apply_freeze_panes / _apply_column_widths / _apply_wrap_strategy helpers wired after _write_values
 
 **UI hint**: yes
 
