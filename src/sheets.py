@@ -60,8 +60,10 @@ def build_rows(
     *,
     sources_sheet_id: int | None = None,
     sources_lookup: dict[tuple[str, int], int] | None = None,
+    config: ICPConfig | None = None,
 ) -> list[list[str]]:
-    rows: list[list[str]] = [list(HEADERS)]
+    labels = axis_display_labels(config) if config is not None else {}
+    rows: list[list[str]] = [[labels.get(header, header) for header in HEADERS]]
     for sa in scored:
         sources_row_for_account = None
         first_index = _first_justification_index(sa)
@@ -305,6 +307,14 @@ def build_inputs_rows(
     return rows
 
 
+def axis_display_labels(config: ICPConfig) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for name, axis in config.axes.items():
+        title = " ".join("AI" if part == "ai" else part.capitalize() for part in name.split("_"))
+        labels[name] = f"{title} ({round(axis.weight * 100)}%)"
+    return labels
+
+
 ACCOUNT_STATUS_COLORS: dict[AccountStatus, dict[str, float]] = {
     AccountStatus.clean: {"red": 1.0, "green": 1.0, "blue": 1.0},
     AccountStatus.low_groundedness: {"red": 1.0, "green": 0.97, "blue": 0.80},
@@ -436,6 +446,7 @@ class SheetsWriter:
             scored,
             sources_sheet_id=sources_sheet_id,
             sources_lookup=sources_lookup,
+            config=config,
         )
         self._write_values(service, spreadsheet_id, results_title, results_rows)
         self._apply_row_colors(service, spreadsheet_id, results_title, scored)
