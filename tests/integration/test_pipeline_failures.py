@@ -366,6 +366,7 @@ async def test_empty_enrichment_renders_graceful_sheet_row() -> None:
     assert row[HEADERS.index("icp_total")] == ""
     assert row[HEADERS.index("verdict")] == ""
     assert row[HEADERS.index("hook_1")] == ""
+    assert not row[HEADERS.index("hook_1")].startswith("=HYPERLINK(")
     assert row[HEADERS.index("error")] == "empty enrichment"
 
 
@@ -443,6 +444,8 @@ async def test_citation_drop_renders_hook_suppressed_row() -> None:
     row = _build_row(sa)
     assert row[HEADERS.index("domain")] == "x.com"
     assert row[HEADERS.index("status")] == AccountStatus.hook_suppressed
+    for hook in ("hook_1", "hook_2", "hook_3"):
+        assert not row[HEADERS.index(hook)].startswith("=HYPERLINK(")
     assert row[HEADERS.index("hook_1")] == ""
     assert row[HEADERS.index("hook_2")] == ""
     assert row[HEADERS.index("hook_3")] == ""

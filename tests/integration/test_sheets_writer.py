@@ -21,7 +21,9 @@ from src.sheets import (
     LEGEND_TAB_TITLE,
     STATUS_LEGEND,
     SheetsWriter,
+    _sources_row_lookup,
     build_legend_rows,
+    build_sources_rows,
 )
 
 
@@ -124,6 +126,14 @@ def _color_tuple(color: dict[str, float]) -> tuple[float, float, float]:
     return color["red"], color["green"], color["blue"]
 
 
+def _update_for_title(fake: FakeService, title: str) -> dict[str, Any]:
+    return next(
+        call
+        for call in fake.spreadsheets()._values.update_calls
+        if call["range"].startswith(f"{title}!")
+    )
+
+
 def _scored(
     domain: str,
     flag: bool,
@@ -207,7 +217,7 @@ def test_appends_tab_when_spreadsheet_id_provided() -> None:
         for request in call["body"]["requests"]
         if "addSheet" in request
     }
-    assert added_titles == {LEGEND_TAB_TITLE, result.sheet_title}
+    assert added_titles == {LEGEND_TAB_TITLE, result.sheet_title, f"{result.sheet_title}-sources"}
 
 
 def test_account_status_drives_row_tint_red_text_persists_on_eval_cell() -> None:
@@ -306,6 +316,52 @@ def test_legend_tab_rows_get_palette_tinting() -> None:
     }
     expected = {_color_tuple(ACCOUNT_STATUS_COLORS[status]) for status in AccountStatus}
     assert actual == expected
+
+
+def test_sources_tab_created_per_run() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+
+    sources_title = f"{result.sheet_title}-sources"
+    written_titles = {
+        call["range"].split("!")[0] for call in fake.spreadsheets()._values.update_calls
+    }
+
+    assert sources_title in written_titles
+
+
+def test_sources_tab_rows_match_justifications() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    sa = _scored("good.com", flag=False)
+    result = writer.write([sa])
+
+    sources_update = _update_for_title(fake, f"{result.sheet_title}-sources")
+    rows = sources_update["body"]["values"]
+
+    assert rows == build_sources_rows([sa])
+    assert rows[0] == ["domain", "index", "summary", "url", "source"]
+    assert rows[1] == ["good.com", "1", "h: s", "https://example.com/x", "exa"]
+
+
+def test_hook_cells_render_as_hyperlinks_pointing_at_sources_tab() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    sa = _scored("good.com", flag=False)
+    result = writer.write([sa])
+
+    sources_title = f"{result.sheet_title}-sources"
+    results_update = _update_for_title(fake, result.sheet_title)
+    rows = results_update["body"]["values"]
+    headers = rows[0]
+    hook_cell = rows[1][headers.index("hook_1")]
+    gid = int(hook_cell.split("#gid=", 1)[1].split("&", 1)[0])
+    lookup = _sources_row_lookup([sa])
+
+    assert hook_cell.startswith('=HYPERLINK("#gid=')
+    assert gid == _sheet_id(sources_title)
+    assert f"&range=A{lookup[(sa.account.domain, 1)]}" in hook_cell
 
 
 def test_rubric_tab_is_cleared_before_rewriting() -> None:
