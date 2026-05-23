@@ -18,9 +18,11 @@ from src.models import (
 )
 from src.sheets import (
     ACCOUNT_STATUS_COLORS,
+    COLUMN_WIDTHS,
     HEADERS,
     LEGEND_TAB_TITLE,
     STATUS_LEGEND,
+    WIDTH_CLASS_PX,
     _hyperlink_formula,
     _sources_row_lookup,
     account_status_row_colors,
@@ -324,3 +326,56 @@ def _config_with_weights(weights: dict[str, float]) -> ICPConfig:
     raw = get_config().model_dump()
     raw["axes"] = {name: {**axis, "weight": weights[name]} for name, axis in raw["axes"].items()}
     return ICPConfig.model_validate(raw)
+
+
+def test_width_class_px_locks_pixel_values() -> None:
+    assert WIDTH_CLASS_PX == {"narrow": 110, "medium": 180, "wide": 400, "extra": 250}
+
+
+def test_column_widths_covers_every_header_exactly_once() -> None:
+    assert set(COLUMN_WIDTHS.keys()) == set(HEADERS)
+    assert len(COLUMN_WIDTHS) == len(HEADERS)
+
+
+def test_column_widths_values_are_known_classes() -> None:
+    assert set(COLUMN_WIDTHS.values()).issubset(set(WIDTH_CLASS_PX.keys()))
+
+
+def test_column_widths_class_assignment_per_d13() -> None:
+    narrow = {
+        "domain",
+        "status",
+        "icp_total",
+        "verdict",
+        "support_volume",
+        "ai_maturity",
+        "stage_fit",
+        "channel_breadth",
+        "eval_groundedness",
+        "eval_icp_relevance",
+        "eval_personalization",
+        "eval_specificity",
+        "eval_recency",
+    }
+    medium = {
+        "name",
+        "industry",
+        "headcount",
+        "tech_signals",
+        "contact_1_role",
+        "contact_1_rationale",
+        "contact_2_role",
+        "contact_2_rationale",
+        "contact_3_role",
+        "contact_3_rationale",
+    }
+    wide = {"hook_1", "hook_2", "hook_3", "justification"}
+    extra = {"error"}
+    for name in narrow:
+        assert COLUMN_WIDTHS[name] == "narrow", name
+    for name in medium:
+        assert COLUMN_WIDTHS[name] == "medium", name
+    for name in wide:
+        assert COLUMN_WIDTHS[name] == "wide", name
+    for name in extra:
+        assert COLUMN_WIDTHS[name] == "extra", name
