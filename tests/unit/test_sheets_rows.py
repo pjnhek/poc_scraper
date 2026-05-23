@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.icp_config import ICPConfig, get_config
 from src.models import (
     Account,
     AccountStatus,
@@ -23,6 +24,7 @@ from src.sheets import (
     _hyperlink_formula,
     _sources_row_lookup,
     account_status_row_colors,
+    axis_display_labels,
     build_legend_rows,
     build_rows,
     build_sources_rows,
@@ -95,6 +97,57 @@ def test_build_rows_starts_with_headers() -> None:
     assert len(HEADERS) == 28
     for hook_index in range(1, 4):
         assert f"hook_{hook_index}_citations" not in HEADERS
+
+
+def test_axis_display_labels_uses_configured_weights() -> None:
+    assert axis_display_labels(get_config()) == {
+        "support_volume": "Support Volume (40%)",
+        "ai_maturity": "AI Maturity (30%)",
+        "stage_fit": "Stage Fit (20%)",
+        "channel_breadth": "Channel Breadth (10%)",
+    }
+
+
+def test_axis_display_labels_rounds_to_integer_percent() -> None:
+    config = _config_with_weights(
+        {
+            "support_volume": 1 / 3,
+            "ai_maturity": 1 / 3,
+            "stage_fit": 1 / 6,
+            "channel_breadth": 1 / 6,
+        }
+    )
+
+    assert axis_display_labels(config) == {
+        "support_volume": "Support Volume (33%)",
+        "ai_maturity": "AI Maturity (33%)",
+        "stage_fit": "Stage Fit (17%)",
+        "channel_breadth": "Channel Breadth (17%)",
+    }
+
+
+def test_build_rows_projects_display_labels_when_config_provided() -> None:
+    rows = build_rows([_scored()], config=get_config())
+
+    assert rows[0][HEADERS.index("support_volume")] == "Support Volume (40%)"
+    assert rows[0][HEADERS.index("ai_maturity")] == "AI Maturity (30%)"
+    assert rows[0][HEADERS.index("stage_fit")] == "Stage Fit (20%)"
+    assert rows[0][HEADERS.index("channel_breadth")] == "Channel Breadth (10%)"
+    assert rows[0][HEADERS.index("domain")] == "domain"
+    assert rows[0][HEADERS.index("icp_total")] == "icp_total"
+
+
+def test_build_rows_keeps_snake_case_when_no_config() -> None:
+    assert build_rows([_scored()])[0] == list(HEADERS)
+
+
+def test_axis_display_labels_only_four_keys() -> None:
+    assert set(axis_display_labels(get_config())) == {
+        "support_volume",
+        "ai_maturity",
+        "stage_fit",
+        "channel_breadth",
+    }
 
 
 def test_build_rows_writes_account_data() -> None:
@@ -265,3 +318,9 @@ def test_build_legend_rows_emits_four_states() -> None:
 def test_build_legend_rows_publishes_precedence_string() -> None:
     rendered = "\n".join(cell for row in build_legend_rows() for cell in row)
     assert STATUS_LEGEND in rendered
+
+
+def _config_with_weights(weights: dict[str, float]) -> ICPConfig:
+    raw = get_config().model_dump()
+    raw["axes"] = {name: {**axis, "weight": weights[name]} for name, axis in raw["axes"].items()}
+    return ICPConfig.model_validate(raw)
