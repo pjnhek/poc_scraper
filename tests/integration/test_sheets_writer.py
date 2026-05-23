@@ -124,7 +124,12 @@ def _color_tuple(color: dict[str, float]) -> tuple[float, float, float]:
     return color["red"], color["green"], color["blue"]
 
 
-def _scored(domain: str, flag: bool) -> ScoredAccount:
+def _scored(
+    domain: str,
+    flag: bool,
+    *,
+    status: AccountStatus = AccountStatus.clean,
+) -> ScoredAccount:
     from src.models import Justification
 
     acc = Account(domain=domain)
@@ -157,7 +162,7 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
     )
     return ScoredAccount(
         account=acc,
-        status=AccountStatus.clean,
+        status=status,
         enrichment=enr,
         score=score,
         contacts=(c1, c1, c1),
