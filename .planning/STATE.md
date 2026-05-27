@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 07 complete (3/3) — ready to discuss Phase 8
-last_updated: 2026-05-27T17:53:01.319Z
+status: executing
+last_updated: "2026-05-27T19:20:10.335Z"
 last_activity: 2026-05-27
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 34
+  completed_plans: 30
   percent: 88
 ---
 
@@ -21,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-14)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 8 — readme and loom refresh
+**Current focus:** Phase 08 — readme-and-loom-refresh
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Ready to plan
+Phase: 08 (readme-and-loom-refresh) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-05-27
 
-Progress: [██████████] 100%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -70,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 07-public-repo-audit P01 | 2m | 2 tasks | 2 files |
 | Phase 07-public-repo-audit P02 | 1m | 1 tasks | 1 files |
 | Phase 07-public-repo-audit P03 | 4min | 5 tasks | 3 files |
+| Phase 08-readme-and-loom-refresh P01 | 25min | 2 tasks tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -121,6 +121,10 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 07 Plan 03]: REPO-04 traceability flip landed in Plan 07-02 commit 8924798 ahead of the atomic close; FINDINGS.md table still covers all three requirements
 - [Phase ?]: [Phase 07 Plan 03]: FINDINGS.md kept em-dash-free for consistency with the README change in the same commit
 - [Phase ?]: [Phase 07 Plan 03]: Atomic close commit 1a4bca5 stages FINDINGS.md via git add -f (gitignored .planning/) plus normal git add for REQUIREMENTS.md and README.md
+- [Phase ?]: [Phase 08 Plan 01]: fixtures/demo-bundle/ is empty in Phase 5 by design; Phase 8 D-06 fallback is not viable. Plan 02 captures all four AccountStatus PNGs from real make run outputs.
+- [Phase ?]: [Phase 08 Plan 01]: SHA-pin placeholder is an HTML comment marker (<!-- SHA-PIN: ... -->) below the Loom embed so Plan 04 has a deterministic grep anchor.
+- [Phase ?]: [Phase 08 Plan 01]: README failure-mode gallery uses stacked H4 sections with image plus italic caption blocks per D-05; chosen over a 2x2 table for readability.
+- [Phase ?]: [Phase 08 Plan 01]: Eval section's (populated after first run) code-block placeholder replaced with a one-line headline number reusing the proof-bullet phrasing for consistency per Claude's Discretion in 08-CONTEXT.md.
 
 ### Pending Todos
 
@@ -141,6 +145,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-27T17:45:00.475Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-05-27T19:19:55.692Z
+Stopped at: Phase 8 context gathered
 Resume file: None

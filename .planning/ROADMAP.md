@@ -232,7 +232,26 @@ Plans:
   2. A re-recorded Loom walkthrough against the synthetic CSV reflects the final pipeline output (citation UX, four-state Sheet visuals, eval narrative) and is linked from the README.
   3. The README contains an architecture diagram, a failure-mode gallery (one screenshot per `AccountStatus` state), the editable-rubric framing, and an honest "what this gets wrong" section.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+**Wave 1**
+
+- [x] 08-01-PLAN.md -- README front-loaded rewrite scaffold + demo-bundle pre-flight (DEMO-02, DEMO-03): rewrite top ~60 lines (hero, what/why/proof, updated mermaid diagram, four-state row-color replacement, failure-mode gallery markdown with image-path placeholders, what-this-gets-wrong section, SHA-pin placeholder), surgical below-fold edits, verify make run-demo coverage of all four AccountStatus states
+
+**Wave 2** *(blocked on Wave 1; operator checkpoint)*
+
+- [ ] 08-02-PLAN.md -- Capture five PNGs from real make run outputs (DEMO-02, DEMO-03): images/hero.png + images/failure-modes/{clean,low-groundedness,hook-suppressed,judge-failed}.png; demo-bundle fallback only for states that fail to surface in 2-3 real runs per D-06
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 08-03-PLAN.md -- Wire PNG references + REQUIREMENTS.md flip (DEMO-02, DEMO-03): verify image references resolve, refine captions against captured visuals, gracefully degrade gallery if any state could not be captured, flip DEMO-02 and DEMO-03 to Complete
+
+**Wave 4** *(blocked on Wave 3; operator checkpoint; closes the milestone)*
+
+- [ ] 08-04-PLAN.md -- Re-record Loom + insert SHA-pin + atomic close commit (DEMO-01): live make run walkthrough over real inputs/accounts.csv, embed new Loom URL, insert D-08 SHA-pin prose, flip DEMO-01 to Complete, atomic docs(phase-08): close commit per the Phase 7 1a4bca5 pattern
+
 **UI hint**: yes
 
 ## Progress
@@ -250,7 +269,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
 | 7. Public-Repo Audit | 3/3 | Complete   | 2026-05-27 |
-| 8. README and Loom Refresh | 0/TBD | Not started | - |
+| 8. README and Loom Refresh | 1/4 | In Progress|  |
 
 ---
 *Roadmap created: 2026-05-14*
