@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Eval Narrative** - Committed `evals/REPORT.md` plus `make eval-report` that makes the rigor legible to a non-author reader (completed 2026-05-21)
 - [x] **Phase 5: Failure-Mode Hardening** - Narrowed exceptions, `Retry-After` parsing, integration coverage for empty enrichment and citation-drop, optional cached demo bundle (completed 2026-05-22)
 - [x] **Phase 6: Sheet Polish** - Four `AccountStatus` visuals, hyperlinked citations to a Sources tab, per-axis score columns, freeze panes (completed 2026-05-23)
-- [ ] **Phase 7: Public-Repo Audit** - Company-name audit: the hiring company name appears nowhere in code, configs, fixtures, or history; secret-scanning pre-commit hook. Real prospect domains and vendor names are acceptable.
+- [x] **Phase 7: Public-Repo Audit** - Company-name audit: the hiring company name appears nowhere in code, configs, fixtures, or history; secret-scanning pre-commit hook. Real prospect domains and vendor names are acceptable. (completed 2026-05-27)
 - [ ] **Phase 8: README and Loom Refresh** - Front-loaded README, architecture diagram, failure-mode gallery, "what this gets wrong" section, re-recorded Loom pinned to a commit SHA
 
 ## Parallelization
@@ -219,7 +219,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 07-03-PLAN.md -- 07-FINDINGS.md + REQUIREMENTS.md flip + README Local setup (REPO-01, REPO-03, REPO-04): atomic D-12 commit closing all three requirements with audit evidence
+- [x] 07-03-PLAN.md -- 07-FINDINGS.md + REQUIREMENTS.md flip + README Local setup (REPO-01, REPO-03, REPO-04): atomic D-12 commit closing all three requirements with audit evidence
 
 ### Phase 8: README and Loom Refresh
 
@@ -249,7 +249,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 4. Eval Narrative | 3/3 | Complete   | 2026-05-22 |
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
-| 7. Public-Repo Audit | 2/3 | In Progress|  |
+| 7. Public-Repo Audit | 3/3 | Complete   | 2026-05-27 |
 | 8. README and Loom Refresh | 0/TBD | Not started | - |
 
 ---
