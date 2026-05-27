@@ -214,7 +214,7 @@ Plans:
 
 **Wave 1** (parallel)
 
-- [ ] 07-01-PLAN.md -- scripts/verify_public_repo.py + make verify-public-repo target (REPO-01, REPO-03): re-runnable worktree+history grep over .secrets-denylist patterns; counts-only output per D-11
+- [x] 07-01-PLAN.md -- scripts/verify_public_repo.py + make verify-public-repo target (REPO-01, REPO-03): re-runnable worktree+history grep over .secrets-denylist patterns; counts-only output per D-11
 - [ ] 07-02-PLAN.md -- tests/unit/test_check_public_discipline.py (REPO-04): parametrized content-match and path-match coverage for the pre-commit guard; uses publishable fake term per D-05
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -249,7 +249,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 4. Eval Narrative | 3/3 | Complete   | 2026-05-22 |
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
-| 7. Public-Repo Audit | 0/3 | Not started | - |
+| 7. Public-Repo Audit | 1/3 | In Progress|  |
 | 8. README and Loom Refresh | 0/TBD | Not started | - |
 
 ---
