@@ -53,7 +53,7 @@ Requirements for the demo-ready v1 milestone. Each maps to exactly one roadmap p
 
 - [ ] **REPO-01**: The hiring company name (case-insensitive) must appear in no tracked file content, no tracked file path, and no commit reachable from any ref. Real prospect domains in `inputs/accounts.csv` are acceptable by design; the pipeline must run against real companies. (Scope narrowed 2026-05-14; superseded the prior synthetic-CSV requirement. Former REPO-02, the broad vertical/vendor scrub, is withdrawn.)
 - [ ] **REPO-03**: Run a deny-list grep (`git log --all -p`) for the hiring company name; record the hit list and decide explicitly whether to rewrite history or document as historical artifacts.
-- [ ] **REPO-04**: Add a pre-commit hook that blocks the hiring company name (any case) in staged content or paths before it can ship.
+- [x] **REPO-04**: Add a pre-commit hook that blocks the hiring company name (any case) in staged content or paths before it can ship.
 
 ### README and Loom Refresh
 
@@ -125,7 +125,7 @@ Finalized by the roadmapper 2026-05-14. Each requirement maps to exactly one pha
 | REPO-01 | Phase 7 | Pending |
 | REPO-02 | Phase 7 | Withdrawn (scope narrowed 2026-05-14) |
 | REPO-03 | Phase 7 | Pending |
-| REPO-04 | Phase 7 | Pending |
+| REPO-04 | Phase 7 | Complete |
 | DEMO-01 | Phase 8 | Pending |
 | DEMO-02 | Phase 8 | Pending |
 | DEMO-03 | Phase 8 | Pending |
