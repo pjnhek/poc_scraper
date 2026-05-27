@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean
+.PHONY: install setup-sheet run run-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean verify-public-repo
 
 install:
 	uv sync --extra dev
@@ -47,3 +47,6 @@ typecheck:
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov dist build runs
 	find . -type d -name __pycache__ -exec rm -rf {} +
+
+verify-public-repo:
+	uv run python -m scripts.verify_public_repo
