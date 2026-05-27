@@ -16,7 +16,18 @@ from src.models import (
     RubricBreakdown,
     ScoredAccount,
 )
-from src.sheets import SheetsWriter
+from src.sheets import (
+    ACCOUNT_STATUS_COLORS,
+    COLUMN_WIDTHS,
+    HEADERS,
+    LEGEND_TAB_TITLE,
+    STATUS_LEGEND,
+    WIDTH_CLASS_PX,
+    SheetsWriter,
+    _sources_row_lookup,
+    build_legend_rows,
+    build_sources_rows,
+)
 
 
 class FakeRequest:
@@ -92,7 +103,46 @@ class FakeService:
         return self._sheets
 
 
-def _scored(domain: str, flag: bool) -> ScoredAccount:
+def _sheet_id(title: str) -> int:
+    return int(FakeSpreadsheets._sheet_meta(title)["properties"]["sheetId"])
+
+
+def _repeat_cell_requests(fake: FakeService) -> list[dict[str, Any]]:
+    return [
+        request
+        for call in fake.spreadsheets().batch_calls
+        for request in call["body"]["requests"]
+        if "repeatCell" in request
+    ]
+
+
+def _background_requests(fake: FakeService, sheet_id: int) -> list[dict[str, Any]]:
+    return [
+        request
+        for request in _repeat_cell_requests(fake)
+        if request["repeatCell"]["fields"] == "userEnteredFormat.backgroundColor"
+        and request["repeatCell"]["range"]["sheetId"] == sheet_id
+    ]
+
+
+def _color_tuple(color: dict[str, float]) -> tuple[float, float, float]:
+    return color["red"], color["green"], color["blue"]
+
+
+def _update_for_title(fake: FakeService, title: str) -> dict[str, Any]:
+    return next(
+        call
+        for call in fake.spreadsheets()._values.update_calls
+        if call["range"].startswith(f"{title}!")
+    )
+
+
+def _scored(
+    domain: str,
+    flag: bool,
+    *,
+    status: AccountStatus = AccountStatus.clean,
+) -> ScoredAccount:
     from src.models import Justification
 
     acc = Account(domain=domain)
@@ -125,7 +175,7 @@ def _scored(domain: str, flag: bool) -> ScoredAccount:
     )
     return ScoredAccount(
         account=acc,
-        status=AccountStatus.clean,
+        status=status,
         enrichment=enr,
         score=score,
         contacts=(c1, c1, c1),
@@ -145,7 +195,9 @@ def test_creates_new_spreadsheet_when_no_id() -> None:
     assert len(sheets.create_calls) == 1
     body = sheets.create_calls[0]["body"]
     assert body["properties"]["title"].startswith("poc_scraper run-")
-    update = sheets._values.update_calls[0]
+    update = next(
+        call for call in sheets._values.update_calls if call["range"].startswith(result.sheet_title)
+    )
     assert update["spreadsheetId"] == "fake-sid"
     rows = update["body"]["values"]
     assert rows[0][0] == "domain"
@@ -162,25 +214,31 @@ def test_appends_tab_when_spreadsheet_id_provided() -> None:
     add_calls = [
         c for c in sheets.batch_calls if any("addSheet" in r for r in c["body"]["requests"])
     ]
-    assert len(add_calls) == 1
+    added_titles = {
+        request["addSheet"]["properties"]["title"]
+        for call in add_calls
+        for request in call["body"]["requests"]
+        if "addSheet" in request
+    }
+    assert added_titles == {LEGEND_TAB_TITLE, result.sheet_title, f"{result.sheet_title}-sources"}
 
 
-def test_flagged_row_keeps_verdict_color_with_red_text_on_eval_cell() -> None:
+def test_account_status_drives_row_tint_red_text_persists_on_eval_cell() -> None:
     fake = FakeService()
     writer = SheetsWriter(credentials_path="/dev/null", service=fake)
-    writer.write([_scored("good.com", flag=False), _scored("bad.com", flag=True)])
-    sheets = fake.spreadsheets()
-    repeat_calls = [
-        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
-    ]
+    result = writer.write(
+        [
+            _scored("good.com", flag=False, status=AccountStatus.clean),
+            _scored("bad.com", flag=True, status=AccountStatus.low_groundedness),
+        ]
+    )
+    repeat_calls = _repeat_cell_requests(fake)
 
-    # Both rows get a verdict-color background (borderline yellow).
-    bg_calls = [
-        r for r in repeat_calls if r["repeatCell"]["fields"] == "userEnteredFormat.backgroundColor"
-    ]
-    assert len(bg_calls) == 2
+    bg_calls = _background_requests(fake, _sheet_id(result.sheet_title))
+    assert len(bg_calls) == 1
+    bg = bg_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    assert bg == ACCOUNT_STATUS_COLORS[AccountStatus.low_groundedness]
 
-    # Flagged row gets a red foreground on the eval_groundedness cell only.
     text_calls = [r for r in repeat_calls if "textFormat" in r["repeatCell"]["fields"]]
     assert len(text_calls) == 1
     flagged = text_calls[0]
@@ -205,6 +263,7 @@ def test_writes_rubric_and_inputs_tabs_when_provided() -> None:
     written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
     assert "Rubric" in written_titles
     assert "Inputs" in written_titles
+    assert LEGEND_TAB_TITLE in written_titles
     assert any(t.startswith("run-") for t in written_titles)
 
 
@@ -216,6 +275,96 @@ def test_omits_rubric_and_inputs_when_kwargs_missing() -> None:
     written_titles = {call["range"].split("!")[0] for call in sheets._values.update_calls}
     assert "Rubric" not in written_titles
     assert "Inputs" not in written_titles
+    assert LEGEND_TAB_TITLE in written_titles
+
+
+def test_legend_tab_is_written_on_every_run() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    updated_ranges = [call["range"] for call in sheets._values.update_calls]
+    cleared_ranges = [call["range"] for call in sheets._values.clear_calls]
+    assert any(range_name.startswith(f"{LEGEND_TAB_TITLE}!") for range_name in updated_ranges)
+    assert any(range_name.startswith(f"{LEGEND_TAB_TITLE}!") for range_name in cleared_ranges)
+
+
+def test_legend_tab_rows_match_account_status_palette() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    sheets = fake.spreadsheets()
+    legend_update = next(
+        call
+        for call in sheets._values.update_calls
+        if call["range"].startswith(f"{LEGEND_TAB_TITLE}!")
+    )
+    rows = legend_update["body"]["values"]
+    rendered = "\n".join(cell for row in rows for cell in row)
+    assert rows == build_legend_rows()
+    for status in AccountStatus:
+        assert status.value in rendered
+    assert STATUS_LEGEND in rendered
+
+
+def test_legend_tab_rows_get_palette_tinting() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    writer.write([_scored("good.com", flag=False)])
+    bg_calls = _background_requests(fake, _sheet_id(LEGEND_TAB_TITLE))
+    assert len(bg_calls) == 4
+    actual = {
+        _color_tuple(call["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"])
+        for call in bg_calls
+    }
+    expected = {_color_tuple(ACCOUNT_STATUS_COLORS[status]) for status in AccountStatus}
+    assert actual == expected
+
+
+def test_sources_tab_created_per_run() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+
+    sources_title = f"{result.sheet_title}-sources"
+    written_titles = {
+        call["range"].split("!")[0] for call in fake.spreadsheets()._values.update_calls
+    }
+
+    assert sources_title in written_titles
+
+
+def test_sources_tab_rows_match_justifications() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    sa = _scored("good.com", flag=False)
+    result = writer.write([sa])
+
+    sources_update = _update_for_title(fake, f"{result.sheet_title}-sources")
+    rows = sources_update["body"]["values"]
+
+    assert rows == build_sources_rows([sa])
+    assert rows[0] == ["domain", "index", "summary", "url", "source"]
+    assert rows[1] == ["good.com", "1", "h: s", "https://example.com/x", "exa"]
+
+
+def test_hook_cells_render_as_hyperlinks_pointing_at_sources_tab() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", service=fake)
+    sa = _scored("good.com", flag=False)
+    result = writer.write([sa])
+
+    sources_title = f"{result.sheet_title}-sources"
+    results_update = _update_for_title(fake, result.sheet_title)
+    rows = results_update["body"]["values"]
+    headers = rows[0]
+    hook_cell = rows[1][headers.index("hook_1")]
+    gid = int(hook_cell.split("#gid=", 1)[1].split("&", 1)[0])
+    lookup = _sources_row_lookup([sa])
+
+    assert hook_cell.startswith('=HYPERLINK("#gid=')
+    assert gid == _sheet_id(sources_title)
+    assert f"&range=A{lookup[(sa.account.domain, 1)]}" in hook_cell
 
 
 def test_rubric_tab_is_cleared_before_rewriting() -> None:
@@ -235,7 +384,7 @@ def test_rubric_tab_is_cleared_before_rewriting() -> None:
     assert "Inputs" in cleared_titles
 
 
-def test_unscoreable_row_has_no_color() -> None:
+def test_unscoreable_row_gets_hook_suppressed_tint() -> None:
     from src.models import Account, Enrichment, ScoredAccount
 
     fake = FakeService()
@@ -243,9 +392,120 @@ def test_unscoreable_row_has_no_color() -> None:
     sa = ScoredAccount.unscoreable(
         Account(domain="dead.com"), Enrichment(account=Account(domain="dead.com")), "no data"
     )
-    writer.write([sa])
-    sheets = fake.spreadsheets()
-    repeat_calls = [
-        r for c in sheets.batch_calls for r in c["body"]["requests"] if "repeatCell" in r
+    result = writer.write([sa])
+    bg_calls = _background_requests(fake, _sheet_id(result.sheet_title))
+    assert len(bg_calls) == 1
+    bg = bg_calls[0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"]
+    assert bg == ACCOUNT_STATUS_COLORS[AccountStatus.hook_suppressed]
+
+
+def _requests_of_kind(fake: FakeService, kind: str) -> list[dict[str, Any]]:
+    return [
+        request
+        for call in fake.spreadsheets().batch_calls
+        for request in call["body"]["requests"]
+        if kind in request
     ]
-    assert repeat_calls == []
+
+
+def test_column_widths_covers_every_header() -> None:
+    assert set(COLUMN_WIDTHS.keys()) == set(HEADERS)
+    assert set(COLUMN_WIDTHS.values()).issubset(set(WIDTH_CLASS_PX.keys()))
+
+
+def test_results_tab_gets_frozen_row_and_two_frozen_columns() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    freeze_requests = [
+        req["updateSheetProperties"]
+        for req in _requests_of_kind(fake, "updateSheetProperties")
+        if req["updateSheetProperties"]["properties"]["sheetId"] == results_sid
+    ]
+    assert len(freeze_requests) == 1
+    props = freeze_requests[0]["properties"]
+    assert props["gridProperties"]["frozenRowCount"] == 1
+    assert props["gridProperties"]["frozenColumnCount"] == 2
+
+
+def test_results_tab_column_widths_match_class_mapping() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    width_requests = [
+        req["updateDimensionProperties"]
+        for req in _requests_of_kind(fake, "updateDimensionProperties")
+        if req["updateDimensionProperties"]["range"]["sheetId"] == results_sid
+    ]
+    assert len(width_requests) == len(HEADERS) == 28
+
+    observed = {
+        (req["range"]["startIndex"], req["properties"]["pixelSize"]) for req in width_requests
+    }
+    expected = {(col, WIDTH_CLASS_PX[COLUMN_WIDTHS[name]]) for col, name in enumerate(HEADERS)}
+    assert observed == expected
+    for req in width_requests:
+        assert req["range"]["dimension"] == "COLUMNS"
+        assert req["range"]["endIndex"] == req["range"]["startIndex"] + 1
+        assert req["fields"] == "pixelSize"
+
+
+def test_hook_and_justification_columns_get_wrap_strategy() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([_scored("good.com", flag=False)])
+    results_sid = _sheet_id(result.sheet_title)
+
+    wrap_requests = [
+        req["repeatCell"]
+        for req in _repeat_cell_requests(fake)
+        if req["repeatCell"]["range"].get("sheetId") == results_sid
+        and req["repeatCell"]["cell"].get("userEnteredFormat", {}).get("wrapStrategy") == "WRAP"
+    ]
+    assert len(wrap_requests) == 4
+
+    start_cols = {req["range"]["startColumnIndex"] for req in wrap_requests}
+    expected_cols = {
+        HEADERS.index(name) for name in ("hook_1", "hook_2", "hook_3", "justification")
+    }
+    assert start_cols == expected_cols
+
+    for req in wrap_requests:
+        assert req["range"]["startRowIndex"] == 1
+        assert req["range"]["endRowIndex"] == 2
+        assert req["range"]["endColumnIndex"] == req["range"]["startColumnIndex"] + 1
+        assert req["fields"] == "userEnteredFormat.wrapStrategy"
+
+
+def test_freeze_and_width_and_wrap_skipped_on_empty_scored_list() -> None:
+    fake = FakeService()
+    writer = SheetsWriter(credentials_path="/dev/null", spreadsheet_id="existing-sid", service=fake)
+    result = writer.write([])
+    results_sid = _sheet_id(result.sheet_title)
+
+    freeze_requests = [
+        req
+        for req in _requests_of_kind(fake, "updateSheetProperties")
+        if req["updateSheetProperties"]["properties"]["sheetId"] == results_sid
+    ]
+    width_requests = [
+        req
+        for req in _requests_of_kind(fake, "updateDimensionProperties")
+        if req["updateDimensionProperties"]["range"]["sheetId"] == results_sid
+    ]
+    wrap_requests = [
+        req
+        for req in _repeat_cell_requests(fake)
+        if req["repeatCell"]["range"].get("sheetId") == results_sid
+        and req["repeatCell"]["cell"].get("userEnteredFormat", {}).get("wrapStrategy") == "WRAP"
+    ]
+    assert len(freeze_requests) == 1
+    assert len(width_requests) == 28
+    assert len(wrap_requests) == 4
+    for req in wrap_requests:
+        assert req["repeatCell"]["range"]["startRowIndex"] == 1
+        assert req["repeatCell"]["range"]["endRowIndex"] == 1

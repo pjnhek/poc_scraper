@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .icp_config import ICPConfig
-from .models import Account, ScoredAccount
+from .models import Account, AccountStatus, ScoredAccount
 
 log = logging.getLogger(__name__)
 
@@ -31,15 +31,12 @@ HEADERS: tuple[str, ...] = (
     "contact_1_role",
     "contact_1_rationale",
     "hook_1",
-    "hook_1_citations",
     "contact_2_role",
     "contact_2_rationale",
     "hook_2",
-    "hook_2_citations",
     "contact_3_role",
     "contact_3_rationale",
     "hook_3",
-    "hook_3_citations",
     "eval_groundedness",
     "eval_icp_relevance",
     "eval_personalization",
@@ -58,14 +55,36 @@ class SheetWriteResult:
     sheet_title: str
 
 
-def build_rows(scored: list[ScoredAccount]) -> list[list[str]]:
-    rows: list[list[str]] = [list(HEADERS)]
+def build_rows(
+    scored: list[ScoredAccount],
+    *,
+    sources_sheet_id: int | None = None,
+    sources_lookup: dict[tuple[str, int], int] | None = None,
+    config: ICPConfig | None = None,
+) -> list[list[str]]:
+    labels = axis_display_labels(config) if config is not None else {}
+    rows: list[list[str]] = [[labels.get(header, header) for header in HEADERS]]
     for sa in scored:
-        rows.append(_build_row(sa))
+        sources_row_for_account = None
+        first_index = _first_justification_index(sa)
+        if sources_lookup is not None and first_index is not None:
+            sources_row_for_account = sources_lookup.get((sa.account.domain, first_index))
+        rows.append(
+            _build_row(
+                sa,
+                sources_sheet_id=sources_sheet_id,
+                sources_row_for_account=sources_row_for_account,
+            )
+        )
     return rows
 
 
-def _build_row(sa: ScoredAccount) -> list[str]:
+def _build_row(
+    sa: ScoredAccount,
+    *,
+    sources_sheet_id: int | None = None,
+    sources_row_for_account: int | None = None,
+) -> list[str]:
     f = sa.enrichment.firmographics
     bd = sa.score.breakdown if sa.score is not None else None
     contacts = list(sa.contacts) + [None, None, None]
@@ -76,6 +95,10 @@ def _build_row(sa: ScoredAccount) -> list[str]:
     score_justification = (
         _format_score_justification(sa.score, justifications_by_index) if sa.score else ""
     )
+    if sources_sheet_id is not None and sources_row_for_account is not None:
+        score_justification = _hyperlink_formula(
+            sources_sheet_id, sources_row_for_account, score_justification
+        )
 
     row: list[str] = [
         sa.account.domain,
@@ -97,8 +120,10 @@ def _build_row(sa: ScoredAccount) -> list[str]:
         h = hooks[i]
         row.append(c.role_title if c else "")
         row.append(c.rationale if c else "")
-        row.append(h.paragraph if h else "")
-        row.append(_format_hook_citations(h, justifications_by_index) if h else "")
+        hook_cell = h.paragraph if h else ""
+        if sources_sheet_id is not None and sources_row_for_account is not None:
+            hook_cell = _hyperlink_formula(sources_sheet_id, sources_row_for_account, hook_cell)
+        row.append(hook_cell)
     row.extend(
         [
             _fmt(ev.groundedness) if ev else "",
@@ -112,8 +137,14 @@ def _build_row(sa: ScoredAccount) -> list[str]:
     return row
 
 
+def _first_justification_index(sa: ScoredAccount) -> int | None:
+    if not sa.enrichment.justifications:
+        return None
+    return min(j.index for j in sa.enrichment.justifications)
+
+
 def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
-    """Compose the score's justification cell with supporting evidence inline.
+    """Compose the score's justification cell with supporting evidence markers.
 
     If the writer omits supporting_indices entirely (which it shouldn't,
     per the prompt) we still surface the gap to the reader as
@@ -122,27 +153,45 @@ def _format_score_justification(score: Any, by_index: dict[int, Any]) -> str:
     visible instead of indistinguishable from a "no evidence" verdict.
     """
     parts = [score.justification.strip() if score.justification else ""]
-    supports = [
-        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
-        for i in score.supporting_indices
-        if i in by_index
-    ]
+    supports = [f"[{i}]" for i in score.supporting_indices if i in by_index]
     if supports:
-        parts.append("Supporting: " + "; ".join(supports))
+        parts.append("Supporting: " + " ".join(supports))
     elif by_index:
         parts.append("Supporting: (writer returned no supporting indices)")
     return " ".join(p for p in parts if p)
 
 
-def _format_hook_citations(hook: Any, by_index: dict[int, Any]) -> str:
-    """Render the hook's cited justifications as '[1] summary (url); [3] summary (url)'."""
-    if not hook.cited_indices:
+def _hyperlink_formula(target_sheet_id: int, target_row: int, display_text: str) -> str:
+    if not display_text:
         return ""
-    return "; ".join(
-        f"[{i}] {by_index[i].summary} ({by_index[i].citation.url})"
-        for i in hook.cited_indices
-        if i in by_index
-    )
+    escaped = display_text.replace('"', '""')
+    return f'=HYPERLINK("#gid={target_sheet_id}&range=A{target_row}", "{escaped}")'
+
+
+def build_sources_rows(scored: list[ScoredAccount]) -> list[list[str]]:
+    rows = [["domain", "index", "summary", "url", "source"]]
+    for sa in scored:
+        for justification in sorted(sa.enrichment.justifications, key=lambda j: j.index):
+            rows.append(
+                [
+                    sa.account.domain,
+                    str(justification.index),
+                    justification.summary,
+                    str(justification.citation.url),
+                    justification.citation.source,
+                ]
+            )
+    return rows
+
+
+def _sources_row_lookup(scored: list[ScoredAccount]) -> dict[tuple[str, int], int]:
+    lookup: dict[tuple[str, int], int] = {}
+    next_row = 2
+    for sa in scored:
+        for justification in sorted(sa.enrichment.justifications, key=lambda j: j.index):
+            lookup[(sa.account.domain, justification.index)] = next_row
+            next_row += 1
+    return lookup
 
 
 def _fmt(v: float) -> str:
@@ -151,6 +200,7 @@ def _fmt(v: float) -> str:
 
 RUBRIC_TAB_TITLE = "Rubric"
 INPUTS_TAB_TITLE = "Inputs"
+LEGEND_TAB_TITLE = "Legend"
 
 
 def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
@@ -213,8 +263,8 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
     rows.append(
         [
             f"When groundedness drops below {config.eval.groundedness_flag_threshold:.1f}, "
-            "the eval_groundedness cell turns red text. The row keeps its verdict "
-            "color (strong = green, borderline = yellow, weak = pink).",
+            "the eval_groundedness cell turns red text. Whole-row background comes from "
+            "AccountStatus; see the Legend tab for status colors and precedence.",
         ]
     )
     rows.append([])
@@ -257,28 +307,113 @@ def build_inputs_rows(
     return rows
 
 
-VERDICT_COLORS: dict[str, dict[str, float]] = {
-    "strong": {"red": 0.82, "green": 0.95, "blue": 0.82},
-    "borderline": {"red": 1.0, "green": 0.97, "blue": 0.80},
-    "weak": {"red": 1.0, "green": 0.85, "blue": 0.85},
+def axis_display_labels(config: ICPConfig) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for name, axis in config.axes.items():
+        title = " ".join("AI" if part == "ai" else part.capitalize() for part in name.split("_"))
+        labels[name] = f"{title} ({round(axis.weight * 100)}%)"
+    return labels
+
+
+ACCOUNT_STATUS_COLORS: dict[AccountStatus, dict[str, float]] = {
+    AccountStatus.clean: {"red": 1.0, "green": 1.0, "blue": 1.0},
+    AccountStatus.low_groundedness: {"red": 1.0, "green": 0.97, "blue": 0.80},
+    AccountStatus.hook_suppressed: {"red": 1.0, "green": 0.90, "blue": 0.78},
+    AccountStatus.judge_failed: {"red": 0.88, "green": 0.88, "blue": 0.88},
 }
 
 FLAG_TEXT_COLOR: dict[str, float] = {"red": 0.8, "green": 0.0, "blue": 0.0}
 
+# D-13 width classes. Pixel values picked inside the documented ranges so
+# narrow numeric columns stay scannable and hook paragraphs (the "wide"
+# class) read as multi-sentence prose without horizontal scroll.
+WIDTH_CLASS_PX: dict[str, int] = {
+    "narrow": 110,
+    "medium": 180,
+    "wide": 400,
+    "extra": 250,
+}
 
-def verdict_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
-    """Map of row index (1-based, header is row 0) to verdict background color.
+# D-13 per-column class. Every HEADERS entry MUST appear exactly once so the
+# results tab never falls back to the Sheets default width on first open.
+# The covers-every-header invariant is asserted in test_sheets_rows.py.
+COLUMN_WIDTHS: dict[str, str] = {
+    "domain": "narrow",
+    "status": "narrow",
+    "name": "medium",
+    "industry": "medium",
+    "headcount": "medium",
+    "tech_signals": "medium",
+    "icp_total": "narrow",
+    "verdict": "narrow",
+    "support_volume": "narrow",
+    "ai_maturity": "narrow",
+    "stage_fit": "narrow",
+    "channel_breadth": "narrow",
+    "justification": "wide",
+    "contact_1_role": "medium",
+    "contact_1_rationale": "medium",
+    "hook_1": "wide",
+    "contact_2_role": "medium",
+    "contact_2_rationale": "medium",
+    "hook_2": "wide",
+    "contact_3_role": "medium",
+    "contact_3_rationale": "medium",
+    "hook_3": "wide",
+    "eval_groundedness": "narrow",
+    "eval_icp_relevance": "narrow",
+    "eval_personalization": "narrow",
+    "eval_specificity": "narrow",
+    "eval_recency": "narrow",
+    "error": "extra",
+}
 
-    Strong verdict gets green, borderline gets yellow, weak gets no color.
-    Eval-flagged rows are signaled separately by red text on the
-    eval_groundedness cell (see `flagged_eval_rows`), so the row's verdict
-    color is never overridden.
-    """
+# D-14 wrap columns: hook paragraphs and the score justification render as
+# multi-sentence prose, so they need wrap to grow vertically rather than
+# spill horizontally.
+WRAP_COLUMN_NAMES: tuple[str, ...] = ("hook_1", "hook_2", "hook_3", "justification")
+
+ACCOUNT_STATUS_MEANINGS: dict[AccountStatus, str] = {
+    AccountStatus.clean: "All claims grounded; no eval flags.",
+    AccountStatus.low_groundedness: "Hook content shipped but eval groundedness fell below threshold.",
+    AccountStatus.hook_suppressed: (
+        "One or more outreach hooks were dropped because claims failed citation coverage."
+    ),
+    AccountStatus.judge_failed: (
+        "Judge call did not return a parseable score; eval is out-of-band, NOT a content failure."
+    ),
+}
+
+
+def _legend_color_label(status: AccountStatus) -> str:
+    color = ACCOUNT_STATUS_COLORS[status]
+    if color["red"] == color["green"] == color["blue"]:
+        return "white" if color["red"] >= 0.99 else "gray"
+    if color["green"] >= 0.95:
+        return "yellow"
+    return "orange"
+
+
+def build_legend_rows() -> list[list[str]]:
+    rows = [["status", "color", "meaning", "precedence"]]
+    for status in AccountStatus:
+        rows.append(
+            [
+                status.value,
+                _legend_color_label(status),
+                ACCOUNT_STATUS_MEANINGS[status],
+                STATUS_LEGEND,
+            ]
+        )
+    return rows
+
+
+def account_status_row_colors(scored: list[ScoredAccount]) -> dict[int, dict[str, float]]:
     out: dict[int, dict[str, float]] = {}
     for i, sa in enumerate(scored):
         idx = i + 1
-        if sa.score and sa.score.verdict in VERDICT_COLORS:
-            out[idx] = VERDICT_COLORS[sa.score.verdict]
+        if sa.status != AccountStatus.clean:
+            out[idx] = ACCOUNT_STATUS_COLORS[sa.status]
     return out
 
 
@@ -323,6 +458,7 @@ class SheetsWriter:
         service = self._build_service()
         run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         results_title = f"run-{run_id}"
+        sources_title = f"{results_title}-sources"
 
         if self._spreadsheet_id:
             spreadsheet_id = self._spreadsheet_id
@@ -344,11 +480,36 @@ class SheetsWriter:
                 existing_tabs,
             )
 
+        self._refresh_named_tab(
+            service, spreadsheet_id, LEGEND_TAB_TITLE, build_legend_rows(), existing_tabs
+        )
+        self._apply_legend_tab_colors(service, spreadsheet_id)
+
         self._add_tab(service, spreadsheet_id, results_title, existing_tabs)
-        results_rows = build_rows(scored)
+        self._add_tab(service, spreadsheet_id, sources_title, existing_tabs)
+        sources_rows = build_sources_rows(scored)
+        self._write_values(service, spreadsheet_id, sources_title, sources_rows)
+        sources_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sources_title)
+        sources_lookup = _sources_row_lookup(scored)
+        results_rows = build_rows(
+            scored,
+            sources_sheet_id=sources_sheet_id,
+            sources_lookup=sources_lookup,
+            config=config,
+        )
         self._write_values(service, spreadsheet_id, results_title, results_rows)
         self._apply_row_colors(service, spreadsheet_id, results_title, scored)
         self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)
+
+        # D-12/D-13/D-14: one sheet_id lookup powers all three formatting
+        # passes so the writer stays gentle on the discovery API.
+        results_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, results_title)
+        if results_sheet_id is not None:
+            self._apply_freeze_panes(service, spreadsheet_id, results_sheet_id)
+            self._apply_column_widths(service, spreadsheet_id, results_sheet_id)
+            self._apply_wrap_strategy(
+                service, spreadsheet_id, results_sheet_id, num_data_rows=len(scored)
+            )
 
         url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
         log.info("wrote %d rows to %s tab %s", len(results_rows) - 1, url, results_title)
@@ -411,7 +572,7 @@ class SheetsWriter:
         sheet_title: str,
         scored: list[ScoredAccount],
     ) -> None:
-        colors = verdict_row_colors(scored)
+        colors = account_status_row_colors(scored)
         if not colors:
             return
         sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
@@ -430,6 +591,30 @@ class SheetsWriter:
                 }
             }
             for idx, color in sorted(colors.items())
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_legend_tab_colors(self, service: Any, spreadsheet_id: str) -> None:
+        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, LEGEND_TAB_TITLE)
+        if sheet_id is None:
+            return
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": row_idx,
+                        "endRowIndex": row_idx + 1,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {"backgroundColor": ACCOUNT_STATUS_COLORS[status]}
+                    },
+                    "fields": "userEnteredFormat.backgroundColor",
+                }
+            }
+            for row_idx, status in enumerate(AccountStatus, start=1)
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}
@@ -472,6 +657,87 @@ class SheetsWriter:
                 }
             }
             for idx in flagged
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_freeze_panes(self, service: Any, spreadsheet_id: str, sheet_id: int) -> None:
+        """D-12: pin row 1 (header) and columns A-B (domain, status).
+
+        Vertical scroll keeps weight-baked headers visible; horizontal scroll
+        keeps the AccountStatus column pinned so the viewer never loses row
+        identity. Two-column freeze is hard-coded because D-12 locks the count.
+        """
+        request = {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": sheet_id,
+                    "gridProperties": {"frozenRowCount": 1, "frozenColumnCount": 2},
+                },
+                "fields": "gridProperties.frozenRowCount,gridProperties.frozenColumnCount",
+            }
+        }
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": [request]}
+        ).execute()
+
+    def _apply_column_widths(self, service: Any, spreadsheet_id: str, sheet_id: int) -> None:
+        """D-13: size each column by its width class in a single batchUpdate.
+
+        One request per HEADERS entry keeps the mapping obvious in API
+        traffic; the per-class collapsing optimization is intentionally
+        deferred since 28 requests sit far under the Sheets per-batchUpdate
+        limit.
+        """
+        requests = [
+            {
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": col_index,
+                        "endIndex": col_index + 1,
+                    },
+                    "properties": {"pixelSize": WIDTH_CLASS_PX[COLUMN_WIDTHS[name]]},
+                    "fields": "pixelSize",
+                }
+            }
+            for col_index, name in enumerate(HEADERS)
+        ]
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+    def _apply_wrap_strategy(
+        self,
+        service: Any,
+        spreadsheet_id: str,
+        sheet_id: int,
+        num_data_rows: int,
+    ) -> None:
+        """D-14: WRAP hook + justification columns so prose grows vertically.
+
+        Range is row 1 (first data row) through num_data_rows + 1 (exclusive
+        end). An empty data range still issues the request as a no-op so
+        future-added rows inherit the format on subsequent runs.
+        """
+        end_row = num_data_rows + 1
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": HEADERS.index(name),
+                        "endColumnIndex": HEADERS.index(name) + 1,
+                    },
+                    "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                    "fields": "userEnteredFormat.wrapStrategy",
+                }
+            }
+            for name in WRAP_COLUMN_NAMES
         ]
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body={"requests": requests}

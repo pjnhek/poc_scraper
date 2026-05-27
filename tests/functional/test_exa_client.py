@@ -79,6 +79,35 @@ async def test_search_gives_up_after_max_attempts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_search_honors_retry_after_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # D-05 + D-08: when the server returns 429 with Retry-After: <seconds>, the
+    # client must sleep exactly that many seconds before retrying. Patching
+    # asyncio.sleep intercepts tenacity's _portable_async_sleep, which does a
+    # fresh `asyncio.sleep(seconds)` lookup on every call.
+    sleeps: list[float] = []
+
+    async def _capture_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr("asyncio.sleep", _capture_sleep)
+
+    async with respx.mock(base_url=EXA_BASE_URL) as router:
+        route = router.post("/search").mock(
+            side_effect=[
+                httpx.Response(429, headers={"Retry-After": "2"}),
+                httpx.Response(200, json={"results": []}),
+            ]
+        )
+        async with httpx.AsyncClient() as http:
+            client = ExaClient(api_key="k", client=http)
+            results = await client.search_news("x.com")
+
+    assert results == []
+    assert route.call_count == 2
+    assert 2.0 in sleeps
+
+
+@pytest.mark.asyncio
 async def test_handles_missing_published_date() -> None:
     body = {"results": [{"url": "https://x.com/a", "title": "t", "text": "s"}]}
     async with respx.mock(base_url=EXA_BASE_URL) as router:

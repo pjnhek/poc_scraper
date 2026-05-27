@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run eval eval-live eval-fixtures eval-calibration test smoke lint format typecheck clean
+.PHONY: install setup-sheet run run-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean verify-public-repo
 
 install:
 	uv sync --extra dev
@@ -10,6 +10,9 @@ setup-sheet:
 run:
 	uv run python -m src.pipeline
 
+run-demo:
+	DEMO_BUNDLE=fixtures/demo-bundle uv run python -m src.pipeline
+
 eval: eval-live
 
 eval-live:
@@ -20,6 +23,9 @@ eval-fixtures:
 
 eval-calibration:
 	uv run python -m evals.run_eval --calibration
+
+eval-report:
+	uv run python -m evals.report
 
 test:
 	uv run pytest -m "not smoke"
@@ -41,3 +47,6 @@ typecheck:
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov dist build runs
 	find . -type d -name __pycache__ -exec rm -rf {} +
+
+verify-public-repo:
+	uv run python -m scripts.verify_public_repo

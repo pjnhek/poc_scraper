@@ -105,6 +105,10 @@ To cap how many domains a single run processes (useful for demos and to avoid ra
 RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
 ```
 
+### Local setup
+
+If you want the public-repo guard active locally (recommended for any contributor pushing to the public repo), create `.secrets-denylist` at the repo root. The file is gitignored by design so the sensitive terms never enter version control. Add one regex per line (lines beginning with `#` are comments). Both the pre-commit hook (`scripts/check_public_discipline.py`) and the verification script (`make verify-public-repo`) read from this file. Without `.secrets-denylist`, the pre-commit hook is silent by design (so a fresh clone can commit), but `make verify-public-repo` exits non-zero with a setup prompt.
+
 ### Picking models
 
 **DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-pro` with thinking and `reasoning_effort=high`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env`. Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.

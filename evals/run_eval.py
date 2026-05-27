@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from openai import APIError, APIStatusError, RateLimitError
+from pydantic import ValidationError
+
 from evals.agreement import AXES, cohen_kappa_linear, pct_agreement
 from src.clients.nvidia_client import NVIDIA_BASE_URL, GenerationParams, NvidiaClient
 from src.config import Settings, get_settings
@@ -20,6 +23,7 @@ from .rubric import EvalRubric
 log = logging.getLogger(__name__)
 
 LABELED_PATH = Path(__file__).parent / "labeled.jsonl"
+RUN_LOG_PATH = Path(__file__).parent / "run-log.json"
 
 
 @dataclass(frozen=True)
@@ -157,7 +161,62 @@ def summary_line(rows: list[EvalRow]) -> str:
     )
 
 
-async def run(split_filter: str | None = None) -> int:
+def _resolve_judge_name(settings: Settings) -> str:
+    """Pick the judge model name string matching settings.resolved_provider.
+
+    Mirrors the same resolution run_calibration() does at the DeepSeek branch
+    (line 451); kept as a tiny helper so the --emit-log payload, the
+    markdown header, and any future caller all read from one place.
+    """
+    if settings.resolved_provider == "deepseek":
+        return settings.judge_model_deepseek
+    return settings.judge_model_nvidia
+
+
+def _build_run_log_payload(
+    rows: list[EvalRow], split: str | None, settings: Settings
+) -> dict[str, object]:
+    """Serialize the per-record EvalRow list + run metadata for evals/run-log.json.
+
+    The schema is documented in 04-01-PLAN.md and is the contract Plan 02's
+    pydantic loader (extra="forbid") consumes. Build the payload field by
+    field from EvalRow / LabeledExample so an upstream axis rename fails at
+    mypy time rather than silently emitting a stale shape.
+    """
+    payload: dict[str, object] = {
+        "run_date": datetime.date.today().isoformat(),
+        "split": split if split is not None else "all",
+        "judge_model": _resolve_judge_name(settings),
+        "judge_provider": settings.resolved_provider,
+        "n_records": len(rows),
+        "rows": [
+            {
+                "id": r.example.id,
+                "domain": r.example.domain,
+                "expected": {
+                    "groundedness": r.example.expected_groundedness,
+                    "icp_relevance": r.example.expected_relevance,
+                    "personalization": r.example.expected_personalization,
+                    "specificity": r.example.expected_specificity,
+                    "recency": r.example.expected_recency,
+                    "eval_failed": r.example.expected_eval_failed,
+                },
+                "actual": {
+                    "groundedness": r.actual_groundedness,
+                    "icp_relevance": r.actual_relevance,
+                    "personalization": r.actual_personalization,
+                    "specificity": r.actual_specificity,
+                    "recency": r.actual_recency,
+                },
+                "notes": r.notes,
+            }
+            for r in rows
+        ],
+    }
+    return payload
+
+
+async def run(split_filter: str | None = None, emit_log: bool = False) -> int:
     settings = get_settings()
     if settings.resolved_provider == "deepseek" and not settings.deepseek_api_key:
         log.error("DEEPSEEK_API_KEY is not set; cannot run eval.")
@@ -190,6 +249,16 @@ async def run(split_filter: str | None = None) -> int:
     print(markdown_table(rows))
     print()
     print(summary_line(rows))
+
+    if emit_log:
+        # Serializer is the single seam between the (non-deterministic)
+        # judge run and the (byte-stable) renderer in Plan 02. Same
+        # write_text + trailing newline shape as run_calibration() so the
+        # operator can diff two run-log.json files line-cleanly.
+        payload = _build_run_log_payload(rows, split_filter, settings)
+        RUN_LOG_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        log.info("wrote %s", RUN_LOG_PATH)
+
     return 0
 
 
@@ -312,7 +381,7 @@ async def _safe_judge(
     """
     try:
         return await rubric.evaluate_hook(hook, domain, justs)
-    except Exception as exc:  # noqa: BLE001 -- provider errors are heterogeneous
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
         log.warning("%s judge raised %s: %s", judge_name, type(exc).__name__, exc)
         return EvalScore(
             groundedness=1,
@@ -553,10 +622,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split",
         default=None,
+        choices=["train", "holdout"],
         help="Filter labeled examples by split ('train' or 'holdout').",
+    )
+    parser.add_argument(
+        "--emit-log",
+        action="store_true",
+        help="Write evals/run-log.json with per-record rows + metadata (D-02).",
     )
     args = parser.parse_args()
     if args.calibration:
         raise SystemExit(asyncio.run(run_calibration()))
     else:
-        raise SystemExit(asyncio.run(run(split_filter=args.split)))
+        raise SystemExit(asyncio.run(run(split_filter=args.split, emit_log=args.emit_log)))

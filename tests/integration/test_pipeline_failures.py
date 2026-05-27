@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
+from openai import APIError
 
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
@@ -36,10 +38,17 @@ class FailingAnthropic:
         self.fail_on = fail_on
 
     async def synthesize(
-        self, system: str, context: str, user_prompt: str, max_tokens=None
+        self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
     ) -> LLMResponse:
         if self.fail_on in system:
-            raise RuntimeError(f"deliberate failure on '{self.fail_on}'")
+            # APIError is in the narrow tuple per Phase 5 D-01 so the per-stage
+            # except block degrades to a ScoredAccount.unscoreable row instead
+            # of propagating per D-04.
+            raise APIError(
+                f"deliberate failure on '{self.fail_on}'",
+                request=httpx.Request("POST", "https://example.com"),
+                body=None,
+            )
         return LLMResponse(text="{}")
 
 
@@ -75,7 +84,7 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
             self.outreach_calls = 0
 
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "extract structured firmographics" in system:
                 return LLMResponse(
@@ -102,7 +111,12 @@ async def test_outreach_failure_continues_with_remaining_contacts() -> None:
             if "You write outreach claims from a seller" in system:
                 self.outreach_calls += 1
                 if self.outreach_calls == 2:
-                    raise RuntimeError("transient outreach failure")
+                    # APIError is in the outreach stage's narrow tuple (D-01).
+                    raise APIError(
+                        "transient outreach failure",
+                        request=httpx.Request("POST", "https://example.com"),
+                        body=None,
+                    )
                 # Return a claim citing justification [1]; rapidfuzz gate passes
                 # because the claim text overlaps with the snippet content.
                 return LLMResponse(
@@ -147,7 +161,7 @@ async def test_judge_failure_status_precedence() -> None:
 
     class JudgeFailingLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -205,7 +219,7 @@ async def test_all_hooks_suppressed_status() -> None:
 
     class AllEmptyHooksLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -264,7 +278,7 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
 
     class EvalCrashingLLM:
         async def synthesize(
-            self, system: str, context: str, user_prompt: str, max_tokens=None
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
         ) -> LLMResponse:
             if "You are a sales analyst" in system:
                 return LLMResponse(
@@ -296,7 +310,13 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
                     )
                 )
             if "LLM judge evaluating" in system:
-                raise RuntimeError("eval network error")
+                # APIError is in the eval stage's narrow tuple (D-01); per D-04
+                # any other class would now propagate as a crash.
+                raise APIError(
+                    "eval network error",
+                    request=httpx.Request("POST", "https://example.com"),
+                    body=None,
+                )
             raise AssertionError(f"unscripted: {system[:60]}")
 
     deps = build_deps(
@@ -309,3 +329,123 @@ async def test_eval_exception_with_nonempty_hooks_status_is_judge_failed() -> No
     # D-03: eval exception with non-empty hooks must be judge_failed, not clean.
     assert sa.status == AccountStatus.judge_failed
     assert sa.eval_score is None
+
+
+@pytest.mark.asyncio
+async def test_empty_enrichment_renders_graceful_sheet_row() -> None:
+    """HARD-03 + D-11: Exa returns 0 AND Browserbase returns None.
+
+    The enricher returns Enrichment(firmographics=None, news=()) and is_empty
+    fires the early-return at src/pipeline.py:78-81, producing an unscoreable
+    row with status=hook_suppressed and error="empty enrichment". The writer
+    LLM is never invoked along this path; FailingAnthropic(fail_on="__never_match__")
+    is wired only to confirm that property.
+
+    D-09: assertion reaches into src/sheets.py::_build_row so the graceful-row
+    promise is verified at the actual unit that converts ScoredAccount to the
+    Sheet payload, not just at the ScoredAccount layer.
+    """
+    deps = build_deps(
+        writer=FailingAnthropic(fail_on="__never_match__"),
+        judge=FailingAnthropic(fail_on="__never_match__"),
+        exa=FakeExa(about=[], news=[]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="empty.com"), deps)
+    assert sa.status == AccountStatus.hook_suppressed
+    assert sa.error == "empty enrichment"
+
+    from src.sheets import HEADERS, _build_row
+
+    row = _build_row(sa)
+    assert row[HEADERS.index("domain")] == "empty.com"
+    # _build_row writes sa.status directly (a StrEnum), not sa.status.value;
+    # compare against the enum member to mirror the existing assertion shape
+    # at tests/unit/test_sheets_rows.py::test_build_rows_writes_account_data:92.
+    assert row[HEADERS.index("status")] == AccountStatus.hook_suppressed
+    assert row[HEADERS.index("icp_total")] == ""
+    assert row[HEADERS.index("verdict")] == ""
+    assert row[HEADERS.index("hook_1")] == ""
+    assert not row[HEADERS.index("hook_1")].startswith("=HYPERLINK(")
+    assert row[HEADERS.index("error")] == "empty enrichment"
+
+
+@pytest.mark.asyncio
+async def test_citation_drop_renders_hook_suppressed_row() -> None:
+    """HARD-03 + D-10: writer emits empty claims list -> hook_suppressed row.
+
+    With ``{"claims":[],"connective_text":""}`` from the outreach writer,
+    src/citations.py::assemble_paragraph returns ("", ()) and the resulting
+    OutreachHook has paragraph="" and cited_indices=(). With three contacts
+    the suppression applies to all three hooks, so D-03 precedence flips the
+    final status to hook_suppressed regardless of eval result.
+
+    The existing test_all_hooks_suppressed_status above already proves the
+    status flip; the incremental value here per D-09 is the _build_row reach:
+    confirm that the hook column renders as the empty string when the
+    citation gate suppresses the paragraph end-to-end.
+    """
+
+    class EmptyClaimLLM:
+        async def synthesize(
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+        ) -> LLMResponse:
+            if "You are a sales analyst" in system:
+                return LLMResponse(
+                    text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}'
+                )
+            if "score companies against an ICP rubric" in system:
+                return LLMResponse(
+                    text=(
+                        '{"support_volume":5,"support_volume_reason":"r",'
+                        '"ai_maturity":5,"ai_maturity_reason":"r",'
+                        '"stage_fit":5,"stage_fit_reason":"r",'
+                        '"channel_breadth":5,"channel_breadth_reason":"r",'
+                        '"justification":"ok"}'
+                    )
+                )
+            if "propose the top 3 buyer personas" in system:
+                return LLMResponse(
+                    text=(
+                        '[{"role_title":"a","rationale":"r"},'
+                        '{"role_title":"b","rationale":"r"},'
+                        '{"role_title":"c","rationale":"r"}]'
+                    )
+                )
+            if "You write outreach claims from a seller" in system:
+                # D-10 trigger: empty claims list -> assemble_paragraph returns
+                # ("", ()) -> hook with empty paragraph -> hook_suppressed.
+                return LLMResponse(text='{"claims":[],"connective_text":""}')
+            if "LLM judge evaluating" in system:
+                return LLMResponse(
+                    text=(
+                        '{"claims":[{"text":"x","supported_by":1}],'
+                        '"icp_relevance":3,"personalization":3,'
+                        '"specificity":2,"recency":2}'
+                    )
+                )
+            raise AssertionError(f"unscripted: {system[:60]}")
+
+    deps = build_deps(
+        writer=EmptyClaimLLM(),
+        judge=EmptyClaimLLM(),
+        exa=FakeExa(about=[_exa_about()]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="x.com"), deps)
+    assert sa.status == AccountStatus.hook_suppressed
+    # With empty claims, OutreachGenerator builds a hook with paragraph=""
+    # rather than skipping the persona. Verify the shape that drives _build_row.
+    assert len(sa.hooks) == 3
+    assert all(h.paragraph == "" for h in sa.hooks)
+
+    from src.sheets import HEADERS, _build_row
+
+    row = _build_row(sa)
+    assert row[HEADERS.index("domain")] == "x.com"
+    assert row[HEADERS.index("status")] == AccountStatus.hook_suppressed
+    for hook in ("hook_1", "hook_2", "hook_3"):
+        assert not row[HEADERS.index(hook)].startswith("=HYPERLINK(")
+    assert row[HEADERS.index("hook_1")] == ""
+    assert row[HEADERS.index("hook_2")] == ""
+    assert row[HEADERS.index("hook_3")] == ""

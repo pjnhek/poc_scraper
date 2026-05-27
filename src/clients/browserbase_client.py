@@ -12,6 +12,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from .retry import retry_after_aware_wait
+
 BROWSERBASE_BASE_URL = "https://api.browserbase.com/v1"
 
 log = logging.getLogger(__name__)
@@ -54,14 +56,14 @@ class BrowserbaseClient:
     async def render(self, url: str) -> RenderedPage | None:
         try:
             return await self._render_with_retry(url)
-        except Exception as exc:
-            log.warning("browserbase render failed for %s: %s", url, exc)
+        except (httpx.HTTPError, BrowserbaseError) as exc:
+            log.warning("browserbase render failed [%s] for %s: %s", type(exc).__name__, url, exc)
             return None
 
     async def _render_with_retry(self, url: str) -> RenderedPage:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(2),
-            wait=wait_exponential(multiplier=1, min=1, max=8),
+            wait=retry_after_aware_wait(fallback=wait_exponential(multiplier=1, min=1, max=8)),
             retry=retry_if_exception_type((httpx.HTTPError,)),
             reraise=True,
         ):

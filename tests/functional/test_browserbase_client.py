@@ -53,3 +53,31 @@ async def test_render_retries_once_then_succeeds() -> None:
             page = await client.render("https://x.com/about")
     assert page is not None
     assert route.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_render_honors_retry_after_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    # D-05 + D-08: 429 with Retry-After: <seconds> -> client sleeps exactly that
+    # many seconds. Patching asyncio.sleep intercepts tenacity's portable async
+    # sleep, which looks up `asyncio.sleep` fresh on every retry.
+    sleeps: list[float] = []
+
+    async def _capture_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr("asyncio.sleep", _capture_sleep)
+
+    async with respx.mock(base_url=BROWSERBASE_BASE_URL) as router:
+        route = router.post("/scrape").mock(
+            side_effect=[
+                httpx.Response(429, headers={"Retry-After": "2"}),
+                httpx.Response(200, json={"html": "<html>ok</html>"}),
+            ]
+        )
+        async with httpx.AsyncClient() as http:
+            client = BrowserbaseClient(api_key="k", project_id="p", client=http)
+            page = await client.render("https://x.com/about")
+
+    assert page is not None
+    assert route.call_count == 2
+    assert 2.0 in sleeps

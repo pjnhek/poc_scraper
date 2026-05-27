@@ -1,0 +1,209 @@
+{
+  "run_date": "2026-05-21",
+  "split": "holdout",
+  "judge_model": "deepseek-v4-flash",
+  "judge_provider": "deepseek",
+  "n_records": 10,
+  "rows": [
+    {
+      "id": "example06-head-support",
+      "domain": "example06.com",
+      "expected": {
+        "groundedness": 5.0,
+        "icp_relevance": 4.0,
+        "personalization": 5.0,
+        "specificity": 5.0,
+        "recency": 5.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 3.3,
+        "icp_relevance": 3.0,
+        "personalization": 4.0,
+        "specificity": 4.0,
+        "recency": 4.0
+      },
+      "notes": "The claim about support ticket volume increase is uncited."
+    },
+    {
+      "id": "example02-head-support",
+      "domain": "example02.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 3.0,
+        "personalization": 3.0,
+        "specificity": 2.0,
+        "recency": 4.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 3.0,
+        "icp_relevance": 3.0,
+        "personalization": 4.0,
+        "specificity": 3.0,
+        "recency": 5.0
+      },
+      "notes": "The claim 'Faire is experiencing rapid growth' is uncited."
+    },
+    {
+      "id": "example08-dir-support",
+      "domain": "example08.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 2.0,
+        "personalization": 4.0,
+        "specificity": 4.0,
+        "recency": 4.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 3.0,
+        "icp_relevance": 2.0,
+        "personalization": 3.0,
+        "specificity": 3.0,
+        "recency": 4.0
+      },
+      "notes": "The claim about high volume of inquiries is uncited."
+    },
+    {
+      "id": "example08-head-ops",
+      "domain": "example08.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 2.0,
+        "personalization": 3.0,
+        "specificity": 3.0,
+        "recency": 4.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 3.8,
+        "icp_relevance": 3.0,
+        "personalization": 4.0,
+        "specificity": 5.0,
+        "recency": 4.0
+      },
+      "notes": "The claim 'These expansions can drive higher support volume' is uncited."
+    },
+    {
+      "id": "example10-vp-cx",
+      "domain": "example10.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 4.0,
+        "personalization": 4.0,
+        "specificity": 4.0,
+        "recency": 5.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 5.0,
+        "icp_relevance": 3.0,
+        "personalization": 4.0,
+        "specificity": 4.0,
+        "recency": 5.0
+      },
+      "notes": "The claim 'Given your focus on customer experience and support' is uncited."
+    },
+    {
+      "id": "example10-head-ops",
+      "domain": "example10.com",
+      "expected": {
+        "groundedness": 3.0,
+        "icp_relevance": 5.0,
+        "personalization": 4.0,
+        "specificity": 3.0,
+        "recency": 5.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 2.2,
+        "icp_relevance": 5.0,
+        "personalization": 5.0,
+        "specificity": 4.0,
+        "recency": 5.0
+      },
+      "notes": "Multiple claims about volume and scale are uncited."
+    },
+    {
+      "id": "example01-vp-cx",
+      "domain": "example01.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 3.0,
+        "personalization": 3.0,
+        "specificity": 2.0,
+        "recency": 2.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 3.0,
+        "icp_relevance": 3.0,
+        "personalization": 3.0,
+        "specificity": 3.0,
+        "recency": 2.0
+      },
+      "notes": "Most-uncited claim: 'with a large user base' and 'indicating a significant support volume'."
+    },
+    {
+      "id": "example03-vp-cx",
+      "domain": "example03.com",
+      "expected": {
+        "groundedness": 4.0,
+        "icp_relevance": 2.0,
+        "personalization": 3.0,
+        "specificity": 3.0,
+        "recency": 4.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 1.0,
+        "icp_relevance": 1.0,
+        "personalization": 1.0,
+        "specificity": 1.0,
+        "recency": 1.0
+      },
+      "notes": "No claims about the account were made; the paragraph only describes Linear's features."
+    },
+    {
+      "id": "example07-vp-support",
+      "domain": "example07.com",
+      "expected": {
+        "groundedness": 3.0,
+        "icp_relevance": 3.0,
+        "personalization": 3.0,
+        "specificity": 3.0,
+        "recency": 4.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 2.0,
+        "icp_relevance": 3.0,
+        "personalization": 4.0,
+        "specificity": 3.0,
+        "recency": 3.0
+      },
+      "notes": "The claim that Retool focuses on internal tools and AI is uncited."
+    },
+    {
+      "id": "example05-vp-cx",
+      "domain": "example05.com",
+      "expected": {
+        "groundedness": 1.0,
+        "icp_relevance": 1.0,
+        "personalization": 1.0,
+        "specificity": 1.0,
+        "recency": 1.0,
+        "eval_failed": false
+      },
+      "actual": {
+        "groundedness": 1.0,
+        "icp_relevance": 1.0,
+        "personalization": 1.0,
+        "specificity": 1.0,
+        "recency": 1.0
+      },
+      "notes": "No paragraph provided."
+    }
+  ]
+}

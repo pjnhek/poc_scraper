@@ -5,10 +5,12 @@ import logging
 from dataclasses import dataclass
 
 import httpx
+from openai import APIError, APIStatusError, RateLimitError
+from pydantic import ValidationError
 
 from evals.rubric import EvalRubric
 
-from .clients.browserbase_client import BrowserbaseClient
+from .clients.browserbase_client import BrowserbaseClient, BrowserbaseError
 from .clients.exa_client import ExaClient
 from .clients.nvidia_client import (
     DEEPSEEK_BASE_URL,
@@ -17,6 +19,14 @@ from .clients.nvidia_client import (
     NvidiaClient,
 )
 from .clients.protocols import BrowserbaseLike, ExaLike, LLMClient
+from .clients.replay import (
+    RecordingBrowserbase,
+    RecordingExa,
+    RecordingLLM,
+    ReplayBrowserbase,
+    ReplayExa,
+    ReplayLLM,
+)
 from .config import Settings, get_settings
 from .contacts import ContactExtractor
 from .csv_io import read_accounts
@@ -57,12 +67,19 @@ def build_deps(
 async def process_account(account: Account, deps: Deps) -> ScoredAccount:
     try:
         enrichment = await deps.enricher.enrich(account)
-    except Exception as exc:
-        log.warning("enrich failed for %s: %s", account.domain, exc)
+    except (
+        httpx.HTTPError,
+        BrowserbaseError,
+        RateLimitError,
+        APIStatusError,
+        APIError,
+        ValidationError,
+    ) as exc:
+        log.warning("enrich failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         return ScoredAccount.unscoreable(
             account,
             Enrichment(account=account),
-            f"enrich failed: {exc}",
+            f"enrich failed [{type(exc).__name__}]: {exc}",
             status=AccountStatus.hook_suppressed,
         )
 
@@ -73,10 +90,13 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         score = await deps.scorer.score(enrichment)
-    except Exception as exc:
-        log.warning("score failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("score failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         return ScoredAccount.unscoreable(
-            account, enrichment, f"score failed: {exc}", status=AccountStatus.hook_suppressed
+            account,
+            enrichment,
+            f"score failed [{type(exc).__name__}]: {exc}",
+            status=AccountStatus.hook_suppressed,
         )
     if score is None:
         return ScoredAccount.unscoreable(
@@ -88,16 +108,22 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         contacts = await deps.contacts.extract(enrichment, score)
-    except Exception as exc:
-        log.warning("contacts failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("contacts failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         contacts = ()
 
     hooks = []
     for c in contacts:
         try:
             hook = await deps.outreach.generate(c, enrichment, score)
-        except Exception as exc:
-            log.warning("outreach failed for %s/%s: %s", account.domain, c.role_title, exc)
+        except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+            log.warning(
+                "outreach failed [%s] for %s/%s: %s",
+                type(exc).__name__,
+                account.domain,
+                c.role_title,
+                exc,
+            )
             continue
         hooks.append(hook)
 
@@ -112,8 +138,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
 
     try:
         eval_score = await deps.eval_rubric.evaluate_account(sa)
-    except Exception as exc:
-        log.warning("eval failed for %s: %s", account.domain, exc)
+    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+        log.warning("eval failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         eval_score = None
 
     # D-03 precedence: worst-observability-first so a judge failure is never masked.
@@ -246,14 +272,37 @@ async def main(settings: Settings | None = None) -> int:
     log.info("loaded %d accounts from %s", len(accounts), settings.accounts_csv)
 
     async with httpx.AsyncClient(timeout=60.0) as http:
-        exa = ExaClient(api_key=settings.exa_api_key, client=http)
-        bb = BrowserbaseClient(
-            api_key=settings.browserbase_api_key,
-            project_id=settings.browserbase_project_id,
-            client=http,
-        )
-        writer = _build_writer(settings)
-        judge = _build_judge(settings)
+        exa: ExaLike
+        bb: BrowserbaseLike
+        writer: LLMClient
+        judge: LLMClient
+        if settings.demo_bundle is not None:
+            # D-15: replay mode swaps every external client for the JSON-backed
+            # stubs. Live providers are never contacted; require_for_pipeline
+            # has already skipped the API-key checks above.
+            exa = ReplayExa(settings.demo_bundle)
+            bb = ReplayBrowserbase(settings.demo_bundle)
+            writer = ReplayLLM(settings.demo_bundle, role="writer")
+            judge = ReplayLLM(settings.demo_bundle, role="judge")
+        else:
+            exa = ExaClient(api_key=settings.exa_api_key, client=http)
+            bb = BrowserbaseClient(
+                api_key=settings.browserbase_api_key,
+                project_id=settings.browserbase_project_id,
+                client=http,
+            )
+            writer = _build_writer(settings)
+            judge = _build_judge(settings)
+            if settings.record_bundle is not None:
+                # D-17: post-construction wrap so the inner clients own
+                # request formation. The wrappers only tee the response to
+                # disk for later replay.
+                exa = RecordingExa(inner=exa, bundle_dir=settings.record_bundle)
+                bb = RecordingBrowserbase(inner=bb, bundle_dir=settings.record_bundle)
+                writer = RecordingLLM(
+                    inner=writer, bundle_dir=settings.record_bundle, role="writer"
+                )
+                judge = RecordingLLM(inner=judge, bundle_dir=settings.record_bundle, role="judge")
         deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
 
         scored = await run_pipeline(accounts, deps, concurrency=settings.pipeline_concurrency)
