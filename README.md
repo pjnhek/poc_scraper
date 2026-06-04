@@ -5,13 +5,13 @@
 
 A grounded outreach research pipeline. Drop a CSV of company domains in, get back a Google Sheet with an ICP fit score, the top three buyer personas to reach, and a personalized outreach hook per persona where every claim traces to a numbered retrieval.
 
-- **What.** `inputs/accounts.csv` in, scored Google Sheet out. Each row carries an ICP verdict, weighted axis breakdown, three inferred personas, and one outreach paragraph per persona with inline `[N]` citation markers that hyperlink to a per-run Sources tab.
+- **What.** `inputs/accounts.csv` in, scored Google Sheet out. Each row carries an ICP verdict, weighted axis breakdown, three inferred personas, and one outreach paragraph per persona where each hook and score-justification cell hyperlinks to the numbered evidence in a per-run Sources tab.
 - **Why.** Grounded outreach. Every claim ties to a numbered retrieval; an unciteable claim gets dropped, not shipped. Hallucinated context is the most damaging failure in an AI-assisted sales motion, so the pipeline is built around making that failure mode impossible by construction.
 - **Proof.** [2.73 / 5.0 mean groundedness on a 10-record holdout](evals/REPORT.md), judged by `deepseek-v4-flash` with claim-by-claim decomposition. The full rigor narrative, per-axis means, and cross-family kappa numbers live in `evals/REPORT.md`.
 
-![Sheet output with four AccountStatus states](images/hero.png)
+![Sheet output with clean and low_groundedness rows](images/hero.png)
 
-*A row band cropped from a real run, showing the four-state visual contract: clean (white), low_groundedness (yellow), hook_suppressed (orange), judge_failed (gray).*
+*A row band cropped from a real run against mercury.com, ramp.com, faire.com, and strava.com, showing two of the four AccountStatus states side by side: clean (white) and low_groundedness (yellow). The full four-state palette is documented in the gallery below and mirrored in the workbook's Legend tab.*
 
 The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same code can be retargeted at any vertical without touching prompts.
 
@@ -59,14 +59,14 @@ Per run, the workbook gets five tabs:
 1. **Rubric**, buyer description, the four weighted axes with their 1-5 anchor descriptions, verdict thresholds, and the LLM-as-judge axes. Sourced from `configs/icp.yaml`. Rewritten in place each run so the rubric you read always matches the rubric that produced this run's Results.
 2. **Inputs**, the contents of `inputs/accounts.csv`, with a load timestamp and count. Rewritten in place each run.
 3. **Legend**, the in-sheet mirror of the AccountStatus palette. One row per state with its color swatch and a one-line definition, so a reader does not have to leave the workbook to decode a row's color.
-4. **Sources: `run-YYYYMMDD-HHMMSS`**, one row per numbered retrieval used by the writer and the judge. New tab on every run, paired with the Results tab. Each `[N]` marker in a hook cell or a score-justification cell is a clickable hyperlink (per `HYPERLINK` formula in `src/sheets.py`) that jumps to the matching evidence row.
+4. **Sources: `run-YYYYMMDD-HHMMSS`**, one row per numbered retrieval used by the writer and the judge. New tab on every run, paired with the Results tab. Each hook cell and each score-justification cell is wrapped end-to-end as a `=HYPERLINK` formula (per `_hyperlink_formula` in `src/sheets.py`) that jumps to that account's first evidence row in this tab.
 5. **Results: `run-YYYYMMDD-HHMMSS`**, one row per account, with firmographics, ICP fit verdict with weighted per-axis score columns, top-three personas, one grounded outreach paragraph per persona, and judge scores. The per-axis columns expose the underlying weighted total directly so a reader can audit how a verdict was assembled.
 
 Row colors signal the **AccountStatus** of the row: `clean` (white) when every atomic claim traces to a retrieval, `low_groundedness` (yellow) when the judge flags groundedness below the configured threshold, `hook_suppressed` (orange) when the writer emitted unciteable claims and the outreach paragraph was suppressed, and `judge_failed` (gray) when the judge returned empty or errored. The Legend tab inside the workbook carries the same palette so a reader can decode a row's color without leaving the sheet.
 
 ### Failure-mode gallery
 
-Gallery rows are cropped from real runs, not necessarily the same run as the Loom.
+Gallery rows are cropped from real runs, not necessarily the same run as the Loom. Two of the four AccountStatus states are pictured below; `hook_suppressed` and `judge_failed` are described in the prose above but did not surface across the three real-run attempts used for these captures.
 
 #### clean (white)
 
@@ -80,21 +80,9 @@ Gallery rows are cropped from real runs, not necessarily the same run as the Loo
 
 *Judge flagged groundedness below the configured threshold; row tinted yellow, eval_groundedness cell in red text.*
 
-#### hook_suppressed (orange)
+Citations work via numbered justifications. Each Exa retrieval (about page plus recent news) gets a 1-based index. The writer emits each claim as a structured object with its own `cited_indices` array (per claim, not inline in the prose). A rapidfuzz coverage check in `src/citations.py` compares the claim text to the cited evidence summary, and any claim that fails the configured threshold is dropped entirely before assembly so an unciteable assertion never reaches the sheet. The judge then decomposes the surviving paragraph back into atomic claims and marks each as supported by an index or `uncited`. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop. In the workbook, the whole hook cell and the whole score-justification cell are wrapped as a `=HYPERLINK` formula in `src/sheets.py` that jumps to that account's first row in the run's Sources tab; clicking anywhere in the cell lands on the indexed evidence rows.
 
-![Hook suppressed row](images/failure-modes/hook-suppressed.png)
-
-*Writer emitted unciteable claims; outreach paragraph suppressed; row tinted orange.*
-
-#### judge_failed (gray)
-
-![Judge failed row](images/failure-modes/judge-failed.png)
-
-*Judge returned empty or errored; eval columns blank; row tinted gray to distinguish judge failure from writer fabrication.*
-
-Citations work via numbered justifications. Each Exa retrieval (about page plus recent news) gets a 1-based index. The writer references those indices inline (e.g. "their recent AI push [2]"). The judge decomposes each paragraph into atomic claims and marks each claim as supported by an index or `uncited`. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop. In the workbook, every `[N]` marker is rendered as a `HYPERLINK` formula that jumps from the hook or score-justification cell into the matching row in that run's Sources tab.
-
-Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, open the Legend tab to read the AccountStatus palette, then open the latest Results tab to walk through verdicts and outreach drafts, clicking any `[N]` to jump into the Sources tab, and finishing on the `evals/REPORT.md` link for the rigor narrative.
+Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, open the Legend tab to read the AccountStatus palette, then open the latest Results tab to walk through verdicts and outreach drafts, clicking a hook or score-justification cell to jump into the Sources tab, and finishing on the `evals/REPORT.md` link for the rigor narrative.
 
 ## What this gets wrong
 
