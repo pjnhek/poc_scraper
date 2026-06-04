@@ -558,10 +558,13 @@ class SheetsWriter:
     def _write_values(
         self, service: Any, spreadsheet_id: str, sheet_title: str, rows: list[list[str]]
     ) -> None:
+        # USER_ENTERED so =HYPERLINK formulas in hook and score-justification
+        # cells (Phase 6) are parsed and rendered as clickable links rather
+        # than stored as literal text.
         service.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
             range=f"{sheet_title}!A1",
-            valueInputOption="RAW",
+            valueInputOption="USER_ENTERED",
             body={"values": rows},
         ).execute()
 
