@@ -242,11 +242,11 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1; operator checkpoint)*
 
-- [ ] 08-02-PLAN.md -- Capture five PNGs from real make run outputs (DEMO-02, DEMO-03): images/hero.png + images/failure-modes/{clean,low-groundedness,hook-suppressed,judge-failed}.png; demo-bundle fallback only for states that fail to surface in 2-3 real runs per D-06
+- [x] 08-02-PLAN.md -- Capture five PNGs from real make run outputs (DEMO-02, DEMO-03): images/hero.png + images/failure-modes/{clean,low-groundedness,hook-suppressed,judge-failed}.png; demo-bundle fallback only for states that fail to surface in 2-3 real runs per D-06
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 08-03-PLAN.md -- Wire PNG references + REQUIREMENTS.md flip (DEMO-02, DEMO-03): verify image references resolve, refine captions against captured visuals, gracefully degrade gallery if any state could not be captured, flip DEMO-02 and DEMO-03 to Complete
+- [x] 08-03-PLAN.md -- Wire PNG references + REQUIREMENTS.md flip (DEMO-02, DEMO-03): verify image references resolve, refine captions against captured visuals, gracefully degrade gallery if any state could not be captured, flip DEMO-02 and DEMO-03 to Complete
 
 **Wave 4** *(blocked on Wave 3; operator checkpoint; closes the milestone)*
 
@@ -269,7 +269,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
 | 7. Public-Repo Audit | 3/3 | Complete   | 2026-05-27 |
-| 8. README and Loom Refresh | 1/4 | In Progress|  |
+| 8. README and Loom Refresh | 3/4 | In Progress|  |
 
 ---
 *Roadmap created: 2026-05-14*

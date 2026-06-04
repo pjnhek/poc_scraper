@@ -58,8 +58,8 @@ Requirements for the demo-ready v1 milestone. Each maps to exactly one roadmap p
 ### README and Loom Refresh
 
 - [ ] **DEMO-01**: Re-record the Loom walkthrough against the final pipeline on the synthetic CSV; pin the commit SHA referenced in the README to the recorded state.
-- [ ] **DEMO-02**: Rewrite the README so the first scroll answers what / why / proof (what the system does, why grounded outreach matters, proof in the form of eval numbers + a sheet screenshot); link to `evals/REPORT.md`.
-- [ ] **DEMO-03**: Add an architecture diagram, a failure-mode gallery, the editable-rubric framing, and an honest "what this gets wrong" section to the README.
+- [x] **DEMO-02**: Rewrite the README so the first scroll answers what / why / proof (what the system does, why grounded outreach matters, proof in the form of eval numbers + a sheet screenshot); link to `evals/REPORT.md`.
+- [x] **DEMO-03**: Add an architecture diagram, a failure-mode gallery, the editable-rubric framing, and an honest "what this gets wrong" section to the README.
 
 ## v2 Requirements
 
@@ -127,8 +127,8 @@ Finalized by the roadmapper 2026-05-14. Each requirement maps to exactly one pha
 | REPO-03 | Phase 7 | Complete |
 | REPO-04 | Phase 7 | Complete |
 | DEMO-01 | Phase 8 | Pending |
-| DEMO-02 | Phase 8 | Pending |
-| DEMO-03 | Phase 8 | Pending |
+| DEMO-02 | Phase 8 | Complete |
+| DEMO-03 | Phase 8 | Complete |
 
 **Coverage:**
 

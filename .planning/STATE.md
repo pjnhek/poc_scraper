@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-27T19:20:10.335Z"
-last_activity: 2026-05-27
+last_updated: "2026-06-04T02:34:54.254Z"
+last_activity: 2026-06-04
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 34
-  completed_plans: 30
+  completed_plans: 32
   percent: 88
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 08 (readme-and-loom-refresh) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
-Last activity: 2026-05-27
+Last activity: 2026-06-04
 
-Progress: [█████████░] 91%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 91%
 | Phase 07-public-repo-audit P02 | 1m | 1 tasks | 1 files |
 | Phase 07-public-repo-audit P03 | 4min | 5 tasks | 3 files |
 | Phase 08-readme-and-loom-refresh P01 | 25min | 2 tasks tasks | 2 files files |
+| Phase 08-readme-and-loom-refresh P03 | 10m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 08 Plan 01]: SHA-pin placeholder is an HTML comment marker (<!-- SHA-PIN: ... -->) below the Loom embed so Plan 04 has a deterministic grep anchor.
 - [Phase ?]: [Phase 08 Plan 01]: README failure-mode gallery uses stacked H4 sections with image plus italic caption blocks per D-05; chosen over a 2x2 table for readability.
 - [Phase ?]: [Phase 08 Plan 01]: Eval section's (populated after first run) code-block placeholder replaced with a one-line headline number reusing the proof-bullet phrasing for consistency per Claude's Discretion in 08-CONTEXT.md.
+- [Phase ?]: [Phase 08 Plan 03]: README Plan-01 scaffold's inline-[N] citation claim did not match shipping implementation; Plan 03 rewrote the citations paragraph plus three adjacent surfaces to describe per-claim cited_indices metadata + rapidfuzz coverage gate + whole-cell HYPERLINK formula
+- [Phase ?]: [Phase 08 Plan 03]: Failure-mode gallery degraded to two captured states with a one-line gap note rather than broken markdown image refs; the four-state prose contract above the gallery stays intact
 
 ### Pending Todos
 
@@ -145,6 +148,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-27T19:19:55.692Z
+Last session: 2026-06-04T02:34:27.858Z
 Stopped at: Phase 8 context gathered
 Resume file: None
