@@ -44,6 +44,20 @@ def parse_indices(raw: object, valid: set[int]) -> tuple[int, ...]:
     return tuple(out)
 
 
+def _with_markers(claim_text: str, cited: tuple[int, ...]) -> str:
+    """Append the validated citation markers to a claim, e.g. 'Claim. [3] [5]'.
+
+    Strips any [N] markers the writer typed inline first, so the markers shown
+    are exactly the indices that passed validation, never the writer's raw text,
+    and never doubled.
+    """
+    stripped = INDEX_MARKER_RE.sub("", claim_text).strip()
+    if not cited:
+        return stripped
+    markers = " ".join(f"[{i}]" for i in cited)
+    return f"{stripped} {markers}"
+
+
 def markers_in_paragraph(paragraph: str, valid: set[int]) -> set[int]:
     """Return the set of valid indices that appear as [N] markers in paragraph.
 
@@ -115,7 +129,7 @@ def assemble_paragraph(
             continue
         cited = parse_indices(raw.get("cited_indices"), valid_indices)
         if check_claim_coverage(claim_text, cited, justifications, threshold_01):
-            surviving_texts.append(claim_text)
+            surviving_texts.append(_with_markers(claim_text, cited))
             surviving_indices.extend(cited)
 
     if not surviving_texts:
@@ -140,5 +154,12 @@ def assemble_paragraph(
         if idx not in seen:
             seen.add(idx)
             deduped.append(idx)
+
+    # Invariant: every index we report as cited must actually appear as a marker
+    # in the shipped paragraph, so the sheet's per-claim citations are real.
+    present = markers_in_paragraph(paragraph, valid_indices)
+    missing = set(deduped) - present
+    if missing:
+        log.warning("outreach: cited indices %s absent from assembled paragraph", sorted(missing))
 
     return (paragraph, tuple(deduped))

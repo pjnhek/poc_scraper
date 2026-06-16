@@ -123,10 +123,11 @@ async def test_full_account_processing_happy_path() -> None:
     assert len(sa.contacts) == 3
     assert len(sa.hooks) == 3
     for h in sa.hooks:
-        # D-01 shape: paragraph is assembled from claims (no [N] markers); cited_indices carries
-        # the citation info separately.
+        # Paragraph is assembled from surviving claims with inline [N] markers
+        # appended per claim; cited_indices carries the same citation set.
         assert h.paragraph  # non-empty
         assert h.cited_indices == (2,)
+        assert "[2]" in h.paragraph
     assert sa.eval_score is not None
     # 3 cited / max(3, 3) * 5 = 5.0
     assert sa.eval_score.groundedness == 5.0
