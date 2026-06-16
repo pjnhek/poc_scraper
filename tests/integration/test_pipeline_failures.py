@@ -9,7 +9,7 @@ from openai import APIError
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
 from src.models import Account, AccountStatus
-from src.pipeline import build_deps, process_account
+from src.pipeline import build_deps, process_account, run_pipeline
 
 
 class FakeBrowserbase:
@@ -449,3 +449,34 @@ async def test_citation_drop_renders_hook_suppressed_row() -> None:
     assert row[HEADERS.index("hook_1")] == ""
     assert row[HEADERS.index("hook_2")] == ""
     assert row[HEADERS.index("hook_3")] == ""
+
+
+@pytest.mark.asyncio
+async def test_unexpected_exception_does_not_abort_batch() -> None:
+    # An exception type NOT in process_account's narrow except clauses (here a
+    # KeyError from a hypothetical malformed response) must not propagate out of
+    # run_pipeline and discard every other account's work.
+    class ExplodingExa:
+        async def search_about(self, domain: str, num_results: int = 5) -> list[ExaResult]:
+            raise KeyError("url")
+
+        async def search_news(
+            self, domain: str, days: int = 90, num_results: int = 8
+        ) -> list[ExaResult]:
+            raise KeyError("url")
+
+    deps = build_deps(
+        writer=FailingAnthropic(fail_on="__never__"),
+        judge=FailingAnthropic(fail_on="__never__"),
+        exa=ExplodingExa(),
+        browserbase=FakeBrowserbase(),
+    )
+
+    results = await run_pipeline(
+        [Account(domain="boom.com"), Account(domain="alsoboom.com")], deps, concurrency=2
+    )
+
+    assert len(results) == 2
+    assert {sa.account.domain for sa in results} == {"boom.com", "alsoboom.com"}
+    assert all(sa.status == AccountStatus.hook_suppressed for sa in results)
+    assert all(sa.error and "unexpected error" in sa.error for sa in results)

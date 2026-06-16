@@ -116,3 +116,21 @@ async def test_handles_missing_published_date() -> None:
             client = ExaClient(api_key="k", client=http)
             results = await client.search_news("x.com")
     assert results[0].published_at is None
+
+
+async def test_skips_result_with_missing_url() -> None:
+    # A malformed result lacking "url" must be skipped, not raise KeyError
+    # (which would escape the enricher's narrow except and abort the run).
+    body = {
+        "results": [
+            {"title": "no url here", "text": "s"},
+            {"url": "https://x.com/ok", "title": "t", "text": "s"},
+        ]
+    }
+    async with respx.mock(base_url=EXA_BASE_URL) as router:
+        router.post("/search").respond(200, json=body)
+        async with httpx.AsyncClient() as http:
+            client = ExaClient(api_key="k", client=http)
+            results = await client.search_news("x.com")
+    assert len(results) == 1
+    assert results[0].url == "https://x.com/ok"
