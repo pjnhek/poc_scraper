@@ -169,6 +169,22 @@ class TestAssembleParagraph:
         )
         assert paragraph.count("[1]") == 1
 
+    def test_connective_text_with_markers_is_dropped(self) -> None:
+        # A writer smuggling a citable claim into connective_text (which skips
+        # the per-claim rapidfuzz gate) must have that text dropped entirely.
+        justifications = (_justification(1, "Mercury expanded into payroll services last quarter"),)
+        raw_claims: list[dict[str, object]] = [
+            {"claim": "Mercury expanded into payroll", "cited_indices": [1]},
+        ]
+        paragraph, _ = assemble_paragraph(
+            raw_claims=raw_claims,
+            connective_text="Also Mercury secretly acquired a bank [1].",
+            justifications=justifications,
+            threshold_01=0.8,
+        )
+        assert "secretly acquired a bank" not in paragraph
+        assert "Mercury expanded into payroll" in paragraph
+
     def test_all_claims_suppressed_empty_survivors(self) -> None:
         # All claims completely unrelated to evidence must yield ("", ()).
         justifications = (_justification(1, "Mercury expanded into payroll services"),)

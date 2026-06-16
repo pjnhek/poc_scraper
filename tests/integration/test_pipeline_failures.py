@@ -452,6 +452,74 @@ async def test_citation_drop_renders_hook_suppressed_row() -> None:
 
 
 @pytest.mark.asyncio
+async def test_flagged_eval_renders_low_groundedness_status() -> None:
+    """The pipeline seam: a parseable judge response below the groundedness
+    threshold, with non-empty hooks, must render AccountStatus.low_groundedness.
+    This is the one status with no prior end-to-end coverage."""
+
+    class LowGroundednessLLM:
+        async def synthesize(
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+        ) -> LLMResponse:
+            if "You are a sales analyst" in system:
+                return LLMResponse(
+                    text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}'
+                )
+            if "score companies against an ICP rubric" in system:
+                return LLMResponse(
+                    text=(
+                        '{"support_volume":5,"support_volume_reason":"r",'
+                        '"ai_maturity":5,"ai_maturity_reason":"r",'
+                        '"stage_fit":5,"stage_fit_reason":"r",'
+                        '"channel_breadth":5,"channel_breadth_reason":"r",'
+                        '"justification":"ok"}'
+                    )
+                )
+            if "propose the top 3 buyer personas" in system:
+                return LLMResponse(
+                    text=(
+                        '[{"role_title":"a","rationale":"r"},'
+                        '{"role_title":"b","rationale":"r"},'
+                        '{"role_title":"c","rationale":"r"}]'
+                    )
+                )
+            if "You write outreach claims from a seller" in system:
+                return LLMResponse(
+                    text=(
+                        '{"claims":[{"claim":"X is a company that does things",'
+                        '"cited_indices":[1]}],"connective_text":"reach out"}'
+                    )
+                )
+            if "LLM judge evaluating" in system:
+                # 1 cited of 3 claims -> (1/3)*5 = 1.7, below the 3.0 flag
+                # threshold, but parseable so eval_failed stays False.
+                return LLMResponse(
+                    text=(
+                        '{"claims":['
+                        '{"text":"c1","supported_by":1},'
+                        '{"text":"c2","supported_by":"uncited"},'
+                        '{"text":"c3","supported_by":"uncited"}],'
+                        '"icp_relevance":4,"personalization":4,'
+                        '"specificity":3,"recency":3,"notes":"thin"}'
+                    )
+                )
+            raise AssertionError(f"unscripted: {system[:60]}")
+
+    deps = build_deps(
+        writer=LowGroundednessLLM(),
+        judge=LowGroundednessLLM(),
+        exa=FakeExa(about=[_exa_about()]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="x.com"), deps)
+
+    assert sa.eval_score is not None
+    assert not sa.eval_score.eval_failed
+    assert sa.eval_score.is_flagged
+    assert sa.status == AccountStatus.low_groundedness
+
+
+@pytest.mark.asyncio
 async def test_unexpected_exception_does_not_abort_batch() -> None:
     # An exception type NOT in process_account's narrow except clauses (here a
     # KeyError from a hypothetical malformed response) must not propagate out of
