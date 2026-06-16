@@ -86,13 +86,13 @@ Demo flow: open the workbook, scroll the Rubric tab to explain the grading appro
 
 ## What this gets wrong
 
-- **Cross-family judge agreement is modest.** Inter-judge kappa between `deepseek-v4-flash` and `bytedance/seed-oss-36b-instruct` is 0.176 on groundedness with 16.7% exact agreement; see [evals/REPORT.md](evals/REPORT.md) §5 for the full table. A same-family judge shares blind spots with the writer, and the cross-family number is the honest bound on what the eval can detect.
+- **Cross-family judge agreement is modest.** Inter-judge kappa between `deepseek-v4-flash` and the cross-family judge `moonshot-v1-32k` is 0.176 on groundedness with 16.7% exact agreement, which is "slight" agreement on the Landis-Koch scale; see [evals/REPORT.md](evals/REPORT.md) §5 for the full table. A same-family judge shares blind spots with the writer, and the cross-family number is the honest bound on what the eval can detect.
 - **Persona inference is heuristic.** The top-three personas come from firmographic and about-page LLM inference, not a contact-discovery API like Apollo or Clearbit. "POC = Point of Contact" is the weakest claim in the project name; treat the personas as research leads, not a sourced contact list.
 - **Single-source retrieval.** Exa primary plus Browserbase fallback, no vector store, no multi-source ensemble. A claim that needs synthesizing across multiple retrievals will not benefit from cross-document reasoning the pipeline does not perform.
 
 ## Stack and design choices
 
-- **DeepSeek API** ([https://api.deepseek.com](https://api.deepseek.com)) for synthesis. OpenAI-compatible. Default writer = `deepseek-v4-flash` in non-thinking mode, judge = `deepseek-v4-pro` with `thinking={"type":"enabled"}` and `reasoning_effort="high"`. Two different model sizes plus thinking-on/off for the judge gives meaningful separation from the writer. ~$0.20-0.40 per 10-domain run during the v4-pro discount window.
+- **DeepSeek API** ([https://api.deepseek.com](https://api.deepseek.com)) for synthesis. OpenAI-compatible. Default writer = `deepseek-v4-flash` in non-thinking mode, judge = `deepseek-v4-flash` with `thinking={"type":"enabled"}` and `reasoning_effort="medium"`. Thinking-on for the judge versus thinking-off for the writer gives separation even on the same base model; set `JUDGE_MODEL_DEEPSEEK=deepseek-v4-pro` and `JUDGE_REASONING_EFFORT_DEEPSEEK=high` to widen that gap further. ~$0.20-0.40 per 10-domain run during the v4-pro discount window.
 - **NVIDIA Build endpoint** ([https://build.nvidia.com/](https://build.nvidia.com/)) is supported as a free fallback (set `LLM_PROVIDER=nvidia` or just leave `DEEPSEEK_API_KEY` empty). Free preview models with rate limits and connection drops; usable for offline development but unreliable for live demos.
 - **Context caching is automatic on DeepSeek.** Repeated retrievals (the same numbered justifications across writer score / contacts / outreach calls) hit the disk cache at 1/10 the input price. No code change needed; `usage.prompt_cache_hit_tokens` in responses confirms hits when you want to verify.
 - **Exa** for neural search on about pages and last-90-day company news.
@@ -150,7 +150,7 @@ If you want the public-repo guard active locally (recommended for any contributo
 
 ### Picking models
 
-**DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-pro` with thinking and `reasoning_effort=high`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env`. Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.
+**DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-flash` with thinking and `reasoning_effort=medium`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env` (set the judge to `deepseek-v4-pro` for a larger writer/judge gap). Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.
 
 **NVIDIA Build (fallback).** Defaults: writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. NVIDIA's preview model availability rotates, so if you see a 400 / "DEGRADED function" error, swap via `WRITER_MODEL_NVIDIA` or `JUDGE_MODEL_NVIDIA`. Tested working alternatives:
 
@@ -161,7 +161,7 @@ Keep the writer and judge in different model classes. Same model with the same s
 
 ### Reasoning settings
 
-**On DeepSeek** the judge runs in thinking mode (`extra_body={"thinking": {"type":"enabled"}}`) with `reasoning_effort="high"`. Both fields are sent automatically by `_build_judge`; tune via `JUDGE_REASONING_EFFORT_DEEPSEEK`. The writer stays in non-thinking mode for speed.
+**On DeepSeek** the judge runs in thinking mode (`extra_body={"thinking": {"type":"enabled"}}`) with `reasoning_effort="medium"` by default. Both fields are sent automatically by `_build_judge`; tune via `JUDGE_REASONING_EFFORT_DEEPSEEK`. The writer stays in non-thinking mode for speed.
 
 **On NVIDIA** reasoning models (like Seed-OSS) use a separate `thinking_budget` extra. The default is `JUDGE_REASONING_BUDGET=0` (disabled) because long reasoning calls regularly time out on the free-tier endpoint. Set to `1024` for bounded reasoning or `-1` for unlimited (and bump `JUDGE_MAX_TOKENS` to 8192+ to leave room for the JSON output).
 

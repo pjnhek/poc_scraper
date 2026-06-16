@@ -98,8 +98,10 @@ than backfilled with synthetic data (D-02: all-real provenance; D-04: gaps recor
 
 Pitfall 2 (judge-writer collusion: same model family, similar blind spots) is addressed by a
 separate cross-family calibration run, not by a coverage-matrix cell. The calibration run scores
-all records in `evals/labeled.jsonl` with both the DeepSeek judge and the NVIDIA judge
-(`bytedance/seed-oss-36b-instruct`), then records Cohen's kappa and raw percentage agreement per
+all records in `evals/labeled.jsonl` with both the DeepSeek judge and a cross-family judge
+(`moonshot-v1-32k`; the originally-intended `bytedance/seed-oss-36b-instruct` reasoning model
+timed out repeatedly on the free endpoint and was substituted), then records Cohen's kappa and raw
+percentage agreement per
 axis (groundedness, icp_relevance, personalization, specificity, recency). Results are written to
 `evals/CALIBRATION.md` as a Phase 3 output artifact. Phase 4's narrative consumes these numbers
 verbatim when answering the cross-family question (NARR-02). If inter-judge agreement is low, that
