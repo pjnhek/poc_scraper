@@ -88,7 +88,11 @@ def _build_row(
     f = sa.enrichment.firmographics
     bd = sa.score.breakdown if sa.score is not None else None
     contacts = list(sa.contacts) + [None, None, None]
-    hooks = list(sa.hooks) + [None, None, None]
+    # Pair each contact with its own hook by identity, not by list position:
+    # a failed outreach call leaves sa.hooks shorter than sa.contacts, so a
+    # positional zip would shift later personas' hooks up one slot and show a
+    # persona an outreach paragraph written for a different persona.
+    hook_by_contact = {h.contact: h for h in sa.hooks}
     ev = sa.eval_score
     justifications_by_index = {j.index: j for j in sa.enrichment.justifications}
 
@@ -117,7 +121,7 @@ def _build_row(
     ]
     for i in range(3):
         c = contacts[i]
-        h = hooks[i]
+        h = hook_by_contact.get(c) if c else None
         row.append(c.role_title if c else "")
         row.append(c.rationale if c else "")
         hook_cell = h.paragraph if h else ""
