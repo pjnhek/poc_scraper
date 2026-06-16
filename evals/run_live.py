@@ -52,7 +52,7 @@ class LiveRow:
 def _flatten(scored: list[ScoredAccount]) -> list[LiveRow]:
     rows: list[LiveRow] = []
     for sa in scored:
-        if sa.status != "scored" or sa.score is None:
+        if sa.score is None:
             rows.append(
                 LiveRow(
                     domain=sa.account.domain,
@@ -157,9 +157,20 @@ async def run() -> int:
         writer = build_writer_client(settings)
         judge = build_judge_client(settings)
         deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
-        scored = await asyncio.gather(*(process_account(a, deps) for a in accounts))
+        # return_exceptions so one account that escapes process_account's own
+        # isolation does not abort the whole live eval; drop and log the casualty.
+        settled = await asyncio.gather(
+            *(process_account(a, deps) for a in accounts), return_exceptions=True
+        )
 
-    rows = _flatten(list(scored))
+    scored: list[ScoredAccount] = []
+    for acc, result in zip(accounts, settled, strict=True):
+        if isinstance(result, BaseException):
+            log.warning("live eval: %s aborted: %s", acc.domain, result)
+            continue
+        scored.append(result)
+
+    rows = _flatten(scored)
     print(markdown_table(rows))
     print()
     print(summary_line(rows))
