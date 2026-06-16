@@ -381,7 +381,8 @@ ACCOUNT_STATUS_MEANINGS: dict[AccountStatus, str] = {
     AccountStatus.clean: "All claims grounded; no eval flags.",
     AccountStatus.low_groundedness: "Hook content shipped but eval groundedness fell below threshold.",
     AccountStatus.hook_suppressed: (
-        "One or more outreach hooks were dropped because claims failed citation coverage."
+        "No outreach content shipped: every hook was dropped for failing "
+        "citation coverage, or the account could not be enriched or scored."
     ),
     AccountStatus.judge_failed: (
         "Judge call did not return a parseable score; eval is out-of-band, NOT a content failure."
