@@ -2,10 +2,10 @@
 
 **Run date:** 2026-05-16
 **DeepSeek judge:** deepseek-v4-flash (thinking enabled, reasoning_effort=medium)
-**NVIDIA judge:** moonshot-v1-32k
+**Cross-family judge:** moonshot-v1-32k (run via the NVIDIA-compatible endpoint; the originally-intended bytedance/seed-oss-36b-instruct reasoning model timed out and was substituted)
 **Records scored:** 25 (all, including train + holdout; eval_failed excluded from kappa)
 
-## Inter-Judge Agreement (NVIDIA vs DeepSeek)
+## Inter-Judge Agreement (cross-family moonshot-v1-32k vs DeepSeek)
 
 | Axis | Kappa (linear-weighted) | % Exact Agreement |
 |------|------------------------|-------------------|
@@ -17,7 +17,7 @@
 
 ## Judge Accuracy vs Human Labels
 
-| Axis | DeepSeek kappa vs human (% agree) | NVIDIA kappa vs human (% agree) |
+| Axis | DeepSeek kappa vs human (% agree) | moonshot-v1-32k kappa vs human (% agree) |
 |------|----------------------------------|--------------------------------|
 | groundedness | 0.277 (16.7%) | 0.198 (16.7%) |
 | icp_relevance | 0.462 (58.3%) | 0.206 (20.8%) |
@@ -30,4 +30,4 @@
 - Records scored: 25 (train + holdout combined; D-08 full-set requirement).
 - Records excluded from kappa: 1 (expected_eval_failed=True or judge failure).
 - DeepSeek judge failures: 0.
-- NVIDIA judge failures: 0.
+- Cross-family (moonshot-v1-32k) judge failures: 0.

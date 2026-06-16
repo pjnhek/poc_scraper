@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from evals.run_live import _flatten
+from evals.run_live import _flatten, summary_line
 from src.models import (
     Account,
     AccountStatus,
@@ -76,3 +76,37 @@ def test_account_without_score_is_unscoreable() -> None:
 
     assert len(rows) == 1
     assert rows[0].verdict == "(unscoreable)"
+
+
+def test_judge_failed_row_is_excluded_from_summary_average() -> None:
+    # A scored account whose judge crashed (eval_score=None) still has a
+    # verdict and hooks, so it produces a row, but it must be marked unjudged
+    # and excluded from the summary average rather than counted as a real 0.0.
+    judged = _clean_account()  # groundedness 4.0, judged
+    crashed = _clean_account_no_eval()  # eval_score=None
+
+    rows = _flatten([judged, crashed])
+    assert len(rows) == 2
+    crashed_row = next(r for r in rows if r.domain == "crashed.com")
+    assert crashed_row.judged is False
+    assert crashed_row.verdict != "(unscoreable)"  # still scored, just unjudged
+
+    summary = summary_line(rows)
+    # Only the one genuinely judged hook (groundedness 4.0) feeds the average,
+    # not a 4.0-and-0.0 blend that would read as 2.0.
+    assert "groundedness=4.00" in summary
+    assert "1 unjudged hooks excluded" in summary
+
+
+def _clean_account_no_eval() -> ScoredAccount:
+    base = _clean_account()
+    acc = Account(domain="crashed.com")
+    return ScoredAccount(
+        account=acc,
+        status=AccountStatus.judge_failed,
+        enrichment=Enrichment(account=acc, firmographics=base.enrichment.firmographics),
+        score=base.score,
+        contacts=base.contacts,
+        hooks=tuple(h for h in base.hooks),
+        eval_score=None,
+    )

@@ -141,6 +141,39 @@ def test_hooks_pair_to_contacts_by_identity_not_position() -> None:
     assert third_hook == "third hook"
 
 
+def test_duplicate_contacts_share_hook_without_crashing() -> None:
+    # Degenerate case: two structurally identical contacts. Pairing by identity
+    # collapses them in the dict, so both rows show the same hook. This must not
+    # crash or mispair; it is the accepted behavior for duplicate personas.
+    acc = Account(domain="examplefintech.com")
+    citation = Citation.make(url="https://example.com/n", source="exa", snippet="s")
+    enr = Enrichment(
+        account=acc,
+        firmographics=Firmographics(name="ExampleFintech"),
+        news=(),
+        justifications=(Justification(index=1, summary="h: s", citation=citation),),
+    )
+    dup = Contact(role_title="VP CX", rationale="same")
+    contacts = (dup, dup, Contact(role_title="Other", rationale="r"))
+    hooks = (
+        OutreachHook(contact=dup, paragraph="shared hook", cited_indices=(1,)),
+        OutreachHook(contact=contacts[2], paragraph="other hook", cited_indices=(1,)),
+    )
+    sa = ScoredAccount(
+        account=acc,
+        status=AccountStatus.clean,
+        enrichment=enr,
+        contacts=contacts,
+        hooks=hooks,
+    )
+
+    rows = build_rows([sa])
+    data = rows[1]
+    assert data[15] == "shared hook"  # persona 1
+    assert data[18] == "shared hook"  # persona 2 (duplicate) shares it
+    assert data[21] == "other hook"  # persona 3 distinct
+
+
 def test_axis_display_labels_uses_configured_weights() -> None:
     assert axis_display_labels(get_config()) == {
         "support_volume": "Support Volume (40%)",
