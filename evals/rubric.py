@@ -77,7 +77,8 @@ class EvalRubric:
             return self._floor("(judge output unparseable)")
 
         claims = _parse_claims(parsed.get("claims"))
-        groundedness = _compute_groundedness(claims)
+        valid_indices = {j.index for j in justifications}
+        groundedness = _compute_groundedness(claims, valid_indices)
         try:
             return EvalScore(
                 groundedness=groundedness,
@@ -184,17 +185,26 @@ def _parse_claims(raw: object) -> list[dict[str, object]]:
     return out
 
 
-def _compute_groundedness(claims: list[dict[str, object]]) -> float:
+def _compute_groundedness(claims: list[dict[str, object]], valid_indices: set[int]) -> float:
     """`(cited / max(total, 3)) * 5`, rounded to 1 decimal.
 
     The `max(total, 3)` floor penalizes short hooks: a 1-claim hook with 1
     citation can only score 5/3 ≈ 1.7, not 5.0. Forces the writer to
     actually back up the value prop, not just drop one citation and stop.
+
+    A claim counts as grounded only when its `supported_by` is a real 1-based
+    justification index. `type(x) is int` (not isinstance) excludes bool, an
+    int subclass, so a judge emitting `true` cannot inflate the score; the
+    `in valid_indices` bound rejects 0 and out-of-range integers like 99.
     """
     if not claims:
         return 1.0
     total = len(claims)
-    cited = sum(1 for c in claims if isinstance(c.get("supported_by"), int))
+    cited = sum(
+        1
+        for c in claims
+        if type(c.get("supported_by")) is int and c.get("supported_by") in valid_indices
+    )
     raw = (cited / max(total, 3)) * 5
     return round(max(1.0, min(5.0, raw)), 1)
 
