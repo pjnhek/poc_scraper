@@ -88,7 +88,11 @@ def _build_row(
     f = sa.enrichment.firmographics
     bd = sa.score.breakdown if sa.score is not None else None
     contacts = list(sa.contacts) + [None, None, None]
-    hooks = list(sa.hooks) + [None, None, None]
+    # Pair each contact with its own hook by identity, not by list position:
+    # a failed outreach call leaves sa.hooks shorter than sa.contacts, so a
+    # positional zip would shift later personas' hooks up one slot and show a
+    # persona an outreach paragraph written for a different persona.
+    hook_by_contact = {h.contact: h for h in sa.hooks}
     ev = sa.eval_score
     justifications_by_index = {j.index: j for j in sa.enrichment.justifications}
 
@@ -117,7 +121,7 @@ def _build_row(
     ]
     for i in range(3):
         c = contacts[i]
-        h = hooks[i]
+        h = hook_by_contact.get(c) if c else None
         row.append(c.role_title if c else "")
         row.append(c.rationale if c else "")
         hook_cell = h.paragraph if h else ""
@@ -377,7 +381,8 @@ ACCOUNT_STATUS_MEANINGS: dict[AccountStatus, str] = {
     AccountStatus.clean: "All claims grounded; no eval flags.",
     AccountStatus.low_groundedness: "Hook content shipped but eval groundedness fell below threshold.",
     AccountStatus.hook_suppressed: (
-        "One or more outreach hooks were dropped because claims failed citation coverage."
+        "No outreach content shipped: the account could not be enriched, scored, "
+        "or given personas, or every hook was dropped for failing citation coverage."
     ),
     AccountStatus.judge_failed: (
         "Judge call did not return a parseable score; eval is out-of-band, NOT a content failure."
@@ -498,13 +503,13 @@ class SheetsWriter:
             config=config,
         )
         self._write_values(service, spreadsheet_id, results_title, results_rows)
-        self._apply_row_colors(service, spreadsheet_id, results_title, scored)
-        self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)
 
-        # D-12/D-13/D-14: one sheet_id lookup powers all three formatting
-        # passes so the writer stays gentle on the discovery API.
+        # One sheet_id lookup powers every formatting pass (colors, eval flags,
+        # freeze, widths, wrap) so the writer stays gentle on the discovery API.
         results_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, results_title)
         if results_sheet_id is not None:
+            self._apply_row_colors(service, spreadsheet_id, results_sheet_id, scored)
+            self._apply_eval_flag_text(service, spreadsheet_id, results_sheet_id, scored)
             self._apply_freeze_panes(service, spreadsheet_id, results_sheet_id)
             self._apply_column_widths(service, spreadsheet_id, results_sheet_id)
             self._apply_wrap_strategy(
@@ -572,14 +577,11 @@ class SheetsWriter:
         self,
         service: Any,
         spreadsheet_id: str,
-        sheet_title: str,
+        sheet_id: int,
         scored: list[ScoredAccount],
     ) -> None:
         colors = account_status_row_colors(scored)
         if not colors:
-            return
-        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
-        if sheet_id is None:
             return
         requests = [
             {
@@ -627,14 +629,11 @@ class SheetsWriter:
         self,
         service: Any,
         spreadsheet_id: str,
-        sheet_title: str,
+        sheet_id: int,
         scored: list[ScoredAccount],
     ) -> None:
         flagged = flagged_eval_rows(scored)
         if not flagged:
-            return
-        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
-        if sheet_id is None:
             return
         col = HEADERS.index("eval_groundedness")
         requests = [

@@ -48,6 +48,12 @@ class TestParseIndices:
         assert parse_indices(None, {1, 2}) == ()
         assert parse_indices("1", {1, 2}) == ()
 
+    def test_parse_indices_rejects_booleans(self) -> None:
+        # bool is an int subclass; int(True) == 1. A JSON true/false must not
+        # be coerced into citation index 1/0.
+        assert parse_indices([True, False], {1, 2}) == ()
+        assert parse_indices([True, 2], {1, 2}) == (2,)
+
 
 class TestMarkersInParagraph:
     def test_markers_in_paragraph(self) -> None:
@@ -126,6 +132,58 @@ class TestAssembleParagraph:
         assert "zzz unrelated fabricated claim aaa" not in paragraph
         assert "Looking forward to connecting." in paragraph
         assert cited != ()
+
+    def test_surviving_claims_carry_inline_markers(self) -> None:
+        # The shipped paragraph must show per-claim [N] markers so the sheet's
+        # citations are visible, matching the score-justification cell.
+        justifications = (
+            _justification(1, "Mercury expanded into payroll services last quarter"),
+            _justification(2, "Mercury launched a voice support channel"),
+        )
+        raw_claims: list[dict[str, object]] = [
+            {"claim": "Mercury expanded into payroll", "cited_indices": [1]},
+            {"claim": "Mercury launched a voice support channel", "cited_indices": [2]},
+        ]
+        paragraph, cited = assemble_paragraph(
+            raw_claims=raw_claims,
+            connective_text="",
+            justifications=justifications,
+            threshold_01=0.8,
+        )
+        assert "[1]" in paragraph
+        assert "[2]" in paragraph
+        assert cited == (1, 2)
+
+    def test_inline_markers_not_doubled(self) -> None:
+        # A writer that already typed [1] inline must not produce "[1] [1]";
+        # the validated marker set replaces whatever the writer wrote.
+        justifications = (_justification(1, "Mercury expanded into payroll services last quarter"),)
+        raw_claims: list[dict[str, object]] = [
+            {"claim": "Mercury expanded into payroll [1]", "cited_indices": [1]},
+        ]
+        paragraph, _ = assemble_paragraph(
+            raw_claims=raw_claims,
+            connective_text="",
+            justifications=justifications,
+            threshold_01=0.8,
+        )
+        assert paragraph.count("[1]") == 1
+
+    def test_connective_text_with_markers_is_dropped(self) -> None:
+        # A writer smuggling a citable claim into connective_text (which skips
+        # the per-claim rapidfuzz gate) must have that text dropped entirely.
+        justifications = (_justification(1, "Mercury expanded into payroll services last quarter"),)
+        raw_claims: list[dict[str, object]] = [
+            {"claim": "Mercury expanded into payroll", "cited_indices": [1]},
+        ]
+        paragraph, _ = assemble_paragraph(
+            raw_claims=raw_claims,
+            connective_text="Also Mercury secretly acquired a bank [1].",
+            justifications=justifications,
+            threshold_01=0.8,
+        )
+        assert "secretly acquired a bank" not in paragraph
+        assert "Mercury expanded into payroll" in paragraph
 
     def test_all_claims_suppressed_empty_survivors(self) -> None:
         # All claims completely unrelated to evidence must yield ("", ()).

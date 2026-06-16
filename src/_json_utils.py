@@ -61,3 +61,16 @@ def parse_json_object(text: str) -> dict[str, object] | None:
 
 def parse_json_array(text: str) -> list[dict[str, object]] | None:
     return parse_json(text, "array")
+
+
+def clip_score(value: object) -> float:
+    """Coerce an LLM-emitted score to a float clamped to [1.0, 5.0].
+
+    A non-numeric value degrades to the 1.0 floor rather than raising, so a
+    sloppy writer/judge response yields a low score instead of crashing.
+    """
+    try:
+        f = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 1.0
+    return max(1.0, min(5.0, f))

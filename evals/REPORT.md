@@ -152,8 +152,10 @@ than backfilled with synthetic data (D-02: all-real provenance; D-04: gaps recor
 
 Pitfall 2 (judge-writer collusion: same model family, similar blind spots) is addressed by a
 separate cross-family calibration run, not by a coverage-matrix cell. The calibration run scores
-all records in `evals/labeled.jsonl` with both the DeepSeek judge and the NVIDIA judge
-(`bytedance/seed-oss-36b-instruct`), then records Cohen's kappa and raw percentage agreement per
+all records in `evals/labeled.jsonl` with both the DeepSeek judge and a cross-family judge
+(`moonshot-v1-32k`; the originally-intended `bytedance/seed-oss-36b-instruct` reasoning model
+timed out repeatedly on the free endpoint and was substituted), then records Cohen's kappa and raw
+percentage agreement per
 axis (groundedness, icp_relevance, personalization, specificity, recency). Results are written to
 `evals/CALIBRATION.md` as a Phase 3 output artifact. Phase 4's narrative consumes these numbers
 verbatim when answering the cross-family question (NARR-02). If inter-judge agreement is low, that
@@ -180,11 +182,13 @@ Per-axis means on the same holdout slice:
 
 ## 5. What this eval does not catch
 
-The judge and the writer share a model family. A same-family judge has the same blind spots as the writer, so high judge agreement is one signal, not a verdict. Cross-family agreement (DeepSeek vs NVIDIA) is the antidote: where the two families disagree, the judge's confidence is bounded by that disagreement.
+The judge and the writer share a model family. A same-family judge has the same blind spots as the writer, so high judge agreement is one signal, not a verdict. Cross-family agreement (DeepSeek vs `moonshot-v1-32k`) is the antidote: where the two families disagree, the judge's confidence is bounded by that disagreement.
 
 The numbers below are transcribed verbatim from `evals/calibration.json`. Phase 3 scored all `25` labeled records with both judges; `24` records passed the eval_failed filter and entered kappa computation. See `evals/CALIBRATION.md` for the underlying narrative.
 
-### Inter-judge agreement (NVIDIA vs DeepSeek)
+Read the groundedness kappa honestly: `0.176` is "slight" agreement on the Landis-Koch scale (the same scale encoded in `evals/agreement.py`), meaning the two families substantially disagree on groundedness. That disagreement is the antidote's whole point: it is the honest upper bound on what a same-family judge can be trusted to detect, not a number to explain away. Only `recency` (`0.478`) reaches "moderate"; every other axis sits in "slight"-to-"fair" territory.
+
+### Inter-judge agreement (cross-family `moonshot-v1-32k` vs DeepSeek)
 
 | Axis | Kappa (linear-weighted) | % Exact Agreement |
 |------|------------------------|-------------------|
@@ -206,7 +210,7 @@ The numbers below are transcribed verbatim from `evals/calibration.json`. Phase 
 | recency | 0.450 | 33.3% |
 
 
-### NVIDIA vs human
+### Cross-family (`moonshot-v1-32k`) vs human
 
 | Axis | Kappa (linear-weighted) | % Exact Agreement |
 |------|------------------------|-------------------|

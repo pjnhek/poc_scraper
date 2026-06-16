@@ -118,7 +118,7 @@ async def test_judge_prompt_includes_buyer_description() -> None:
 
 def test_compute_groundedness_pure_function() -> None:
     # No claims at all -> floor of 1.0
-    assert _compute_groundedness([]) == 1.0
+    assert _compute_groundedness([], {1, 2}) == 1.0
     # 2 of 4 cited -> (2 / 4) * 5 = 2.5
     claims = [
         {"text": "a", "supported_by": 1},
@@ -126,4 +126,17 @@ def test_compute_groundedness_pure_function() -> None:
         {"text": "c", "supported_by": "uncited"},
         {"text": "d", "supported_by": "uncited"},
     ]
-    assert _compute_groundedness(claims) == 2.5
+    assert _compute_groundedness(claims, {1, 2}) == 2.5
+
+
+def test_compute_groundedness_rejects_invalid_supported_by() -> None:
+    # supported_by must be a real 1-based index. 0, out-of-range, and bool
+    # (an int subclass) must NOT count as grounded, so they cannot inflate
+    # the headline metric. Only the genuine index-1 claim counts: 1/3 -> 1.7.
+    claims = [
+        {"text": "valid", "supported_by": 1},
+        {"text": "zero", "supported_by": 0},
+        {"text": "out-of-range", "supported_by": 99},
+        {"text": "bool", "supported_by": True},
+    ]
+    assert _compute_groundedness(claims, {1, 2}) == round((1 / 4) * 5, 1)

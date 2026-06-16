@@ -62,7 +62,7 @@ Per run, the workbook gets five tabs:
 4. **Sources: `run-YYYYMMDD-HHMMSS`**, one row per numbered retrieval used by the writer and the judge. New tab on every run, paired with the Results tab. Each hook cell and each score-justification cell is wrapped end-to-end as a `=HYPERLINK` formula (per `_hyperlink_formula` in `src/sheets.py`) that jumps to that account's first evidence row in this tab.
 5. **Results: `run-YYYYMMDD-HHMMSS`**, one row per account, with firmographics, ICP fit verdict with weighted per-axis score columns, top-three personas, one grounded outreach paragraph per persona, and judge scores. The per-axis columns expose the underlying weighted total directly so a reader can audit how a verdict was assembled.
 
-Row colors signal the **AccountStatus** of the row: `clean` (white) when every atomic claim traces to a retrieval, `low_groundedness` (yellow) when the judge flags groundedness below the configured threshold, `hook_suppressed` (orange) when the writer emitted unciteable claims and the outreach paragraph was suppressed, and `judge_failed` (gray) when the judge returned empty or errored. The Legend tab inside the workbook carries the same palette so a reader can decode a row's color without leaving the sheet.
+Row colors signal the **AccountStatus** of the row: `clean` (white) when every atomic claim traces to a retrieval, `low_groundedness` (yellow) when the judge flags groundedness below the configured threshold, `hook_suppressed` (orange) when no outreach content shipped at all (the account could not be enriched, scored, or given personas, or every hook was dropped for failing citation coverage), and `judge_failed` (gray) when the judge returned empty or errored. The Legend tab inside the workbook carries the same palette so a reader can decode a row's color without leaving the sheet.
 
 ### Failure-mode gallery
 
@@ -80,19 +80,19 @@ Gallery rows are cropped from real runs, not necessarily the same run as the Loo
 
 *Judge flagged groundedness below the configured threshold; row tinted yellow, eval_groundedness cell in red text.*
 
-Citations work via numbered justifications. Each Exa retrieval (about page plus recent news) gets a 1-based index. The writer emits each claim as a structured object with its own `cited_indices` array (per claim, not inline in the prose). A rapidfuzz coverage check in `src/citations.py` compares the claim text to the cited evidence summary, and any claim that fails the configured threshold is dropped entirely before assembly so an unciteable assertion never reaches the sheet. The judge then decomposes the surviving paragraph back into atomic claims and marks each as supported by an index or `uncited`. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop. In the workbook, the whole hook cell and the whole score-justification cell are wrapped as a `=HYPERLINK` formula in `src/sheets.py` that jumps to that account's first row in the run's Sources tab; clicking anywhere in the cell lands on the indexed evidence rows.
+Citations work via numbered justifications. Each Exa retrieval (about page plus recent news) gets a 1-based index. The writer emits each claim as a structured object with its own `cited_indices` array. A rapidfuzz coverage check in `src/citations.py` compares the claim text to the cited evidence summary, and any claim that fails the configured threshold is dropped entirely before assembly so an unciteable assertion never reaches the sheet. Surviving claims are then assembled into the paragraph with their validated `[N]` markers appended inline (per claim), so the shipped hook cell shows which evidence backs which sentence, the same way the score-justification cell does. The judge then decomposes the surviving paragraph back into atomic claims and marks each as supported by an index or `uncited`. Groundedness is computed deterministically: `(cited / max(total, 3)) * 5`, which penalizes short hooks that drop one citation and stop. In the workbook, the whole hook cell and the whole score-justification cell are wrapped as a `=HYPERLINK` formula in `src/sheets.py` that jumps to that account's first row in the run's Sources tab; clicking anywhere in the cell lands on the indexed evidence rows.
 
 Demo flow: open the workbook, scroll the Rubric tab to explain the grading approach, scroll the Inputs tab to show what was researched, open the Legend tab to read the AccountStatus palette, then open the latest Results tab to walk through verdicts and outreach drafts, clicking a hook or score-justification cell to jump into the Sources tab, and finishing on the `evals/REPORT.md` link for the rigor narrative.
 
 ## What this gets wrong
 
-- **Cross-family judge agreement is modest.** Inter-judge kappa between `deepseek-v4-flash` and `bytedance/seed-oss-36b-instruct` is 0.176 on groundedness with 16.7% exact agreement; see [evals/REPORT.md](evals/REPORT.md) §5 for the full table. A same-family judge shares blind spots with the writer, and the cross-family number is the honest bound on what the eval can detect.
+- **Cross-family judge agreement is modest.** Inter-judge kappa between `deepseek-v4-flash` and the cross-family judge `moonshot-v1-32k` is 0.176 on groundedness with 16.7% exact agreement, which is "slight" agreement on the Landis-Koch scale; see [evals/REPORT.md](evals/REPORT.md) §5 for the full table. A same-family judge shares blind spots with the writer, and the cross-family number is the honest bound on what the eval can detect.
 - **Persona inference is heuristic.** The top-three personas come from firmographic and about-page LLM inference, not a contact-discovery API like Apollo or Clearbit. "POC = Point of Contact" is the weakest claim in the project name; treat the personas as research leads, not a sourced contact list.
 - **Single-source retrieval.** Exa primary plus Browserbase fallback, no vector store, no multi-source ensemble. A claim that needs synthesizing across multiple retrievals will not benefit from cross-document reasoning the pipeline does not perform.
 
 ## Stack and design choices
 
-- **DeepSeek API** ([https://api.deepseek.com](https://api.deepseek.com)) for synthesis. OpenAI-compatible. Default writer = `deepseek-v4-flash` in non-thinking mode, judge = `deepseek-v4-pro` with `thinking={"type":"enabled"}` and `reasoning_effort="high"`. Two different model sizes plus thinking-on/off for the judge gives meaningful separation from the writer. ~$0.20-0.40 per 10-domain run during the v4-pro discount window.
+- **DeepSeek API** ([https://api.deepseek.com](https://api.deepseek.com)) for synthesis. OpenAI-compatible. Default writer = `deepseek-v4-flash` in non-thinking mode, judge = `deepseek-v4-flash` with `thinking={"type":"enabled"}` and `reasoning_effort="medium"`. Thinking-on for the judge versus thinking-off for the writer gives separation even on the same base model; set `JUDGE_MODEL_DEEPSEEK=deepseek-v4-pro` and `JUDGE_REASONING_EFFORT_DEEPSEEK=high` to widen that gap further. ~$0.20-0.40 per 10-domain run during the v4-pro discount window.
 - **NVIDIA Build endpoint** ([https://build.nvidia.com/](https://build.nvidia.com/)) is supported as a free fallback (set `LLM_PROVIDER=nvidia` or just leave `DEEPSEEK_API_KEY` empty). Free preview models with rate limits and connection drops; usable for offline development but unreliable for live demos.
 - **Context caching is automatic on DeepSeek.** Repeated retrievals (the same numbered justifications across writer score / contacts / outreach calls) hit the disk cache at 1/10 the input price. No code change needed; `usage.prompt_cache_hit_tokens` in responses confirms hits when you want to verify.
 - **Exa** for neural search on about pages and last-90-day company news.
@@ -150,7 +150,7 @@ If you want the public-repo guard active locally (recommended for any contributo
 
 ### Picking models
 
-**DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-pro` with thinking and `reasoning_effort=high`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env`. Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.
+**DeepSeek (recommended).** Defaults: writer = `deepseek-v4-flash`, judge = `deepseek-v4-flash` with thinking and `reasoning_effort=medium`. Override via `WRITER_MODEL_DEEPSEEK` and `JUDGE_MODEL_DEEPSEEK` in `.env` (set the judge to `deepseek-v4-pro` for a larger writer/judge gap). Use `JUDGE_REASONING_EFFORT_DEEPSEEK` (`low`/`medium`/`high`) to dial reasoning intensity.
 
 **NVIDIA Build (fallback).** Defaults: writer = `minimaxai/minimax-m2.7`, judge = `bytedance/seed-oss-36b-instruct`. NVIDIA's preview model availability rotates, so if you see a 400 / "DEGRADED function" error, swap via `WRITER_MODEL_NVIDIA` or `JUDGE_MODEL_NVIDIA`. Tested working alternatives:
 
@@ -161,7 +161,7 @@ Keep the writer and judge in different model classes. Same model with the same s
 
 ### Reasoning settings
 
-**On DeepSeek** the judge runs in thinking mode (`extra_body={"thinking": {"type":"enabled"}}`) with `reasoning_effort="high"`. Both fields are sent automatically by `_build_judge`; tune via `JUDGE_REASONING_EFFORT_DEEPSEEK`. The writer stays in non-thinking mode for speed.
+**On DeepSeek** the judge runs in thinking mode (`extra_body={"thinking": {"type":"enabled"}}`) with `reasoning_effort="medium"` by default. Both fields are sent automatically by `_build_judge`; tune via `JUDGE_REASONING_EFFORT_DEEPSEEK`. The writer stays in non-thinking mode for speed.
 
 **On NVIDIA** reasoning models (like Seed-OSS) use a separate `thinking_budget` extra. The default is `JUDGE_REASONING_BUDGET=0` (disabled) because long reasoning calls regularly time out on the free-tier endpoint. Set to `1024` for bounded reasoning or `-1` for unlimited (and bump `JUDGE_MAX_TOKENS` to 8192+ to leave room for the JSON output).
 

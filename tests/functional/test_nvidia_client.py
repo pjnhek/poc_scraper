@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+import httpx
 import pytest
+from openai import APIError
 
 from src.clients.nvidia_client import GenerationParams, NvidiaClient
+
+
+async def _no_sleep(_seconds: float) -> None:
+    return None
 
 
 class _FakeMessage:
@@ -143,6 +150,38 @@ async def test_base_url_is_configurable() -> None:
     # but the constructor must accept the kwarg without raising.
     await client.synthesize("s", "ctx", "p")
     assert len(fake.chat.completions.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_retries_then_succeeds_on_api_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The LLM call is the most rate-limited path; prove its tenacity retry
+    # actually fires. First create() raises a retryable APIError, second
+    # succeeds. Patch asyncio.sleep so backoff does not slow the test.
+    monkeypatch.setattr(asyncio, "sleep", _no_sleep)
+
+    class _FlakyCompletions:
+        def __init__(self) -> None:
+            self.attempts = 0
+
+        async def create(self, **kwargs: Any) -> _FakeResponse:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise APIError(
+                    "rate limited",
+                    request=httpx.Request("POST", "https://example.com"),
+                    body=None,
+                )
+            return _FakeResponse("recovered")
+
+    flaky = _FlakyCompletions()
+    fake = _FakeOpenAI()
+    fake.chat.completions = flaky  # type: ignore[assignment]
+    client = NvidiaClient(api_key="k", model="m", client=fake)
+
+    result = await client.synthesize("s", "ctx", "p")
+
+    assert result.text == "recovered"
+    assert flaky.attempts == 2
 
 
 @pytest.mark.asyncio

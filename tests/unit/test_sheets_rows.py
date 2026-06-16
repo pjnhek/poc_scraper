@@ -101,6 +101,79 @@ def test_build_rows_starts_with_headers() -> None:
         assert f"hook_{hook_index}_citations" not in HEADERS
 
 
+def test_hooks_pair_to_contacts_by_identity_not_position() -> None:
+    # A failed outreach call leaves sa.hooks shorter than sa.contacts. The
+    # middle persona's hook is missing; positional pairing would show that
+    # persona the third persona's hook. Pair by identity instead.
+    acc = Account(domain="examplefintech.com")
+    citation = Citation.make(url="https://example.com/news", source="exa", snippet="snip")
+    enr = Enrichment(
+        account=acc,
+        firmographics=Firmographics(name="ExampleFintech"),
+        news=(),
+        justifications=(Justification(index=1, summary="h: s", citation=citation),),
+    )
+    contacts = (
+        Contact(role_title="VP CX", rationale="owns deflection"),
+        Contact(role_title="Head Support", rationale="middle persona"),
+        Contact(role_title="Dir Auto", rationale="third persona"),
+    )
+    # Hook for the middle persona (index 1) is absent.
+    hooks = (
+        OutreachHook(contact=contacts[0], paragraph="first hook", cited_indices=(1,)),
+        OutreachHook(contact=contacts[2], paragraph="third hook", cited_indices=(1,)),
+    )
+    sa = ScoredAccount(
+        account=acc,
+        status=AccountStatus.clean,
+        enrichment=enr,
+        contacts=contacts,
+        hooks=hooks,
+    )
+
+    rows = build_rows([sa])
+    data = rows[1]
+    # Per-persona triples (role, rationale, hook) begin at column 13.
+    first_hook, middle_hook, third_hook = data[15], data[18], data[21]
+
+    assert first_hook == "first hook"
+    assert middle_hook == ""  # missing hook renders blank, never the third persona's
+    assert third_hook == "third hook"
+
+
+def test_duplicate_contacts_share_hook_without_crashing() -> None:
+    # Degenerate case: two structurally identical contacts. Pairing by identity
+    # collapses them in the dict, so both rows show the same hook. This must not
+    # crash or mispair; it is the accepted behavior for duplicate personas.
+    acc = Account(domain="examplefintech.com")
+    citation = Citation.make(url="https://example.com/n", source="exa", snippet="s")
+    enr = Enrichment(
+        account=acc,
+        firmographics=Firmographics(name="ExampleFintech"),
+        news=(),
+        justifications=(Justification(index=1, summary="h: s", citation=citation),),
+    )
+    dup = Contact(role_title="VP CX", rationale="same")
+    contacts = (dup, dup, Contact(role_title="Other", rationale="r"))
+    hooks = (
+        OutreachHook(contact=dup, paragraph="shared hook", cited_indices=(1,)),
+        OutreachHook(contact=contacts[2], paragraph="other hook", cited_indices=(1,)),
+    )
+    sa = ScoredAccount(
+        account=acc,
+        status=AccountStatus.clean,
+        enrichment=enr,
+        contacts=contacts,
+        hooks=hooks,
+    )
+
+    rows = build_rows([sa])
+    data = rows[1]
+    assert data[15] == "shared hook"  # persona 1
+    assert data[18] == "shared hook"  # persona 2 (duplicate) shares it
+    assert data[21] == "other hook"  # persona 3 distinct
+
+
 def test_axis_display_labels_uses_configured_weights() -> None:
     assert axis_display_labels(get_config()) == {
         "support_volume": "Support Volume (40%)",

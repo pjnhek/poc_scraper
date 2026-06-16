@@ -47,12 +47,13 @@ class LiveRow:
     icp_relevance: float
     personalization: float
     notes: str | None
+    judged: bool = True
 
 
 def _flatten(scored: list[ScoredAccount]) -> list[LiveRow]:
     rows: list[LiveRow] = []
     for sa in scored:
-        if sa.status != "scored" or sa.score is None:
+        if sa.score is None:
             rows.append(
                 LiveRow(
                     domain=sa.account.domain,
@@ -82,7 +83,8 @@ def _flatten(scored: list[ScoredAccount]) -> list[LiveRow]:
                     groundedness=ev.groundedness if ev else 0.0,
                     icp_relevance=ev.icp_relevance if ev else 0.0,
                     personalization=ev.personalization if ev else 0.0,
-                    notes=ev.notes if ev else None,
+                    notes=ev.notes if ev else "(judge produced no score)",
+                    judged=ev is not None,
                 )
             )
     return rows
@@ -113,15 +115,19 @@ def markdown_table(rows: list[LiveRow]) -> str:
 
 
 def summary_line(rows: list[LiveRow]) -> str:
-    judged = [r for r in rows if r.verdict != "(unscoreable)"]
+    # Exclude rows the judge never scored: a judge crash (eval_score=None) must
+    # not be averaged in as a real 0.0, which would silently tank the headline.
+    judged = [r for r in rows if r.verdict != "(unscoreable)" and r.judged]
     if not judged:
         return "(no judged hooks)"
     g = sum(r.groundedness for r in judged) / len(judged)
     i = sum(r.icp_relevance for r in judged) / len(judged)
     p = sum(r.personalization for r in judged) / len(judged)
+    unjudged = sum(1 for r in rows if r.verdict != "(unscoreable)" and not r.judged)
+    tail = f" ({unjudged} unjudged hooks excluded)" if unjudged else ""
     return (
         f"averaged across {len(judged)} hooks: groundedness={g:.2f}, "
-        f"icp_relevance={i:.2f}, personalization={p:.2f}"
+        f"icp_relevance={i:.2f}, personalization={p:.2f}{tail}"
     )
 
 
@@ -157,9 +163,20 @@ async def run() -> int:
         writer = build_writer_client(settings)
         judge = build_judge_client(settings)
         deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
-        scored = await asyncio.gather(*(process_account(a, deps) for a in accounts))
+        # return_exceptions so one account that escapes process_account's own
+        # isolation does not abort the whole live eval; drop and log the casualty.
+        settled = await asyncio.gather(
+            *(process_account(a, deps) for a in accounts), return_exceptions=True
+        )
 
-    rows = _flatten(list(scored))
+    scored: list[ScoredAccount] = []
+    for acc, result in zip(accounts, settled, strict=True):
+        if isinstance(result, BaseException):
+            log.warning("live eval: %s aborted: %s", acc.domain, result)
+            continue
+        scored.append(result)
+
+    rows = _flatten(scored)
     print(markdown_table(rows))
     print()
     print(summary_line(rows))

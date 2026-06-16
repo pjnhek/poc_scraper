@@ -87,10 +87,17 @@ class ExaClient:
                 )
                 resp.raise_for_status()
         data = resp.json()
-        return [_to_result(r) for r in data.get("results", [])]
+        results = data.get("results", [])
+        return [r for r in (_to_result(item) for item in results) if r is not None]
 
 
-def _to_result(r: dict[str, Any]) -> ExaResult:
+def _to_result(r: dict[str, Any]) -> ExaResult | None:
+    # A result with no URL is unusable: every downstream citation is keyed on
+    # the source URL. Skip it rather than raise KeyError (which would escape the
+    # enricher's narrow except and abort the whole run) or fabricate a blank URL.
+    url = r.get("url")
+    if not isinstance(url, str) or not url:
+        return None
     published_at: datetime | None = None
     raw = r.get("publishedDate")
     if isinstance(raw, str) and raw:
@@ -99,7 +106,7 @@ def _to_result(r: dict[str, Any]) -> ExaResult:
         except ValueError:
             published_at = None
     return ExaResult(
-        url=r["url"],
+        url=url,
         title=r.get("title"),
         snippet=(r.get("text") or r.get("snippet") or "").strip() or None,
         published_at=published_at,

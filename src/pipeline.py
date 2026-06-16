@@ -184,7 +184,28 @@ async def run_pipeline(
         async with sem:
             return await process_account(acc, deps)
 
-    return list(await asyncio.gather(*(_bounded(a) for a in accounts)))
+    # process_account isolates per-stage failures, but an unforeseen exception
+    # type (e.g. a malformed external response) could still escape its narrow
+    # except clauses. return_exceptions keeps one such casualty from aborting
+    # the whole batch, honoring "one bad account never aborts the run".
+    settled = await asyncio.gather(*(_bounded(a) for a in accounts), return_exceptions=True)
+    results: list[ScoredAccount] = []
+    for acc, outcome in zip(accounts, settled, strict=True):
+        if isinstance(outcome, BaseException):
+            log.warning(
+                "account aborted unexpectedly [%s] for %s: %s",
+                type(outcome).__name__,
+                acc.domain,
+                outcome,
+            )
+            results.append(
+                ScoredAccount.unscoreable(
+                    acc, Enrichment(account=acc), f"unexpected error: {outcome}"
+                )
+            )
+        else:
+            results.append(outcome)
+    return results
 
 
 def provider_endpoint(settings: Settings) -> tuple[str, str]:

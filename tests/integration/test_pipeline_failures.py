@@ -9,7 +9,7 @@ from openai import APIError
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
 from src.models import Account, AccountStatus
-from src.pipeline import build_deps, process_account
+from src.pipeline import build_deps, process_account, run_pipeline
 
 
 class FakeBrowserbase:
@@ -449,3 +449,102 @@ async def test_citation_drop_renders_hook_suppressed_row() -> None:
     assert row[HEADERS.index("hook_1")] == ""
     assert row[HEADERS.index("hook_2")] == ""
     assert row[HEADERS.index("hook_3")] == ""
+
+
+@pytest.mark.asyncio
+async def test_flagged_eval_renders_low_groundedness_status() -> None:
+    """The pipeline seam: a parseable judge response below the groundedness
+    threshold, with non-empty hooks, must render AccountStatus.low_groundedness.
+    This is the one status with no prior end-to-end coverage."""
+
+    class LowGroundednessLLM:
+        async def synthesize(
+            self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+        ) -> LLMResponse:
+            if "You are a sales analyst" in system:
+                return LLMResponse(
+                    text='{"name":"X","industry":null,"headcount_range":null,"tech_signals":[]}'
+                )
+            if "score companies against an ICP rubric" in system:
+                return LLMResponse(
+                    text=(
+                        '{"support_volume":5,"support_volume_reason":"r",'
+                        '"ai_maturity":5,"ai_maturity_reason":"r",'
+                        '"stage_fit":5,"stage_fit_reason":"r",'
+                        '"channel_breadth":5,"channel_breadth_reason":"r",'
+                        '"justification":"ok"}'
+                    )
+                )
+            if "propose the top 3 buyer personas" in system:
+                return LLMResponse(
+                    text=(
+                        '[{"role_title":"a","rationale":"r"},'
+                        '{"role_title":"b","rationale":"r"},'
+                        '{"role_title":"c","rationale":"r"}]'
+                    )
+                )
+            if "You write outreach claims from a seller" in system:
+                return LLMResponse(
+                    text=(
+                        '{"claims":[{"claim":"X is a company that does things",'
+                        '"cited_indices":[1]}],"connective_text":"reach out"}'
+                    )
+                )
+            if "LLM judge evaluating" in system:
+                # 1 cited of 3 claims -> (1/3)*5 = 1.7, below the 3.0 flag
+                # threshold, but parseable so eval_failed stays False.
+                return LLMResponse(
+                    text=(
+                        '{"claims":['
+                        '{"text":"c1","supported_by":1},'
+                        '{"text":"c2","supported_by":"uncited"},'
+                        '{"text":"c3","supported_by":"uncited"}],'
+                        '"icp_relevance":4,"personalization":4,'
+                        '"specificity":3,"recency":3,"notes":"thin"}'
+                    )
+                )
+            raise AssertionError(f"unscripted: {system[:60]}")
+
+    deps = build_deps(
+        writer=LowGroundednessLLM(),
+        judge=LowGroundednessLLM(),
+        exa=FakeExa(about=[_exa_about()]),
+        browserbase=FakeBrowserbase(),
+    )
+    sa = await process_account(Account(domain="x.com"), deps)
+
+    assert sa.eval_score is not None
+    assert not sa.eval_score.eval_failed
+    assert sa.eval_score.is_flagged
+    assert sa.status == AccountStatus.low_groundedness
+
+
+@pytest.mark.asyncio
+async def test_unexpected_exception_does_not_abort_batch() -> None:
+    # An exception type NOT in process_account's narrow except clauses (here a
+    # KeyError from a hypothetical malformed response) must not propagate out of
+    # run_pipeline and discard every other account's work.
+    class ExplodingExa:
+        async def search_about(self, domain: str, num_results: int = 5) -> list[ExaResult]:
+            raise KeyError("url")
+
+        async def search_news(
+            self, domain: str, days: int = 90, num_results: int = 8
+        ) -> list[ExaResult]:
+            raise KeyError("url")
+
+    deps = build_deps(
+        writer=FailingAnthropic(fail_on="__never__"),
+        judge=FailingAnthropic(fail_on="__never__"),
+        exa=ExplodingExa(),
+        browserbase=FakeBrowserbase(),
+    )
+
+    results = await run_pipeline(
+        [Account(domain="boom.com"), Account(domain="alsoboom.com")], deps, concurrency=2
+    )
+
+    assert len(results) == 2
+    assert {sa.account.domain for sa in results} == {"boom.com", "alsoboom.com"}
+    assert all(sa.status == AccountStatus.hook_suppressed for sa in results)
+    assert all(sa.error and "unexpected error" in sa.error for sa in results)
