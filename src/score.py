@@ -5,7 +5,7 @@ import logging
 from ._json_utils import parse_json_object
 from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
-from .models import Enrichment, ICPScore, NewsItem, RubricBreakdown
+from .models import Enrichment, ICPScore, RubricBreakdown
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +154,3 @@ def _parse_indices(raw: object, enrichment: Enrichment) -> tuple[int, ...]:
         if i in valid and i not in out:
             out.append(i)
     return tuple(out)
-
-
-def _format_news(item: NewsItem) -> str:
-    return f"- [{item.headline}]({item.citation.url}) {item.summary}"
