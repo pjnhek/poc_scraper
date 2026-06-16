@@ -48,6 +48,12 @@ class TestParseIndices:
         assert parse_indices(None, {1, 2}) == ()
         assert parse_indices("1", {1, 2}) == ()
 
+    def test_parse_indices_rejects_booleans(self) -> None:
+        # bool is an int subclass; int(True) == 1. A JSON true/false must not
+        # be coerced into citation index 1/0.
+        assert parse_indices([True, False], {1, 2}) == ()
+        assert parse_indices([True, 2], {1, 2}) == (2,)
+
 
 class TestMarkersInParagraph:
     def test_markers_in_paragraph(self) -> None:

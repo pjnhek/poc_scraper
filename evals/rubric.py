@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 
-from src._json_utils import parse_json_object
+from src._json_utils import clip_score, parse_json_object
 from src.citations import INDEX_MARKER_RE  # noqa: F401 — consolidates marker pattern (CHANGE-01)
 from src.clients.protocols import LLMClient
 from src.icp_config import ICPConfig, get_config
@@ -81,10 +81,10 @@ class EvalRubric:
         try:
             return EvalScore(
                 groundedness=groundedness,
-                icp_relevance=_clip(parsed.get("icp_relevance")),
-                personalization=_clip(parsed.get("personalization")),
-                specificity=_clip(parsed.get("specificity")),
-                recency=_clip(parsed.get("recency")),
+                icp_relevance=clip_score(parsed.get("icp_relevance")),
+                personalization=clip_score(parsed.get("personalization")),
+                specificity=clip_score(parsed.get("specificity")),
+                recency=clip_score(parsed.get("recency")),
                 eval_failed=False,
                 notes=str(parsed.get("notes") or "").strip() or None,
                 flag_threshold=self._flag_threshold,
@@ -197,14 +197,6 @@ def _compute_groundedness(claims: list[dict[str, object]]) -> float:
     cited = sum(1 for c in claims if isinstance(c.get("supported_by"), int))
     raw = (cited / max(total, 3)) * 5
     return round(max(1.0, min(5.0, raw)), 1)
-
-
-def _clip(value: object) -> float:
-    try:
-        f = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 1.0
-    return max(1.0, min(5.0, f))
 
 
 def _avg(values: Iterable[float]) -> float:

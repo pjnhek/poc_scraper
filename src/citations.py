@@ -31,6 +31,10 @@ def parse_indices(raw: object, valid: set[int]) -> tuple[int, ...]:
         return ()
     out: list[int] = []
     for v in raw:
+        # bool is an int subclass: int(True) == 1. A JSON true/false is never a
+        # citation index, so reject booleans before coercing.
+        if isinstance(v, bool):
+            continue
         try:
             i = int(v)
         except (TypeError, ValueError):

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from ._json_utils import parse_json_object
+from ._json_utils import clip_score, parse_json_object
+from .citations import parse_indices
 from .clients.protocols import LLMClient
 from .icp_config import ICPConfig, get_config
 from .models import Enrichment, ICPScore, RubricBreakdown
@@ -66,10 +67,10 @@ class Scorer:
             return None
         try:
             breakdown = RubricBreakdown(
-                support_volume=_clip(parsed.get("support_volume")),
-                ai_maturity=_clip(parsed.get("ai_maturity")),
-                stage_fit=_clip(parsed.get("stage_fit")),
-                channel_breadth=_clip(parsed.get("channel_breadth")),
+                support_volume=clip_score(parsed.get("support_volume")),
+                ai_maturity=clip_score(parsed.get("ai_maturity")),
+                stage_fit=clip_score(parsed.get("stage_fit")),
+                channel_breadth=clip_score(parsed.get("channel_breadth")),
                 support_volume_reason=str(parsed.get("support_volume_reason") or "").strip()
                 or "(no reason given)",
                 ai_maturity_reason=str(parsed.get("ai_maturity_reason") or "").strip()
@@ -88,7 +89,10 @@ class Scorer:
             str(parsed.get("justification") or "").strip()
             or f"Weighted total {total} ({verdict.label})."
         )
-        supporting = _parse_indices(parsed.get("supporting_indices"), enrichment)
+        supporting = parse_indices(
+            parsed.get("supporting_indices"),
+            {j.index for j in enrichment.justifications},
+        )
         return ICPScore(
             total=total,
             breakdown=breakdown,
@@ -108,14 +112,6 @@ def compute_total(breakdown: RubricBreakdown, config: ICPConfig | None = None) -
         + breakdown.channel_breadth * weights["channel_breadth"]
     )
     return round(raw, 1)
-
-
-def _clip(value: object) -> float:
-    try:
-        f = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 1.0
-    return max(1.0, min(5.0, f))
 
 
 def _build_score_context(enrichment: Enrichment) -> str:
@@ -139,18 +135,3 @@ def _build_score_context(enrichment: Enrichment) -> str:
         lines.append(f"[{j.index}] {j.summary} (source: {j.citation.url})")
     lines.append("</justifications>")
     return "\n".join(lines)
-
-
-def _parse_indices(raw: object, enrichment: Enrichment) -> tuple[int, ...]:
-    if not isinstance(raw, list):
-        return ()
-    valid = {j.index for j in enrichment.justifications}
-    out: list[int] = []
-    for v in raw:
-        try:
-            i = int(v)
-        except (TypeError, ValueError):
-            continue
-        if i in valid and i not in out:
-            out.append(i)
-    return tuple(out)
