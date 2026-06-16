@@ -503,13 +503,13 @@ class SheetsWriter:
             config=config,
         )
         self._write_values(service, spreadsheet_id, results_title, results_rows)
-        self._apply_row_colors(service, spreadsheet_id, results_title, scored)
-        self._apply_eval_flag_text(service, spreadsheet_id, results_title, scored)
 
-        # D-12/D-13/D-14: one sheet_id lookup powers all three formatting
-        # passes so the writer stays gentle on the discovery API.
+        # One sheet_id lookup powers every formatting pass (colors, eval flags,
+        # freeze, widths, wrap) so the writer stays gentle on the discovery API.
         results_sheet_id = self._lookup_sheet_id(service, spreadsheet_id, results_title)
         if results_sheet_id is not None:
+            self._apply_row_colors(service, spreadsheet_id, results_sheet_id, scored)
+            self._apply_eval_flag_text(service, spreadsheet_id, results_sheet_id, scored)
             self._apply_freeze_panes(service, spreadsheet_id, results_sheet_id)
             self._apply_column_widths(service, spreadsheet_id, results_sheet_id)
             self._apply_wrap_strategy(
@@ -577,14 +577,11 @@ class SheetsWriter:
         self,
         service: Any,
         spreadsheet_id: str,
-        sheet_title: str,
+        sheet_id: int,
         scored: list[ScoredAccount],
     ) -> None:
         colors = account_status_row_colors(scored)
         if not colors:
-            return
-        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
-        if sheet_id is None:
             return
         requests = [
             {
@@ -632,14 +629,11 @@ class SheetsWriter:
         self,
         service: Any,
         spreadsheet_id: str,
-        sheet_title: str,
+        sheet_id: int,
         scored: list[ScoredAccount],
     ) -> None:
         flagged = flagged_eval_rows(scored)
         if not flagged:
-            return
-        sheet_id = self._lookup_sheet_id(service, spreadsheet_id, sheet_title)
-        if sheet_id is None:
             return
         col = HEADERS.index("eval_groundedness")
         requests = [
