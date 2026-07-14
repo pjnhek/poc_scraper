@@ -2,9 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 08
+current_phase_name: readme-and-loom-refresh
 status: executing
-last_updated: "2026-06-04T02:34:54.254Z"
-last_activity: 2026-06-04
+stopped_at: Phase 8 context gathered
+last_updated: "2026-07-14T22:19:26.141Z"
+last_activity: 2026-07-14
+last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 8
   completed_phases: 7
@@ -25,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 08 (readme-and-loom-refresh) — EXECUTING
-Plan: 3 of 4
-Status: Ready to execute
-Last activity: 2026-06-04
+Plan: 1 of 4
+Status: Executing Phase 08
+Last activity: 2026-07-14 — Phase 08 execution started
 
 Progress: [██████████] 97%
 
@@ -136,6 +140,12 @@ None yet.
 ### Blockers/Concerns
 
 None yet. Phase 1's six open questions (sentence-coverage shape, history rewrite vs document, specificity/recency timing, demo-bundle caching need, `great-tables` yes/no, label migration vs re-label) will be resolved within the audit itself, not blockers.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260714-mrg | Document specificity and recency in judge rubric tab | 2026-07-14 | 6f8be41 | [260714-mrg-fix-rubric-tab-add-specificity-and-recen](./quick/260714-mrg-fix-rubric-tab-add-specificity-and-recen/) |
 
 ## Deferred Items
 
