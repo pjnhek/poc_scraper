@@ -263,6 +263,19 @@ def build_rubric_rows(config: ICPConfig) -> list[list[str]]:
             "1-5 categorical: how specific the message is to this account.",
         ]
     )
+    rows.append(
+        [
+            "specificity",
+            "1-5 categorical: 1 = generic claim that could apply to any "
+            "company, 5 = highly specific facts unique to this account.",
+        ]
+    )
+    rows.append(
+        [
+            "recency",
+            "1-5 categorical: 1 = no recent evidence cited, 5 = multiple " "recent-news citations.",
+        ]
+    )
     rows.append([])
     rows.append(
         [
