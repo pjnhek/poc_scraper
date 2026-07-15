@@ -1,21 +1,22 @@
 ---
 phase: 08-readme-and-loom-refresh
 verified: 2026-07-14T00:00:00Z
-status: human_needed
-score: 2/3 must-haves verified
+status: passed
+score: 2/3 must-haves verified in-repo; 1 resolved by operator acceptance with a documented caveat
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
   - test: "Open the published walkthrough at https://kommodo.ai/recordings/E751BaRaerNaXw78iXEc (no login) and watch it against the final pipeline."
     expected: "The recording shows the real 20-account run: an [N] citation click into the Sources tab (citation UX), the AccountStatus row visuals, and closes on evals/REPORT.md (eval narrative). README + assets at commit f868a09 match what the video shows."
     why_human: "Video content cannot be inspected programmatically. The README link and SHA pin are verified in-repo, but whether the recording's frames actually reflect the final scrubbed output requires a human to watch it."
+    resolution: "Operator (2026-07-14) watched the recording and accepted it. It covers Rubric/Inputs/Results, the AccountStatus row visuals, and closes on evals/REPORT.md, but does NOT include the [N] citation click into the Sources tab. Accepted as-is; the citation UX and HYPERLINK mechanism remain documented in the README prose, the failure-mode gallery, and the live per-run Sources tab. Disclosed caveat, not re-recorded per operator decision."
 ---
 
 # Phase 8: README and Loom Refresh Verification Report
 
 **Phase Goal:** Ship the public-facing artifact that closes the milestone: a front-loaded README and a re-recorded walkthrough that reflect the final, scrubbed pipeline output and a specific commit SHA, so a hiring or GTM viewer encounters the rigor story without operator narration.
 **Verified:** 2026-07-14
-**Status:** human_needed
+**Status:** passed (human item resolved by operator acceptance with a documented caveat: the recording does not show the [N] citation click into Sources; accepted as-is)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement

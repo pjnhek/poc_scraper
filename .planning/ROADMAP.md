@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Failure-Mode Hardening** - Narrowed exceptions, `Retry-After` parsing, integration coverage for empty enrichment and citation-drop, optional cached demo bundle (completed 2026-05-22)
 - [x] **Phase 6: Sheet Polish** - Four `AccountStatus` visuals, hyperlinked citations to a Sources tab, per-axis score columns, freeze panes (completed 2026-05-23)
 - [x] **Phase 7: Public-Repo Audit** - Company-name audit: the hiring company name appears nowhere in code, configs, fixtures, or history; secret-scanning pre-commit hook. Real prospect domains and vendor names are acceptable. (completed 2026-05-27)
-- [ ] **Phase 8: README and Loom Refresh** - Front-loaded README, architecture diagram, failure-mode gallery, "what this gets wrong" section, re-recorded Loom pinned to a commit SHA
+- [x] **Phase 8: README and Loom Refresh** - Front-loaded README, architecture diagram, failure-mode gallery, "what this gets wrong" section, re-recorded Loom pinned to a commit SHA (completed 2026-07-15)
 
 ## Parallelization
 
@@ -250,7 +250,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3; operator checkpoint; closes the milestone)*
 
-- [ ] 08-04-PLAN.md -- Re-record Loom + insert SHA-pin + atomic close commit (DEMO-01): live make run walkthrough over real inputs/accounts.csv, embed new Loom URL, insert D-08 SHA-pin prose, flip DEMO-01 to Complete, atomic docs(phase-08): close commit per the Phase 7 1a4bca5 pattern
+- [x] 08-04-PLAN.md -- Re-record Loom + insert SHA-pin + atomic close commit (DEMO-01): live make run walkthrough over real inputs/accounts.csv, embed new Loom URL, insert D-08 SHA-pin prose, flip DEMO-01 to Complete, atomic docs(phase-08): close commit per the Phase 7 1a4bca5 pattern
 
 **UI hint**: yes
 
@@ -269,7 +269,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
 | 6. Sheet Polish | 2/4 | In Progress|  |
 | 7. Public-Repo Audit | 3/3 | Complete   | 2026-05-27 |
-| 8. README and Loom Refresh | 3/4 | In Progress|  |
+| 8. README and Loom Refresh | 4/4 | Complete    | 2026-07-15 |
 
 ---
 *Roadmap created: 2026-05-14*
