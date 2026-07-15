@@ -267,7 +267,7 @@ Phases execute in numeric order, with the parallelization carve-outs noted under
 | 3. Eval Set Expansion | 6/6 | Complete   | 2026-05-16 |
 | 4. Eval Narrative | 3/3 | Complete   | 2026-05-22 |
 | 5. Failure-Mode Hardening | 4/4 | Complete   | 2026-05-22 |
-| 6. Sheet Polish | 2/4 | In Progress|  |
+| 6. Sheet Polish | 4/4 | Complete   | 2026-07-15 |
 | 7. Public-Repo Audit | 3/3 | Complete   | 2026-05-27 |
 | 8. README and Loom Refresh | 4/4 | Complete    | 2026-07-15 |
 
