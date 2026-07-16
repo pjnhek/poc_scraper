@@ -28,9 +28,9 @@ created: 2026-07-16
 
 ## Sampling Rate
 
-- **After Task 10-04-01:** Run `uv run pytest tests/unit/test_evidence.py -x -q && uv run mypy src/mcp_server/evidence.py tests/unit/test_evidence.py`
-- **After Task 10-04-02:** Run `uv run pytest tests/unit/test_models.py tests/functional/test_mcp_server.py -x -q && uv run mypy src/models.py tests/unit/test_models.py tests/functional/test_mcp_server.py`
-- **After Wave 4:** Run `make test && make typecheck && make lint`
+- **After Task 10-05-01:** Run `uv run pytest tests/unit/test_evidence.py -x -q && uv run mypy src/mcp_server/evidence.py tests/unit/test_evidence.py`
+- **After Task 10-05-02:** Run `uv run pytest tests/unit/test_models.py tests/functional/test_mcp_server.py -x -q && uv run mypy src/models.py tests/unit/test_models.py tests/functional/test_mcp_server.py`
+- **After Wave 5:** Run `make test && make typecheck && make lint`
 - **Before `/gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 60 seconds for each targeted task command
 
@@ -40,8 +40,10 @@ created: 2026-07-16
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 10-04-01 | 04 | 4 | MCP-01 | T-10-04 | Exact serialized UTF-8 byte budget covers multibyte text and long URLs; retained citations are never truncated | unit | `uv run pytest tests/unit/test_evidence.py -x -q && uv run mypy src/mcp_server/evidence.py tests/unit/test_evidence.py` | yes | pending |
-| 10-04-02 | 04 | 4 | MCP-07 | T-10-03 / T-10-08 | Malformed domains return sanitized tool errors before any Exa request | unit + functional | `uv run pytest tests/unit/test_models.py tests/functional/test_mcp_server.py -x -q && uv run mypy src/models.py tests/unit/test_models.py tests/functional/test_mcp_server.py` | yes | pending |
+| 10-04-01 | 04 | 4 | MCP-01 | T-10-04 | Exact serialized UTF-8 byte budget covers multibyte text and long URLs; retained citations are never truncated | unit | `uv run pytest tests/unit/test_evidence.py -x -q && uv run mypy src/mcp_server/evidence.py tests/unit/test_evidence.py` | yes | green |
+| 10-04-02 | 04 | 4 | MCP-07 | T-10-03 / T-10-08 | Malformed domains return sanitized tool errors before any Exa request | unit + functional | `uv run pytest tests/unit/test_models.py tests/functional/test_mcp_server.py -x -q && uv run mypy src/models.py tests/unit/test_models.py tests/functional/test_mcp_server.py` | yes | green |
+| 10-05-01 | 05 | 5 | MCP-01 | T-10-10 | Invalid provenance is filtered before the count cap, preserving later safe cited news, order, numbering, and honest status | unit | `uv run pytest tests/unit/test_evidence.py -x -q && uv run mypy src/mcp_server/evidence.py tests/unit/test_evidence.py` | yes | pending |
+| 10-05-02 | 05 | 5 | MCP-07 | T-10-11 / T-10-12 | Empty delimiters, IP literals, and invalid A-labels stop before Exa; invalid-domain errors remain bounded and sanitized | unit + functional | `uv run pytest tests/unit/test_models.py tests/functional/test_mcp_server.py -x -q && uv run mypy src/models.py tests/unit/test_models.py tests/functional/test_mcp_server.py` | yes | pending |
 
 *Status values: pending, green, red, flaky.*
 
@@ -49,7 +51,7 @@ created: 2026-07-16
 
 ## Wave 0 Requirements
 
-Existing infrastructure covers Wave 0. `pytest`, `pytest-asyncio`, strict mypy, Ruff, Black, the MCP in-memory client, `FakeExa.calls`, and all three target test modules already exist. Plan 10-04 adds RED cases directly to those files before production changes; no scaffold, dependency, fixture module, or marker is missing.
+Existing infrastructure covers Wave 0. `pytest`, `pytest-asyncio`, strict mypy, Ruff, Black, the MCP in-memory client, `FakeExa.calls`, and all three target test modules already exist. Plan 10-05 adds RED cases directly to those files before production changes; no scaffold, dependency, fixture module, or marker is missing.
 
 ---
 
@@ -72,4 +74,4 @@ The prior real-client stdio checkpoint remains valid and is outside the two auto
 - [x] Feedback target is under 60 seconds for targeted commands
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** approved for Plan 10-04 gap execution, 2026-07-16
+**Approval:** approved for Plan 10-05 gap execution, 2026-07-16
