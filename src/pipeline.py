@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import httpx
@@ -62,6 +64,51 @@ def build_deps(
         outreach=OutreachGenerator(llm=writer),
         eval_rubric=EvalRubric(llm=judge),
     )
+
+
+@asynccontextmanager
+async def open_deps(settings: Settings) -> AsyncIterator[Deps]:
+    """Construct a Deps bundle for the given settings and tear it down on exit.
+
+    Owns the shared httpx.AsyncClient lifetime internally: opened on enter,
+    closed on exit. Callers (main() and, from Phase 10, the MCP server's
+    lifespan) get a fully self-contained wiring seam with no injected-client
+    parameter. Construction does not validate keys; require_for_pipeline()
+    remains the caller's responsibility before entering this block.
+    """
+    async with httpx.AsyncClient(timeout=60.0) as http:
+        exa: ExaLike
+        bb: BrowserbaseLike
+        writer: LLMClient
+        judge: LLMClient
+        if settings.demo_bundle is not None:
+            # D-15: replay mode swaps every external client for the JSON-backed
+            # stubs. Live providers are never contacted; require_for_pipeline
+            # has already skipped the API-key checks above.
+            exa = ReplayExa(settings.demo_bundle)
+            bb = ReplayBrowserbase(settings.demo_bundle)
+            writer = ReplayLLM(settings.demo_bundle, role="writer")
+            judge = ReplayLLM(settings.demo_bundle, role="judge")
+        else:
+            exa = ExaClient(api_key=settings.exa_api_key, client=http)
+            bb = BrowserbaseClient(
+                api_key=settings.browserbase_api_key,
+                project_id=settings.browserbase_project_id,
+                client=http,
+            )
+            writer = _build_writer(settings)
+            judge = _build_judge(settings)
+            if settings.record_bundle is not None:
+                # D-17: post-construction wrap so the inner clients own
+                # request formation. The wrappers only tee the response to
+                # disk for later replay.
+                exa = RecordingExa(inner=exa, bundle_dir=settings.record_bundle)
+                bb = RecordingBrowserbase(inner=bb, bundle_dir=settings.record_bundle)
+                writer = RecordingLLM(
+                    inner=writer, bundle_dir=settings.record_bundle, role="writer"
+                )
+                judge = RecordingLLM(inner=judge, bundle_dir=settings.record_bundle, role="judge")
+        yield build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
 
 
 async def process_account(account: Account, deps: Deps) -> ScoredAccount:
@@ -292,40 +339,7 @@ async def main(settings: Settings | None = None) -> int:
         accounts = accounts[: settings.run_limit]
     log.info("loaded %d accounts from %s", len(accounts), settings.accounts_csv)
 
-    async with httpx.AsyncClient(timeout=60.0) as http:
-        exa: ExaLike
-        bb: BrowserbaseLike
-        writer: LLMClient
-        judge: LLMClient
-        if settings.demo_bundle is not None:
-            # D-15: replay mode swaps every external client for the JSON-backed
-            # stubs. Live providers are never contacted; require_for_pipeline
-            # has already skipped the API-key checks above.
-            exa = ReplayExa(settings.demo_bundle)
-            bb = ReplayBrowserbase(settings.demo_bundle)
-            writer = ReplayLLM(settings.demo_bundle, role="writer")
-            judge = ReplayLLM(settings.demo_bundle, role="judge")
-        else:
-            exa = ExaClient(api_key=settings.exa_api_key, client=http)
-            bb = BrowserbaseClient(
-                api_key=settings.browserbase_api_key,
-                project_id=settings.browserbase_project_id,
-                client=http,
-            )
-            writer = _build_writer(settings)
-            judge = _build_judge(settings)
-            if settings.record_bundle is not None:
-                # D-17: post-construction wrap so the inner clients own
-                # request formation. The wrappers only tee the response to
-                # disk for later replay.
-                exa = RecordingExa(inner=exa, bundle_dir=settings.record_bundle)
-                bb = RecordingBrowserbase(inner=bb, bundle_dir=settings.record_bundle)
-                writer = RecordingLLM(
-                    inner=writer, bundle_dir=settings.record_bundle, role="writer"
-                )
-                judge = RecordingLLM(inner=judge, bundle_dir=settings.record_bundle, role="judge")
-        deps = build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
-
+    async with open_deps(settings) as deps:
         scored = await run_pipeline(accounts, deps, concurrency=settings.pipeline_concurrency)
 
     writer_sheets = SheetsWriter(
