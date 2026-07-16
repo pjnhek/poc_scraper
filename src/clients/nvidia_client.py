@@ -126,3 +126,12 @@ class NvidiaClient:
         choice = response.choices[0]
         text = choice.message.content or ""
         return LLMResponse(text=text)
+
+    async def aclose(self) -> None:
+        """Close the underlying AsyncOpenAI client's connection pool.
+
+        Required for long-lived callers (Phase 10's MCP server lifespan)
+        that enter/exit open_deps() repeatedly; a one-shot CLI run never
+        needed this because process exit reclaimed the pool.
+        """
+        await self._client.close()

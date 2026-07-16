@@ -13,6 +13,7 @@ import pytest
 
 from src.clients.browserbase_client import BrowserbaseClient
 from src.clients.exa_client import ExaClient
+from src.clients.nvidia_client import NvidiaClient
 from src.clients.replay import RecordingBrowserbase, RecordingExa, ReplayBrowserbase, ReplayExa
 from src.config import Settings
 from src.pipeline import open_deps
@@ -54,3 +55,17 @@ async def test_open_deps_live_settings_yield_real_clients_and_closes_http_on_exi
         http_client = deps.enricher._exa._client
         assert http_client.is_closed is False
     assert http_client.is_closed is True
+
+
+@pytest.mark.asyncio
+async def test_open_deps_live_settings_closes_writer_and_judge_llm_pools_on_exit() -> None:
+    settings = _base_settings()
+    async with open_deps(settings) as deps:
+        assert isinstance(deps.enricher._llm, NvidiaClient)
+        assert isinstance(deps.eval_rubric._llm, NvidiaClient)
+        writer_openai_client = deps.enricher._llm._client
+        judge_openai_client = deps.eval_rubric._llm._client
+        assert writer_openai_client.is_closed() is False
+        assert judge_openai_client.is_closed() is False
+    assert writer_openai_client.is_closed() is True
+    assert judge_openai_client.is_closed() is True

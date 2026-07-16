@@ -81,6 +81,11 @@ async def open_deps(settings: Settings) -> AsyncIterator[Deps]:
         bb: BrowserbaseLike
         writer: LLMClient
         judge: LLMClient
+        # Captured before any RecordingLLM wrapping so we always hold a
+        # reference to the concrete client whose connection pool needs
+        # closing, regardless of what `writer`/`judge` get wrapped into.
+        writer_llm: NvidiaClient | None = None
+        judge_llm: NvidiaClient | None = None
         if settings.demo_bundle is not None:
             # D-15: replay mode swaps every external client for the JSON-backed
             # stubs. Live providers are never contacted; require_for_pipeline
@@ -96,8 +101,10 @@ async def open_deps(settings: Settings) -> AsyncIterator[Deps]:
                 project_id=settings.browserbase_project_id,
                 client=http,
             )
-            writer = _build_writer(settings)
-            judge = _build_judge(settings)
+            writer_llm = _build_writer(settings)
+            judge_llm = _build_judge(settings)
+            writer = writer_llm
+            judge = judge_llm
             if settings.record_bundle is not None:
                 # D-17: post-construction wrap so the inner clients own
                 # request formation. The wrappers only tee the response to
@@ -108,7 +115,17 @@ async def open_deps(settings: Settings) -> AsyncIterator[Deps]:
                     inner=writer, bundle_dir=settings.record_bundle, role="writer"
                 )
                 judge = RecordingLLM(inner=judge, bundle_dir=settings.record_bundle, role="judge")
-        yield build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
+        try:
+            yield build_deps(writer=writer, judge=judge, exa=exa, browserbase=bb)
+        finally:
+            # LLM clients aren't scoped by the `http` AsyncClient above (each
+            # NvidiaClient owns its own AsyncOpenAI pool), so they need their
+            # own teardown. No-op in replay mode where writer_llm/judge_llm
+            # stay None.
+            if writer_llm is not None:
+                await writer_llm.aclose()
+            if judge_llm is not None:
+                await judge_llm.aclose()
 
 
 async def process_account(account: Account, deps: Deps) -> ScoredAccount:
