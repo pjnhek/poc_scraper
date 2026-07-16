@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
-current_phase: 9
-current_phase_name: Pipeline Extraction & Supporting Models
-status: executing
-stopped_at: Phase 9 context gathered
-last_updated: "2026-07-16T05:10:02.587Z"
-last_activity: 2026-07-15
-last_activity_desc: ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
+current_phase: 10
+current_phase_name: Thin Tier
+status: verifying
+stopped_at: Phase 10 context gathered
+last_updated: "2026-07-16T17:33:53.012Z"
+last_activity: 2026-07-16
+last_activity_desc: Phase 09 complete, transitioned to Phase 10
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 20
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 9 — pipeline-extraction-and-supporting-models
+**Current focus:** Phase 09 — pipeline-extraction-supporting-models
 
 ## Current Position
 
-Phase: 9 of 5 in milestone v1.1 (Pipeline Extraction & Supporting Models) — first phase of v1.1, continues numbering after v1.0's Phase 8
-Plan: — (not yet planned)
-Status: Ready to execute
-Last activity: 2026-07-15 — ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
+Phase: 10 — Stdio MCP Server (Thin Tier)
+Plan: Not started
+Status: Phase complete — ready for verification
+Last activity: 2026-07-16 — Phase 09 complete, transitioned to Phase 10
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,7 +39,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 23
+- Total plans completed: 27
 - Average duration: -
 - Total execution time: -
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 | 05 | 4 | - | - |
 | 07 | 3 | - | - |
 | 8 | 4 | - | - |
+| 09 | 4 | - | - |
 
 **Recent Trend:**
 
@@ -76,6 +77,10 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 07-public-repo-audit P03 | 4min | 5 tasks | 3 files |
 | Phase 08-readme-and-loom-refresh P01 | 25min | 2 tasks tasks | 2 files files |
 | Phase 08-readme-and-loom-refresh P03 | 10m | 2 tasks | 3 files |
+| Phase 09-pipeline-extraction-supporting-models P01 | 15min | 2 tasks | 2 files |
+| Phase 09-pipeline-extraction-supporting-models P02 | 12min | 2 tasks | 4 files |
+| Phase 09-pipeline-extraction-supporting-models P03 | 5min | 2 tasks | 2 files |
+| Phase 09-pipeline-extraction-supporting-models P04 | 1min | 1 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -137,6 +142,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 08 Plan 01]: Eval section's (populated after first run) code-block placeholder replaced with a one-line headline number reusing the proof-bullet phrasing for consistency per Claude's Discretion in 08-CONTEXT.md.
 - [Phase ?]: [Phase 08 Plan 03]: README Plan-01 scaffold's inline-[N] citation claim did not match shipping implementation; Plan 03 rewrote the citations paragraph plus three adjacent surfaces to describe per-claim cited_indices metadata + rapidfuzz coverage gate + whole-cell HYPERLINK formula
 - [Phase ?]: [Phase 08 Plan 03]: Failure-mode gallery degraded to two captured states with a one-line gap note rather than broken markdown image refs; the four-state prose contract above the gallery stays intact
+- [Phase 09-01]: open_deps yields the existing frozen Deps dataclass verbatim; no new bundle type introduced (D-01) — Callers get a fully self-contained wiring seam without duplicating replay/record/live construction logic; MCP server inherits replay for free
+- [Phase ?]: [Phase 09-02]: RawContext/collect_context promoted to module level (D-05/D-06); Enricher.enrich() delegates internally
+- [Phase ?]: [Phase 09-02]: NullBrowserbase.render() returns None rather than raising BrowserbaseError (D-07 deviation) so it threads through collect_context's existing continue-with-Exa-only branch
+- [Phase 09-03]: from_context takes about_text_min_chars as an explicit keyword arg rather than importing ABOUT_TEXT_MIN_CHARS, avoiding a models.py<->enrich.py import cycle (D-09)
+- [Phase ?]: No code changes required in 09-04 -- all three gates (make test, make typecheck, make lint) passed cleanly on first run against the fully merged Wave-1 changeset
 
 ### Pending Todos
 
@@ -164,9 +174,9 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-16T04:34:26.791Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-pipeline-extraction-supporting-models/09-CONTEXT.md
+Last session: 2026-07-16T17:33:53.004Z
+Stopped at: Phase 10 context gathered
+Resume file: .planning/phases/10-stdio-mcp-server-thin-tier/10-CONTEXT.md
 
 ## Operator Next Steps
 
