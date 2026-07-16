@@ -258,9 +258,7 @@ def test_pack_from_context_keeps_first_ten_valid_news_in_source_order() -> None:
     assert [str(item.citation.url) for item in pack.news] == [
         str(item.citation.url) for item in valid_news[:NEWS_ITEM_MCP_CAP]
     ]
-    assert [item.index for item in pack.justifications] == list(
-        range(1, NEWS_ITEM_MCP_CAP + 1)
-    )
+    assert [item.index for item in pack.justifications] == list(range(1, NEWS_ITEM_MCP_CAP + 1))
 
 
 def test_pack_from_context_returns_honest_empty_pack_when_no_provenance_can_fit() -> None:

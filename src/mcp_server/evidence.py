@@ -151,9 +151,7 @@ def pack_from_context(ctx: RawContext) -> EvidencePack:
     about_citations = tuple(
         citation for citation in ctx.about_citations if _url_within_cap(citation)
     )
-    valid_news = tuple(
-        item for item in ctx.news_items if _url_within_cap(item.citation)
-    )
+    valid_news = tuple(item for item in ctx.news_items if _url_within_cap(item.citation))
     news = valid_news[:NEWS_ITEM_MCP_CAP]
     about_text = _truncate_words(ctx.about_text, ABOUT_TEXT_MCP_CAP)
     if source_units_present and not about_citations and not news:
