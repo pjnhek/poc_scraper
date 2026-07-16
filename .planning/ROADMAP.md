@@ -76,7 +76,7 @@ Plans:
   4. All server logging routes to stderr so stdio JSON-RPC is never contaminated
   5. `make smoke-mcp` runs the stdio server as a real subprocess against one live domain and asserts non-empty numbered justifications, skipped in CI
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans complete
 
 Plans:
 
@@ -98,7 +98,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 10-05-PLAN.md — Final gap closure: preserve later valid evidence and reject residual malformed domain forms
+- [x] 10-05-PLAN.md — Final gap closure: preserve later valid evidence and reject residual malformed domain forms
 
 **Note**: First phase exercising the `mcp` SDK — verify the `ToolError` import path and confirm the lifespan-runs-once-per-process guarantee before building on it (research flag). [RESOLVED by 10-RESEARCH.md: `ToolError` lives at `mcp.server.fastmcp.exceptions` but plain exceptions suffice; lifespan-once-per-process confirmed against mcp==1.28.1 source.]
 
@@ -160,7 +160,7 @@ Plans:
 | 7. Public-Repo Audit       | v1.0 | 3/3 | Complete | 2026-05-27 |
 | 8. README and Loom Refresh | v1.0 | 4/4 | Complete | 2026-07-15 |
 | 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
-| 10. Stdio MCP Server (Thin Tier) | v1.1 | 4/5 | In Progress|  |
+| 10. Stdio MCP Server (Thin Tier) | v1.1 | 5/5 | Complete    | 2026-07-16 |
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/TBD | Not started | - |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
 | 13. Hosted Deploy & Docs Close | v1.1 | 0/TBD | Not started | - |

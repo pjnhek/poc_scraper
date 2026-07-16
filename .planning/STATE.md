@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
-current_phase: 10
-current_phase_name: stdio-mcp-server-thin-tier
+current_phase: 11
+current_phase_name: Rate Limits & Streamable HTTP Transport
 status: executing
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-07-16T21:07:57.228Z"
+stopped_at: Completed 10-05-PLAN.md
+last_updated: "2026-07-16T21:43:06.368Z"
 last_activity: 2026-07-16
-last_activity_desc: Phase 10 gap closure planned
+last_activity_desc: Phase 10 complete, transitioned to Phase 11
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 9
+  completed_plans: 9
   percent: 40
 ---
 
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 ## Current Position
 
-Phase: 10 (stdio-mcp-server-thin-tier) — EXECUTING
-Plan: 4 of 5
+Phase: 11 — Rate Limits & Streamable HTTP Transport
+Plan: Not started
 Status: Ready to execute
-Last activity: 2026-07-16 — Phase 10 gap closure planned
+Last activity: 2026-07-16 — Phase 10 complete, transitioned to Phase 11
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,7 +39,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 27
+- Total plans completed: 32
 - Average duration: -
 - Total execution time: -
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 | 07 | 3 | - | - |
 | 8 | 4 | - | - |
 | 09 | 4 | - | - |
+| 10 | 5 | - | - |
 
 **Recent Trend:**
 
@@ -85,6 +86,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10 P02 | 6min | 3 tasks | 8 files |
 | Phase 10 P3 | 1h13m | 2 tasks | 2 files |
 | Phase 10 P4 | 10min | 2 tasks | 5 files |
+| Phase 10 P5 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -159,6 +161,8 @@ Recent decisions affecting current work:
 - [Phase 10]: Codex substituted for Claude Code in the real-client checkpoint after Claude session quota exhaustion — The user explicitly approved the substitution; Codex exercised the same local stdio MCP process with valid-invalid-valid calls and no fallback tools.
 - [Phase 10]: Citation URLs are indivisible provenance; over-limit evidence units are dropped rather than rewritten.
 - [Phase 10]: Account accepts only bare hostnames or root HTTP(S) URLs and validates ASCII DNS labels before retrieval.
+- [Phase 10]: Filter indivisible invalid news provenance before applying NEWS_ITEM_MCP_CAP. — Rejected evidence units must not consume the client-visible count allowance.
+- [Phase 10]: Keep Account as the sole domain boundary with standard-library IP and exact IDNA validation plus constant invalid-domain errors. — One shared boundary prevents provider calls and bounded wording prevents raw-input reflection.
 
 ### Pending Todos
 
@@ -186,8 +190,8 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-16T21:07:39.713Z
-Stopped at: Completed 10-04-PLAN.md
+Last session: 2026-07-16T21:38:08.809Z
+Stopped at: Completed 10-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
