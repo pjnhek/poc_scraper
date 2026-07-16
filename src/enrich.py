@@ -25,10 +25,47 @@ FIRMOGRAPHICS_SYSTEM = (
 
 
 @dataclass(frozen=True)
-class _RawContext:
+class RawContext:
     about_text: str
     about_citations: list[Citation]
     news_items: list[NewsItem]
+
+
+async def collect_context(
+    account: Account, *, exa: ExaLike, browserbase: BrowserbaseLike
+) -> RawContext:
+    about_results = await exa.search_about(account.domain)
+    about_text, about_citations = _gather_about_text(about_results)
+
+    if len(about_text) < ABOUT_TEXT_MIN_CHARS and about_results:
+        rendered = await browserbase.render(about_results[0].url)
+        if rendered is not None:
+            stripped = _strip_html(rendered.html)
+            if len(stripped) > len(about_text):
+                about_text = stripped[:6000]
+                if not any(str(c.url) == rendered.url for c in about_citations):
+                    about_citations.append(Citation.make(url=rendered.url, source="browserbase"))
+
+    news_results = await exa.search_news(account.domain)
+    news_items = [_to_news_item(r) for r in news_results if r.snippet]
+
+    return RawContext(
+        about_text=about_text,
+        about_citations=about_citations,
+        news_items=news_items,
+    )
+
+
+def _gather_about_text(results: list[ExaResult]) -> tuple[str, list[Citation]]:
+    chunks: list[str] = []
+    citations: list[Citation] = []
+    for r in results:
+        if r.snippet:
+            chunks.append(r.snippet)
+            citations.append(
+                Citation.make(url=r.url, title=r.title, snippet=r.snippet, source="exa")
+            )
+    return ("\n\n".join(chunks).strip(), citations)
 
 
 class Enricher:
@@ -43,7 +80,7 @@ class Enricher:
         self._llm = llm
 
     async def enrich(self, account: Account) -> Enrichment:
-        ctx = await self._collect_context(account)
+        ctx = await collect_context(account, exa=self._exa, browserbase=self._browserbase)
         if not ctx.about_text and not ctx.news_items:
             return Enrichment(account=account, news=tuple(ctx.news_items))
 
@@ -60,42 +97,7 @@ class Enricher:
             justifications=justifications,
         )
 
-    async def _collect_context(self, account: Account) -> _RawContext:
-        about_results = await self._exa.search_about(account.domain)
-        about_text, about_citations = self._gather_about_text(about_results)
-
-        if len(about_text) < ABOUT_TEXT_MIN_CHARS and about_results:
-            rendered = await self._browserbase.render(about_results[0].url)
-            if rendered is not None:
-                stripped = _strip_html(rendered.html)
-                if len(stripped) > len(about_text):
-                    about_text = stripped[:6000]
-                    if not any(str(c.url) == rendered.url for c in about_citations):
-                        about_citations.append(
-                            Citation.make(url=rendered.url, source="browserbase")
-                        )
-
-        news_results = await self._exa.search_news(account.domain)
-        news_items = [_to_news_item(r) for r in news_results if r.snippet]
-
-        return _RawContext(
-            about_text=about_text,
-            about_citations=about_citations,
-            news_items=news_items,
-        )
-
-    def _gather_about_text(self, results: list[ExaResult]) -> tuple[str, list[Citation]]:
-        chunks: list[str] = []
-        citations: list[Citation] = []
-        for r in results:
-            if r.snippet:
-                chunks.append(r.snippet)
-                citations.append(
-                    Citation.make(url=r.url, title=r.title, snippet=r.snippet, source="exa")
-                )
-        return ("\n\n".join(chunks).strip(), citations)
-
-    async def _extract_firmographics(self, ctx: _RawContext) -> Firmographics | None:
+    async def _extract_firmographics(self, ctx: RawContext) -> Firmographics | None:
         cached_block = _build_context_block(ctx)
         result = await self._llm.synthesize(
             system=FIRMOGRAPHICS_SYSTEM,
@@ -187,7 +189,7 @@ def _clean_summary(text: str | None) -> str:
     return cut + "…"
 
 
-def _build_context_block(ctx: _RawContext) -> str:
+def _build_context_block(ctx: RawContext) -> str:
     lines = ["<about>", ctx.about_text, "</about>", "", "<news>"]
     for item in ctx.news_items:
         lines.append(f"- [{item.headline}]({item.citation.url}) {item.summary}")
