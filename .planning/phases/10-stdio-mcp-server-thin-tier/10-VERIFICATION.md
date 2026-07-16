@@ -1,33 +1,45 @@
 ---
 phase: 10-stdio-mcp-server-thin-tier
-verified: 2026-07-16T20:24:15Z
+verified: 2026-07-16T21:19:11Z
 status: gaps_found
 score: 6/8 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 6/8
+  gaps_closed:
+    - "The original nested Citation snippet and NewsItem summary payload-cap bypass is closed by MCP-safe frozen copies and an exact 24000-byte UTF-8 serialization ceiling"
+  gaps_remaining:
+    - "MCP-01 remains partial because invalid provenance is filtered after the ten-item news slice, so later valid cited news can be discarded and retrieval_status can become falsely empty"
+    - "MCP-07 remains partial because empty query/fragment delimiters, IPv4 literals, and invalid IDNA A-labels are accepted and reach Exa"
+  regressions: []
 gaps:
-  - truth: "Calling get_account_evidence returns numbered, cited structured evidence whose evidence text is capped at the MCP boundary"
+  - truth: "Calling get_account_evidence returns numbered, cited structured evidence with an honest retrieval_status and all evidence text capped at the MCP boundary"
     status: partial
-    reason: "about_text, justification summaries, and news count are capped, but nested Citation.snippet values and NewsItem.summary values survive unchanged and can dominate the serialized payload"
+    reason: "The byte and nested-text caps now hold, but pack_from_context slices news to ten before removing over-limit provenance. Ten invalid URL units followed by a valid eleventh produce an empty pack instead of the available cited evidence."
     artifacts:
       - path: "src/mcp_server/evidence.py"
-        issue: "pack_from_context reuses original Citation and NewsItem objects after capping only the top-level about text and Justification.summary"
+        issue: "pack_from_context applies ctx.news_items[:NEWS_ITEM_MCP_CAP] before _url_within_cap filtering"
       - path: "tests/unit/test_evidence.py"
-        issue: "tests never assert nested snippet or news-summary caps, nor a maximum serialized EvidencePack size"
+        issue: "No regression covers over-limit news before a later valid item"
     missing:
-      - "Build MCP-safe copies of every nested Citation and NewsItem, removing or explicitly capping Citation.snippet and capping NewsItem.summary"
-      - "Add a regression test covering every evidence-text path plus a defensible maximum serialized payload size"
+      - "Filter over-limit news units first while preserving relative order, then take the first NEWS_ITEM_MCP_CAP retained units"
+      - "Add a regression with ten over-limit items followed by one safe item and assert the safe item, sequential numbering, and non-empty honest status"
   - truth: "Invalid domains surface as sanitized isError tool results before any provider request"
     status: partial
-    reason: "the Account boundary rejects spaces and missing dots but accepts paths, queries, empty labels, leading hyphens, control characters, and overlength hostnames"
+    reason: "The named malformed families from the first verification are rejected, but empty query/fragment delimiters, IPv4 literals, and invalid IDNA A-labels still normalize successfully and trigger Exa calls."
     artifacts:
       - path: "src/models.py"
-        issue: "Account._normalize_domain is not a hostname validator and accepts malformed untrusted MCP input"
+        issue: "urlsplit value checks miss empty ?/# syntax; DNS_LABEL accepts numeric IP literals and does not validate xn-- labels by IDNA round-trip"
+      - path: "tests/unit/test_models.py"
+        issue: "The malformed-host matrix omits empty delimiters, IP literals, and invalid A-labels"
       - path: "tests/functional/test_mcp_server.py"
-        issue: "the invalid-domain test covers only the literal value 'not a domain' and does not prove malformed hostnames are rejected before Exa is called"
+        issue: "The zero-provider-call matrix omits the residual accepted forms"
     missing:
-      - "Normalize supported HTTP(S) input to a hostname and reject paths, queries, fragments, userinfo, control characters, invalid labels, and overlength hostnames"
-      - "Add unit and in-memory MCP tests proving malformed inputs return isError true without calling the provider"
+      - "Reject query/fragment delimiter syntax even when its parsed value is empty"
+      - "Reject IP literals and require xn-- labels to pass standard-library IDNA decode and round-trip validation"
+      - "Add unit and in-memory MCP regressions proving each form returns isError true with zero Exa calls"
 deferred:
   - truth: "MCP-07 annotations and error semantics also apply to research_account_full"
     addressed_in: "Phase 12"
@@ -37,9 +49,9 @@ deferred:
 # Phase 10: Stdio MCP Server (Thin Tier) Verification Report
 
 **Phase Goal:** A local user can run the thin-tier MCP server over stdio and connect a real MCP client to retrieve grounded, cited account evidence.
-**Verified:** 2026-07-16T20:24:15Z
+**Verified:** 2026-07-16T21:19:11Z
 **Status:** gaps_found
-**Re-verification:** No, initial verification
+**Re-verification:** Yes, after plan 10-04 gap closure
 
 ## Goal Achievement
 
@@ -47,94 +59,112 @@ deferred:
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | A local user can run `make mcp`, connect a real MCP client over stdio, and retrieve cited evidence | VERIFIED | `Makefile:16-17` launches `python -m src.mcp_server`. The user-approved Codex client used only the configured MCP tool and received `retrieval_status=ok`, 1,974 characters of about text, and 13 sequential justifications with 13 non-empty URLs. The invalid call was followed by another successful valid call. The approved design names Codex among the intended MCP clients (`docs/superpowers/specs/2026-07-15-mcp-server-design.md:8`), so the substitution satisfies the real-client transport purpose while not claiming Claude Code-specific testing. |
-| 2 | `get_account_evidence` returns numbered, cited structured JSON with honest status and all evidence text capped at the MCP boundary | FAILED | The structured model and visible caps exist, but `src/mcp_server/evidence.py:30-46` preserves raw nested citations and news. A production-equivalent crafted context serialized to 43,810 bytes with 2,000-character about citation snippets, 1,500-character news citation snippets, and 500-character news summaries. |
-| 3 | Capability tier resolves correctly and is logged once at startup | VERIFIED | `src/config.py:183-201` implements missing-Exa failure, demo-forced thin, and full-tier key gating. `src/mcp_server/__main__.py:21-25` calls `resolve_and_log_tier` once before server run. Thin and full named tests passed. |
-| 4 | Invalid domains, provider failures, and unexpected exceptions become sanitized `isError: true` tool results | FAILED | Provider and unexpected exception paths pass (`src/mcp_server/server.py:61-70`; named functional tests passed), and `not a domain` is sanitized. However `src/models.py:27-34` accepts malformed path, query, control-character, invalid-label, and overlength inputs, so those invalid domains proceed to retrieval instead of the promised invalid-domain result. |
-| 5 | The evidence tool advertises read-only, non-destructive annotations and the `[N]` citation contract | VERIFIED | `src/mcp_server/server.py:41-49,73-80` registers the typed tool with both hints and a citation-contract description. `test_annotations_and_description_over_the_wire` passed. |
-| 6 | Logging stays on stderr and real stdio JSON-RPC framing remains clean | VERIFIED | `src/mcp_server/__main__.py:1-18` configures root logging to stderr before project imports; no `print(` call exists under `src/mcp_server`. Both the real subprocess smoke and the configured Codex client completed MCP initialization/tool calls, which would fail on stdout contamination. |
-| 7 | `make smoke-mcp` uses a real subprocess, succeeds live once, skips without Exa, and stays outside the offline suite | VERIFIED | `tests/smoke/test_mcp_e2e.py:35-60` uses `stdio_client` with `python -m src.mcp_server`; `Makefile:33-40` separates offline and opt-in targets. The prior live notion.so run is recorded as passing. Independent verifier run with `EXA_API_KEY=` produced one clean skip; collection found the smoke test under the registered marker. |
-| 8 | The MCP SDK, EvidencePack wire field, and thin-tier server artifacts are substantive, wired, and pass offline gates | VERIFIED | `mcp==1.28.1` imports from the lockfile; `EvidencePack.about_text` is stored and serialized (`src/models.py:178-205`); all plan artifact and key-link queries passed. The orchestrator's closeout gates recorded 357 offline tests, strict mypy, Ruff, and Black green; verifier spot-checks added 9 passing named tests. |
+| 1 | A local user can run `make mcp`, connect a real MCP client over stdio, and retrieve cited evidence | VERIFIED | Quick regression check: `Makefile` still launches `python -m src.mcp_server`; the existing user-approved Codex valid-invalid-valid session remains the real-client proof and was not repeated. |
+| 2 | `get_account_evidence` returns numbered, cited structured JSON with honest status and all evidence text capped at the MCP boundary | FAILED | The original cap bypass is closed: nested citation title/snippet fields are cleared, text fields are bounded, and exact UTF-8 serialization is limited to 24,000 bytes. However, ten over-limit news URLs followed by one valid item produce `retrieval_status="empty"`, zero news, and zero justifications because filtering occurs after the ten-item slice. |
+| 3 | Capability tier resolves correctly and is logged once at startup | VERIFIED | Quick regression check: `src/config.py` tier logic and `src/mcp_server/__main__.py` startup call remain wired; the orchestrator-confirmed offline suite includes the thin/full/demo/missing-key tests. |
+| 4 | Invalid domains, provider failures, and unexpected exceptions become sanitized `isError: true` tool results before provider access | FAILED | Provider and unexpected-exception handling remain wired, and 12 malformed-domain cases pass with zero Exa calls. Independent in-memory probes show `example.com?`, `127.0.0.1`, and invalid A-label `xn--a.example` return `isError=False` and each trigger both Exa calls. |
+| 5 | The evidence tool advertises read-only, non-destructive annotations and the `[N]` citation contract | VERIFIED | Quick regression check: annotations and tool description remain registered in `src/mcp_server/server.py`; the relevant functional test remains present and included in the green offline suite. |
+| 6 | Logging stays on stderr and real stdio JSON-RPC framing remains clean | VERIFIED | Quick regression check: stderr-first entrypoint remains unchanged and `src/mcp_server` still has no `print(` call. Existing subprocess and Codex client transport evidence remains valid. |
+| 7 | `make smoke-mcp` uses a real subprocess, succeeds live once, skips without Exa, and stays outside the offline suite | VERIFIED | Quick regression check: the smoke file and Make target remain wired. The paid live smoke was intentionally not rerun; prior live and no-key skip evidence remains unchanged. |
+| 8 | The MCP SDK, EvidencePack wire field, and thin-tier server artifacts are substantive, wired, and pass offline gates | VERIFIED | All four artifact queries passed (17/17 artifacts) and all four key-link queries passed (11/11 links). The orchestrator reports 398 tests passed with 3 smoke tests deselected, strict mypy clean, Ruff clean, and Black clean. |
 
 **Score:** 6/8 truths verified
+
+### Prior Gap Closure
+
+| Prior Gap | Re-verification Result | Evidence |
+|---|---|---|
+| Nested evidence text bypassed MCP caps | CLOSED | `src/mcp_server/evidence.py:54-146` creates safe frozen copies and measures final UTF-8 JSON bytes. Three focused evidence tests passed, including multibyte/escaping and indivisible URL cases. |
+| Malformed hostnames reached Exa | REMAINS PARTIAL | The original path/query-value/fragment-value/userinfo/port/control/label-length matrix now passes with zero calls, but empty delimiters, IP literals, and invalid A-labels remain accepted and wired to Exa. |
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `pyproject.toml` / `uv.lock` | Official MCP SDK dependency | VERIFIED | Pin is `mcp>=1.28,<2.0`; lock resolves 1.28.1; FastMCP and ToolAnnotations import. |
-| `src/models.py` | EvidencePack wire model and Account input model | PARTIAL | EvidencePack is substantive and wired. Account validation is too permissive for the MCP trust boundary. |
-| `src/config.py` | MCP tier resolver | VERIFIED | Thin, full, demo-forced thin, and missing-Exa behavior are implemented and tested. |
-| `src/mcp_server/evidence.py` | Boundary composition and caps | PARTIAL | Real data flows, but nested citation/news evidence text is not boundary-sanitized. |
-| `src/mcp_server/wiring.py` | Thin lifespan and provider clients | VERIFIED | One shared HTTP client, Exa client, key-aware Browserbase fallback, and no LLM wiring. |
-| `src/mcp_server/server.py` | FastMCP tool, annotations, and error translation | PARTIAL | Tool wiring and known error sanitization work; malformed domains pass the validation branch. |
-| `src/mcp_server/__main__.py` | Stderr-first stdio entrypoint | VERIFIED | Tier resolution, server construction, and async stdio run are wired. |
-| `tests/unit/test_evidence.py` | Evidence boundary regression coverage | PARTIAL | Visible caps/status are tested, but nested text and total payload size are not. |
-| `tests/functional/test_mcp_server.py` | In-memory MCP behavior | PARTIAL | Happy/error/annotation/tier paths pass; malformed hostname-shaped arguments are uncovered. |
-| `tests/smoke/test_mcp_e2e.py` | Real subprocess smoke | VERIFIED | Real stdio subprocess, initialization, structured result, status, numbering, and URLs are asserted. |
-| `Makefile` | `mcp` and `smoke-mcp` entry points | VERIFIED | Both targets point to the intended module/test. |
+| `src/mcp_server/evidence.py` | Complete MCP boundary composition and exact byte cap | PARTIAL | Nested fields and final serialization are bounded, but cap-before-filter ordering can discard later safe news. |
+| `tests/unit/test_evidence.py` | Adversarial boundary regressions | PARTIAL | Original payload gap is well covered; later-safe-news ordering is not. |
+| `src/models.py` | Strict shared domain normalization | PARTIAL | Most malformed inputs are rejected, but residual non-domain forms pass. |
+| `tests/unit/test_models.py` | Valid/invalid hostname matrix | PARTIAL | Omits empty delimiters, IP literals, and invalid A-labels. |
+| `tests/functional/test_mcp_server.py` | MCP errors before provider access | PARTIAL | Twelve malformed cases prove zero calls; residual accepted forms are uncovered. |
+| `src/mcp_server/server.py` | FastMCP tool, annotations, and error translation | VERIFIED | Account construction still precedes lifespan access and retrieval; provider and unexpected errors use fixed client messages. |
+| `src/mcp_server/wiring.py` | Thin-tier provider lifespan | VERIFIED | Shared client and key-aware Browserbase selection remain substantive and wired. |
+| `src/mcp_server/__main__.py` | Stderr-first stdio entrypoint | VERIFIED | Tier resolution, server construction, and async stdio run remain wired. |
+| `tests/smoke/test_mcp_e2e.py` / `Makefile` | Opt-in real-subprocess transport gate | VERIFIED | Artifact and key-link queries pass; no paid rerun was needed for this code-only gap closure. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `src/mcp_server/__main__.py` | `src/mcp_server/server.py` | startup tier resolution and `build_server` | WIRED | Logging is configured before project imports; main calls both once. |
-| `src/mcp_server/server.py` | `src/mcp_server/evidence.py` | `get_account_evidence` awaits `build_evidence_pack` | WIRED | Tool returns the typed EvidencePack directly. |
-| `src/mcp_server/evidence.py` | `src/enrich.py` | `collect_context`, `_number_justifications`, shared status threshold | WIRED | Real Exa/Browserbase context flows into the pack. Boundary copy is incomplete. |
-| `src/mcp_server/wiring.py` | Exa/Browserbase clients | lifespan dependency construction | WIRED | Thin tier uses Exa and optional Browserbase without LLM clients. |
-| `Makefile` | `tests/smoke/test_mcp_e2e.py` | `smoke-mcp` target | WIRED | Opt-in target invokes the exact subprocess smoke module. |
+| `src/mcp_server/server.py` | `src/mcp_server/evidence.py` | tool delegates to `build_evidence_pack` | WIRED | Tool reaches real retrieval and packing code. |
+| `src/mcp_server/evidence.py` | `src/enrich.py` | `collect_context`, shared numbering, shared status threshold | PARTIAL | Real data flows, but news filtering order can hide later valid evidence. |
+| `src/mcp_server/server.py` | `src/models.py` | constructs `Account` before retrieval | WIRED | This correct wiring makes the residual validator acceptance observable as provider calls. |
+| `tests/functional/test_mcp_server.py` | `FakeExa.calls` | proves boundary rejection before provider use | PARTIAL | Wired and passing for listed cases, but residual accepted forms are absent. |
+| `src/mcp_server/__main__.py` | server and lifespan | startup resolution and stdio run | WIRED | Unchanged quick regression pass. |
+| `Makefile` | smoke test | `smoke-mcp` target | WIRED | Unchanged quick regression pass. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |---|---|---|---|---|
-| `get_account_evidence` | `EvidencePack` | `Account` -> lifespan deps -> `collect_context` -> `pack_from_context` | Yes, Exa plus optional Browserbase | PARTIAL: real data flows, but raw nested evidence text survives the MCP boundary |
-| `test_mcp_e2e.py` | `structuredContent` | real child process and live Exa call | Yes | FLOWING |
+| `get_account_evidence` | `EvidencePack` | `Account` -> lifespan deps -> `collect_context` -> `pack_from_context` | Yes, Exa plus optional Browserbase | PARTIAL: real data and hard size bounds hold, but valid later news can be lost before packing. |
+| Domain error path | tool argument -> `Account` -> Exa | MCP client input | Yes | PARTIAL: many invalid forms stop before Exa, but the residual forms normalize and cross the provider boundary. |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Visible caps, structured result, sanitized errors, annotations, tier logs | Nine named unit/functional pytest nodes | 9 passed in 0.54s | PASS |
-| No-key smoke behavior | `EXA_API_KEY= pytest ...::test_stdio_server_returns_live_evidence` | 1 skipped with the expected reason | PASS |
-| Serialized boundary ceiling | Crafted production-equivalent `RawContext` -> `pack_from_context` -> `model_dump_json` | 43,810 bytes; nested snippets remained at 2,000/1,500 chars; news summaries remained at 500 | FAIL |
-| Malformed domain rejection | Construct `Account` for path, query, empty-label, leading-hyphen, newline, tab, and overlength values | All seven values were accepted | FAIL |
-| MCP SDK availability | Import installed SDK and print version | `mcp 1.28.1 imports ok` | PASS |
+| Original nested payload-cap gap | Three focused `tests/unit/test_evidence.py` nodes | 3 passed | PASS |
+| Original malformed-domain families stop before Exa | `test_invalid_domain_sanitized_error_before_provider_access` | 12 parameter cases passed; combined focused run was 15 passed | PASS |
+| Empty delimiter, IPv4, and invalid A-label rejection | Direct `Account` plus in-memory MCP probes | All accepted; each MCP call returned `isError=False` and recorded `about:` plus `news:` Exa calls | FAIL |
+| Preserve valid cited news after invalid provenance | Crafted `RawContext` with ten over-limit URLs then one safe URL | `retrieval_status='empty'`, zero news, zero justifications | FAIL |
+| Invalid-domain error response size | One-million-character invalid input | Pydantic validator message length 1,000,031 characters | WARNING: unbounded client-input reflection, but not an independent failure of MCP-07's isError/no-provider contract |
+| Offline regression gates | Orchestrator's full suite, strict mypy, Ruff, Black | 398 passed/3 deselected; all static gates clean | PASS |
 
 ### Probe Execution
 
-No phase probe scripts were declared or discovered. The smoke test is a pytest transport test, not a GSD probe script.
+No phase probe scripts were declared or discovered. The paid live MCP smoke was not rerun during this code-only re-verification.
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
-|---|---|---|---|---|
-| MCP-01 | 10-01, 10-02 | Numbered, cited structured evidence with honest status and boundary caps | BLOCKED | Structured evidence/status work; nested evidence text bypasses the intended boundary cap. |
-| MCP-06 | 10-01, 10-02 | Resolve tier once and log it | SATISFIED | Source wiring plus passing thin/full/demo/missing-key tests. |
-| MCP-07 | 10-02 | Tool annotations and domain failures as tool errors | BLOCKED | Current tool annotations and provider-error translation pass, but malformed domain inputs are accepted. The future full tool portion is recorded as deferred to Phase 12. |
-| HOST-01 | 10-02, 10-03 | Run over stdio, stderr logging, real client connection | SATISFIED | Real Codex stdio client valid-invalid-valid sequence; design explicitly includes Codex as an intended client. This does not claim Claude Code-specific testing. |
-| TEST-02 | 10-03 | Opt-in live subprocess smoke, skipped in CI | SATISFIED | Real subprocess test and Make target exist; live run recorded passing; independent no-key skip passed. |
+| Requirement | Source Plan | Status | Evidence |
+|---|---|---|---|
+| MCP-01 | 10-01, 10-02, 10-04 | BLOCKED | Exact byte/nested-text caps pass, but valid cited news can be discarded before the cap and status can become falsely empty. |
+| MCP-06 | 10-01, 10-02 | SATISFIED | Tier implementation and startup wiring unchanged; offline tests green. |
+| MCP-07 | 10-02, 10-04 | BLOCKED | Most malformed inputs stop before Exa, but residual empty-delimiter/IP/invalid-A-label forms reach Exa. The future full-tool portion remains deferred to Phase 12. |
+| HOST-01 | 10-02, 10-03 | SATISFIED | Existing real Codex stdio client proof and stderr-only source wiring remain valid. |
+| TEST-02 | 10-03 | SATISFIED | Real subprocess smoke remains present, wired, opt-in, and previously passed live. |
 
-All five Phase 10 requirement IDs appear in plan frontmatter. No Phase 10 requirement is orphaned.
+All five Phase 10 requirement IDs appear in plan frontmatter. No requirement is orphaned.
+
+### Independent Review-Warning Assessment
+
+| Review Finding | Verifier Classification | Must-Have Impact |
+|---|---|---|
+| Empty delimiters, IP literals, invalid A-labels accepted | BLOCKER | Directly falsifies the invalid-domain-before-provider truth and MCP-07. |
+| Complete invalid input reflected in error text | WARNING | A real context-budget/DoS weakness. It does not independently falsify the explicit Phase 10 requirement, which requires sanitized `isError` results and no provider call; the echoed value is client-supplied rather than an internal diagnostic. Fixing it alongside the domain gap is recommended. |
+| News sliced before provenance filtering | BLOCKER | Falsifies MCP-01's honest evidence/status truth for a valid later evidence unit and contradicts plan 10-04's filter-then-cap contract. |
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |---|---|---|---|---|
-| `src/mcp_server/evidence.py` | 30-46 | Reuses raw nested evidence models across a trust boundary | BLOCKER | Violates MCP-01 boundary-cap contract and allows oversized agent-context payloads. |
-| `src/models.py` | 27-34 | Weak hostname validation at untrusted MCP input boundary | WARNING with blocking truth impact | Malformed inputs can consume provider calls and inject control characters into logs instead of returning invalid-domain results. |
+| `src/mcp_server/evidence.py` | 155-157 | Applies count cap before validity filter | BLOCKER | Valid cited evidence after invalid units is never considered, yielding a false empty result. |
+| `src/models.py` | 43-80 | Parser checks parsed values but not empty delimiter syntax; hostname regex is not an IP/IDNA validity check | BLOCKER | Malformed/non-domain inputs reach the paid provider boundary. |
+| `src/models.py` | 31-34 | Reflects complete invalid input in the client-visible error | WARNING | A one-million-character input creates an approximately one-million-character error result. |
 
-No unreferenced `TBD`, `FIXME`, or `XXX` debt markers were found in Phase 10 source/test files. No placeholder implementation or stdout `print` call was found.
+No unreferenced `TBD`, `FIXME`, or `XXX` markers, placeholder implementations, or stdout `print` calls were found in the Phase 10 source/test surface.
 
 ### Human Verification Required
 
-None remaining. The external real-client checkpoint was completed by the user with an explicitly approved Codex substitution. The verifier did not repeat the paid live Exa smoke; the existing live-run record and the separate real-client valid-invalid-valid sequence are recorded with that limitation.
+None. Existing real-client transport evidence remains sufficient, and both remaining blockers are deterministic offline behaviors.
 
 ### Gaps Summary
 
-Phase 10 has a functioning stdio MCP server and genuine real-client interoperability, but it is not complete against its own boundary contracts. The evidence pack must sanitize every nested evidence-text path before serialization, and the MCP input boundary must reject malformed domains before provider access. These gaps are not covered by a later phase's goal or success criteria, so they remain actionable Phase 10 gaps.
+Plan 10-04 closes the original serialized-payload bypass, but Phase 10 still has two requirement-level gaps. Evidence filtering must occur before the count cap so later valid citations are not lost, and the shared Account boundary must reject empty URL delimiters, IP literals, and invalid A-labels before Exa. The unbounded invalid-input reflection is a non-blocking warning that should be fixed in the same small boundary pass. No later phase explicitly owns the two blockers, so neither is deferred.
+
+Tracking note: ROADMAP.md and REQUIREMENTS.md currently mark Phase 10 complete, but this re-verification result is `gaps_found`; closeout tracking should not advance until the structured gaps above are planned, executed, and re-verified.
 
 ---
 
-_Verified: 2026-07-16T20:24:15Z_
+_Verified: 2026-07-16T21:19:11Z_
 _Verifier: the agent (gsd-verifier, generic-agent compatibility workaround)_
