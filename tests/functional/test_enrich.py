@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src.clients.browserbase_client import RenderedPage
+from src.clients.browserbase_client import NullBrowserbase, RenderedPage
 from src.clients.exa_client import ExaResult
 from src.clients.nvidia_client import LLMResponse
-from src.enrich import Enricher
+from src.enrich import Enricher, RawContext, collect_context
 from src.models import Account
 
 
@@ -249,3 +249,13 @@ async def test_news_only_no_about_still_returns_news() -> None:
     assert enr.is_empty is False
     assert enr.firmographics is None
     assert len(enr.news) == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_context_threads_null_browserbase_through_exa_only_continue() -> None:
+    exa = FakeExa(about=[_exa_about(text="short")], news=[])
+
+    ctx = await collect_context(Account(domain="x.com"), exa=exa, browserbase=NullBrowserbase())
+
+    assert isinstance(ctx, RawContext)
+    assert ctx.about_text == "short"

@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from src.clients.browserbase_client import BROWSERBASE_BASE_URL, BrowserbaseClient
+from src.clients.browserbase_client import BROWSERBASE_BASE_URL, BrowserbaseClient, NullBrowserbase
 
 
 @pytest.mark.asyncio
@@ -81,3 +81,8 @@ async def test_render_honors_retry_after_seconds(monkeypatch: pytest.MonkeyPatch
     assert page is not None
     assert route.call_count == 2
     assert 2.0 in sleeps
+
+
+@pytest.mark.asyncio
+async def test_null_browserbase_render_returns_none() -> None:
+    assert await NullBrowserbase().render("https://x.com/about") is None

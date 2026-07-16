@@ -82,3 +82,19 @@ class BrowserbaseClient:
         if not html:
             raise BrowserbaseError(f"empty rendered content for {url}")
         return RenderedPage(url=url, html=html, status_code=resp.status_code)
+
+
+class NullBrowserbase:
+    """No-op BrowserbaseLike client: renders nothing, satisfies the protocol structurally.
+
+    Deliberately deviates from the design spec (D-07): render() always returns
+    None rather than raising BrowserbaseError. The catch-and-continue path for
+    a blocked/disabled render lives inside BrowserbaseClient.render's own
+    try/except, not in collect_context. A raising null object would propagate
+    into process_account's enrich except clause and mark the whole account
+    unscoreable, the opposite of the intended Exa-only continue.
+    """
+
+    async def render(self, url: str) -> RenderedPage | None:
+        log.info("browserbase disabled: skipping render for %s", url)
+        return None
