@@ -16,7 +16,9 @@ def _citation(url: str, title: str | None = "About") -> Citation:
 
 
 def _news(url: str, headline: str = "Headline") -> NewsItem:
-    return NewsItem(headline=headline, summary="summary text", citation=Citation.make(url=url, source="exa"))
+    return NewsItem(
+        headline=headline, summary="summary text", citation=Citation.make(url=url, source="exa")
+    )
 
 
 def test_pack_from_context_caps_about_text_over_cap_at_word_boundary() -> None:
