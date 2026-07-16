@@ -105,7 +105,7 @@ def test_pack_from_context_populates_about_text_on_evidence_pack() -> None:
 
 
 def test_pack_from_context_makes_every_nested_evidence_path_mcp_safe() -> None:
-    long_text = ("quoted \\\"value\\\" \\\\ path 🚀 " * 200).strip()
+    long_text = ('quoted \\"value\\" \\\\ path 🚀 ' * 200).strip()
     about_citations = tuple(
         Citation.make(
             url=f"https://example.com/about/{i}",
@@ -162,7 +162,7 @@ def test_pack_from_context_reduces_deterministically_without_rewriting_urls() ->
         Citation.make(url=url, source="exa", title=f"About {i}")
         for i, url in enumerate(near_cap_urls[:5])
     )
-    adversarial_text = ("🚀 \\\"quoted\\\" \\\\ " * 300).strip()
+    adversarial_text = ('🚀 \\"quoted\\" \\\\ ' * 300).strip()
     news_items = tuple(
         NewsItem(
             headline=adversarial_text,
