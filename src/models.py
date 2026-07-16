@@ -189,10 +189,11 @@ class EvidencePack(_Frozen):
         *,
         about_text_min_chars: int,
     ) -> EvidencePack:
+        has_news = bool(news_items)
         status: RetrievalStatus
-        if not about_text and not news_items:
+        if not about_text and not has_news:
             status = "empty"
-        elif len(about_text) < about_text_min_chars:
+        elif len(about_text) < about_text_min_chars and not has_news:
             status = "thin"
         else:
             status = "ok"

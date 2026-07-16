@@ -185,6 +185,12 @@ class TestEvidencePack:
         pack = EvidencePack.from_context("x" * 250, [], (), about_text_min_chars=200)
         assert pack.retrieval_status == "ok"
 
+    def test_ok_when_about_text_thin_but_news_present(self) -> None:
+        cite = Citation(url="https://x.com/news", source="exa")
+        news = [NewsItem(headline="h", summary="s", citation=cite)]
+        pack = EvidencePack.from_context("short text", news, (), about_text_min_chars=200)
+        assert pack.retrieval_status == "ok"
+
     def test_is_frozen_and_rejects_extra_fields(self) -> None:
         pack = EvidencePack(retrieval_status="ok")
         with pytest.raises(ValidationError):
