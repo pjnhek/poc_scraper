@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean verify-public-repo
+.PHONY: install setup-sheet run run-demo mcp eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean verify-public-repo
 
 install:
 	uv sync --extra dev
@@ -12,6 +12,9 @@ run:
 
 run-demo:
 	DEMO_BUNDLE=fixtures/demo-bundle uv run python -m src.pipeline
+
+mcp:
+	uv run python -m src.mcp_server
 
 eval: eval-live
 
