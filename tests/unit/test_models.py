@@ -173,6 +173,20 @@ class TestScoredAccountUnscoreable:
 
 
 class TestEvidencePack:
+    def test_about_text_defaults_to_empty_string(self) -> None:
+        pack = EvidencePack(retrieval_status="ok")
+        assert pack.about_text == ""
+
+    def test_from_context_stores_about_text(self) -> None:
+        pack = EvidencePack.from_context(
+            "some capped text", [], (), about_text_min_chars=200
+        )
+        assert pack.about_text == "some capped text"
+
+    def test_model_dump_includes_about_text(self) -> None:
+        pack = EvidencePack.from_context("x" * 250, [], (), about_text_min_chars=200)
+        assert pack.model_dump()["about_text"] == "x" * 250
+
     def test_empty_when_no_about_text_and_no_news(self) -> None:
         pack = EvidencePack.from_context("", [], (), about_text_min_chars=200)
         assert pack.retrieval_status == "empty"
