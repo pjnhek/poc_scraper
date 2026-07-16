@@ -68,12 +68,12 @@ class TestAccount:
     def test_is_frozen(self) -> None:
         a = Account(domain="notion.so")
         with pytest.raises(ValidationError):
-            a.domain = "linear.app"  # type: ignore[misc]
+            a.domain = "linear.app"
 
 
 class TestCitation:
     def test_requires_http_url_and_source(self) -> None:
-        c = Citation(url="https://example.com/news/x", source="exa")
+        c = Citation.make(url="https://example.com/news/x", source="exa")
         assert str(c.url).startswith("https://")
         with pytest.raises(ValidationError):
             Citation(url="not-a-url", source="exa")  # type: ignore[arg-type]
@@ -94,7 +94,7 @@ class TestEnrichmentEmpty:
         assert e.is_empty is False
 
     def test_not_empty_with_news(self) -> None:
-        cite = Citation(url="https://x.com/news", source="exa")
+        cite = Citation.make(url="https://x.com/news", source="exa")
         n = NewsItem(headline="h", summary="s", citation=cite)
         e = Enrichment(account=Account(domain="x.com"), news=(n,))
         assert e.is_empty is False
@@ -166,14 +166,14 @@ class TestEvalScoreFlag:
 
 class TestJustification:
     def test_index_must_be_positive(self) -> None:
-        cite = Citation(url="https://x.com/a", source="exa")
+        cite = Citation.make(url="https://x.com/a", source="exa")
         with pytest.raises(ValidationError):
             Justification(index=0, summary="s", citation=cite)
         with pytest.raises(ValidationError):
             Justification(index=-1, summary="s", citation=cite)
 
     def test_accepts_valid(self) -> None:
-        cite = Citation(url="https://x.com/a", source="exa")
+        cite = Citation.make(url="https://x.com/a", source="exa")
         j = Justification(index=1, summary="company raised funding", citation=cite)
         assert j.index == 1
         assert j.summary == "company raised funding"
@@ -230,7 +230,7 @@ class TestEvidencePack:
         assert pack.retrieval_status == "ok"
 
     def test_ok_when_about_text_thin_but_news_present(self) -> None:
-        cite = Citation(url="https://x.com/news", source="exa")
+        cite = Citation.make(url="https://x.com/news", source="exa")
         news = [NewsItem(headline="h", summary="s", citation=cite)]
         pack = EvidencePack.from_context("short text", news, (), about_text_min_chars=200)
         assert pack.retrieval_status == "ok"
@@ -238,6 +238,6 @@ class TestEvidencePack:
     def test_is_frozen_and_rejects_extra_fields(self) -> None:
         pack = EvidencePack(retrieval_status="ok")
         with pytest.raises(ValidationError):
-            pack.retrieval_status = "thin"  # type: ignore[misc]
+            pack.retrieval_status = "thin"
         with pytest.raises(ValidationError):
             EvidencePack(retrieval_status="ok", unexpected_field=1)  # type: ignore[call-arg]

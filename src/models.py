@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 class AccountStatus(StrEnum):
@@ -24,14 +28,57 @@ class Account(_Frozen):
     @field_validator("domain")
     @classmethod
     def _normalize_domain(cls, v: str) -> str:
-        v = v.strip().lower()
-        for prefix in ("https://", "http://", "www."):
-            if v.startswith(prefix):
-                v = v[len(prefix) :]
-        v = v.rstrip("/")
-        if not v or " " in v or "." not in v:
-            raise ValueError(f"invalid domain: {v!r}")
-        return v
+        original = v
+
+        def invalid() -> ValueError:
+            return ValueError(f"invalid domain: {original!r}")
+
+        if any(ord(char) <= 31 or ord(char) == 127 for char in original):
+            raise invalid()
+
+        value = original.strip()
+        if not value:
+            raise invalid()
+
+        has_scheme = "://" in value
+        if not has_scheme and value.startswith("//"):
+            raise invalid()
+
+        try:
+            parsed = urlsplit(value if has_scheme else f"//{value}")
+            hostname = parsed.hostname
+            port = parsed.port
+        except ValueError:
+            raise invalid() from None
+
+        if has_scheme and parsed.scheme.lower() not in {"http", "https"}:
+            raise invalid()
+        if not has_scheme and parsed.scheme:
+            raise invalid()
+
+        authority = parsed.netloc.rsplit("@", 1)[-1]
+        if (
+            hostname is None
+            or parsed.username is not None
+            or parsed.password is not None
+            or port is not None
+            or ":" in authority
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
+            raise invalid()
+
+        domain = hostname.lower()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        if domain.endswith(".") or len(domain) > 253 or "." not in domain:
+            raise invalid()
+
+        labels = domain.split(".")
+        if any(not DNS_LABEL.fullmatch(label) for label in labels):
+            raise invalid()
+        return domain
 
 
 class Citation(_Frozen):
