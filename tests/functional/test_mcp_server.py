@@ -101,6 +101,10 @@ async def test_empty_retrieval_is_not_an_error() -> None:
         "example.com/path",
         "example.com?query=yes",
         "example.com#fragment",
+        "example.com?",
+        "example.com#",
+        "https://example.com/?",
+        "https://example.com/#",
         "https://user@example.com",
         "example.com:443",
         "example.com\n",
@@ -110,6 +114,12 @@ async def test_empty_retrieval_is_not_an_error() -> None:
         "trailing-.example",
         f"{'a' * 64}.example",
         f"{'a' * 63}.{'b' * 63}.{'c' * 63}.{'d' * 62}.com",
+        "127.0.0.1",
+        "https://127.0.0.1/",
+        "2001:db8::1",
+        "[2001:db8::1]",
+        "https://[2001:db8::1]/",
+        "xn--a.example",
     ],
 )
 @pytest.mark.asyncio
@@ -125,6 +135,24 @@ async def test_invalid_domain_sanitized_error_before_provider_access(domain: str
     assert "invalid domain" in text
     assert "Traceback" not in text
     assert "/Users/" not in text
+    assert exa.calls == []
+
+
+@pytest.mark.asyncio
+async def test_invalid_domain_error_is_bounded_without_raw_input_reflection() -> None:
+    raw_suffix = "distinctive-raw-suffix.example"
+    domain = f"{'x' * 1_000_000}.{raw_suffix}"
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool("get_account_evidence", {"domain": domain})
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "invalid domain" in text
+    assert len(text.encode("utf-8")) <= 256
+    assert raw_suffix not in text
     assert exa.calls == []
 
 

@@ -43,6 +43,10 @@ class TestAccount:
             "example.com/path",
             "https://example.com/path",
             "example.com?query=yes",
+            "example.com?",
+            "example.com#",
+            "https://example.com/?",
+            "https://example.com/#",
             "https://example.com/#fragment",
             "https://user:secret@example.com/",
             "example.com:443",
@@ -59,6 +63,12 @@ class TestAccount:
             f"{'a' * 63}.{'b' * 63}.{'c' * 63}.{'d' * 62}.com",
             "example.com.",
             "bücher.example",
+            "127.0.0.1",
+            "https://127.0.0.1/",
+            "2001:db8::1",
+            "[2001:db8::1]",
+            "https://[2001:db8::1]/",
+            "xn--a.example",
         ],
     )
     def test_rejects_malformed_hostnames(self, raw: str) -> None:
