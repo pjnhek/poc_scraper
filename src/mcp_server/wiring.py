@@ -8,15 +8,43 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from src.clients.browserbase_client import BrowserbaseClient, NullBrowserbase
-from src.clients.exa_client import ExaClient
+from src.clients.exa_client import ExaClient, ExaResult
 from src.clients.protocols import BrowserbaseLike, ExaLike
 from src.config import Settings
+from src.mcp_server.limits import DemoLimiter
+
+
+class DemoClampedExa:
+    """ExaLike wrapper that caps num_results in demo mode (D-01/D-02/D-03).
+
+    Structural (not inheriting ExaLike), matching the codebase's protocol
+    convention. Clamp semantics are min(), not replace: a caller asking for
+    fewer results than the clamp still gets fewer -- the clamp only caps
+    spend, it never inflates a request.
+    """
+
+    def __init__(self, inner: ExaLike, max_results: int) -> None:
+        self._inner = inner
+        self._max_results = max_results
+
+    async def search_about(self, domain: str, num_results: int = 5) -> list[ExaResult]:
+        return await self._inner.search_about(
+            domain, num_results=min(num_results, self._max_results)
+        )
+
+    async def search_news(
+        self, domain: str, days: int = 90, num_results: int = 8
+    ) -> list[ExaResult]:
+        return await self._inner.search_news(
+            domain, days=days, num_results=min(num_results, self._max_results)
+        )
 
 
 @dataclass(frozen=True)
 class ThinDeps:
     exa: ExaLike
     browserbase: BrowserbaseLike
+    limiter: DemoLimiter | None = None
 
 
 def make_thin_lifespan(
@@ -44,6 +72,20 @@ def make_thin_lifespan(
                 )
             else:
                 bb = NullBrowserbase()
-            yield ThinDeps(exa=exa, browserbase=bb)
+
+            limiter: DemoLimiter | None
+            if settings.mcp_demo_mode:
+                # Demo mode rations and clamps regardless of transport
+                # (D-01/D-02/D-03): the limiter presence, not the transport,
+                # is what downstream code checks.
+                exa = DemoClampedExa(exa, max_results=settings.mcp_demo_exa_results)
+                limiter = DemoLimiter(
+                    ip_limit=settings.mcp_demo_ip_limit,
+                    daily_cap=settings.mcp_demo_daily_cap,
+                )
+            else:
+                limiter = None
+
+            yield ThinDeps(exa=exa, browserbase=bb, limiter=limiter)
 
     return lifespan
