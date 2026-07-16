@@ -95,18 +95,37 @@ async def test_empty_retrieval_is_not_an_error() -> None:
     assert result.structuredContent["retrieval_status"] == "empty"
 
 
+@pytest.mark.parametrize(
+    "domain",
+    [
+        "example.com/path",
+        "example.com?query=yes",
+        "example.com#fragment",
+        "https://user@example.com",
+        "example.com:443",
+        "example.com\n",
+        "example.com\t",
+        "a..example.com",
+        "-leading.example",
+        "trailing-.example",
+        f"{'a' * 64}.example",
+        f"{'a' * 63}.{'b' * 63}.{'c' * 63}.{'d' * 62}.com",
+    ],
+)
 @pytest.mark.asyncio
-async def test_invalid_domain_sanitized_error() -> None:
+async def test_invalid_domain_sanitized_error_before_provider_access(domain: str) -> None:
     exa = FakeExa(about=[], news=[])
     app = build_server(lifespan=_lifespan_factory(exa))
 
     async with create_connected_server_and_client_session(app) as client:
-        result = await client.call_tool("get_account_evidence", {"domain": "not a domain"})
+        result = await client.call_tool("get_account_evidence", {"domain": domain})
 
     assert result.isError is True
     text = result.content[0].text  # type: ignore[union-attr]
     assert "invalid domain" in text
     assert "Traceback" not in text
+    assert "/Users/" not in text
+    assert exa.calls == []
 
 
 @pytest.mark.asyncio

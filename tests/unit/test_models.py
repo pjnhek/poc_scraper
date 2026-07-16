@@ -20,18 +20,50 @@ from src.models import (
 
 
 class TestAccount:
-    def test_normalizes_domain_strips_protocol_and_www(self) -> None:
-        assert Account(domain="https://www.Notion.so/").domain == "notion.so"
-        assert Account(domain="HTTP://Linear.app").domain == "linear.app"
-        assert Account(domain="examplelearnco.com").domain == "examplelearnco.com"
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("example.com", "example.com"),
+            ("HTTP://Linear.app", "linear.app"),
+            ("https://www.Notion.so/", "notion.so"),
+            ("  WWW.Example.com  ", "example.com"),
+            ("xn--bcher-kva.example", "xn--bcher-kva.example"),
+        ],
+    )
+    def test_normalizes_supported_hostname_inputs(self, raw: str, expected: str) -> None:
+        assert Account(domain=raw).domain == expected
 
-    def test_rejects_blank_or_malformed_domain(self) -> None:
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "",
+            "   ",
+            "not a domain",
+            "nodot",
+            "example.com/path",
+            "https://example.com/path",
+            "example.com?query=yes",
+            "https://example.com/#fragment",
+            "https://user:secret@example.com/",
+            "example.com:443",
+            "ftp://example.com",
+            "//example.com",
+            "example.com\n",
+            "example.com\t",
+            "example\x7f.com",
+            "a..example.com",
+            "bad_label.example",
+            "-leading.example",
+            "trailing-.example",
+            f"{'a' * 64}.example",
+            f"{'a' * 63}.{'b' * 63}.{'c' * 63}.{'d' * 62}.com",
+            "example.com.",
+            "bücher.example",
+        ],
+    )
+    def test_rejects_malformed_hostnames(self, raw: str) -> None:
         with pytest.raises(ValidationError):
-            Account(domain="")
-        with pytest.raises(ValidationError):
-            Account(domain="not a domain")
-        with pytest.raises(ValidationError):
-            Account(domain="nodot")
+            Account(domain=raw)
 
     def test_is_frozen(self) -> None:
         a = Account(domain="notion.so")
