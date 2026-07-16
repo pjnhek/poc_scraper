@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-import pytest
 from starlette.requests import Request
 
 from src.mcp_server.limits import (
@@ -154,16 +153,21 @@ async def test_refused_call_consumes_neither_counter() -> None:
 
 
 async def test_daily_cap_refusal_does_not_consume_per_ip_allowance() -> None:
-    t0 = datetime(2026, 7, 16, 23, 59, tzinfo=UTC)
+    t0 = datetime(2026, 7, 16, 23, 58, tzinfo=UTC)
     clock = FakeClock(t0)
-    limiter = DemoLimiter(ip_limit=5, daily_cap=1, clock=clock)
+    limiter = DemoLimiter(ip_limit=5, daily_cap=6, clock=clock)
 
-    assert (await limiter.check_and_consume("203.0.113.1")).allowed
+    # Exhaust the day's global budget from six other IPs so the target IP's
+    # next call is refused purely by the daily cap, never touching its bucket.
+    for i in range(6):
+        assert (await limiter.check_and_consume(f"203.0.113.{i + 10}")).allowed
     refused = await limiter.check_and_consume("203.0.113.2")
     assert not refused.allowed
     assert refused.message == DAILY_CAP_MESSAGE
 
-    clock.advance(minutes=2)  # rolls into next UTC day, daily cap resets
+    clock.advance(minutes=3)  # rolls into next UTC day, daily cap resets
+    # The refused IP still has its full per-IP allowance: 5 consecutive
+    # calls succeed (well under the reset daily_cap=6 budget for this IP alone).
     for _ in range(5):
         result = await limiter.check_and_consume("203.0.113.2")
         assert result.allowed
@@ -177,9 +181,7 @@ async def test_concurrent_same_ip_calls_never_exceed_ip_limit() -> None:
     clock = FakeClock(t0)
     limiter = DemoLimiter(ip_limit=5, daily_cap=100, clock=clock)
 
-    results = await asyncio.gather(
-        *(limiter.check_and_consume("203.0.113.9") for _ in range(10))
-    )
+    results = await asyncio.gather(*(limiter.check_and_consume("203.0.113.9") for _ in range(10)))
     allowed = [r for r in results if r.allowed]
     refused = [r for r in results if not r.allowed]
     assert len(allowed) == 5
