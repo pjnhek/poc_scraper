@@ -27,8 +27,8 @@ FIRMOGRAPHICS_SYSTEM = (
 @dataclass(frozen=True)
 class RawContext:
     about_text: str
-    about_citations: list[Citation]
-    news_items: list[NewsItem]
+    about_citations: tuple[Citation, ...]
+    news_items: tuple[NewsItem, ...]
 
 
 async def collect_context(
@@ -51,8 +51,8 @@ async def collect_context(
 
     return RawContext(
         about_text=about_text,
-        about_citations=about_citations,
-        news_items=news_items,
+        about_citations=tuple(about_citations),
+        news_items=tuple(news_items),
     )
 
 
@@ -127,8 +127,8 @@ class Enricher:
 
 
 def _number_justifications(
-    about_citations: list[Citation],
-    news_items: list[NewsItem],
+    about_citations: tuple[Citation, ...],
+    news_items: tuple[NewsItem, ...],
 ) -> tuple[Justification, ...]:
     """Combine about-page citations and news into a single numbered list.
 
