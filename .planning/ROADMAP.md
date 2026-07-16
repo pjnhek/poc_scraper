@@ -114,8 +114,23 @@ Plans:
   3. Client IP resolves from `Fly-Client-IP` with rightmost-XFF fallback and fails closed into one shared bucket on missing or malformed headers, verified with an injected clock
   4. Rate-limit counters are protected against read-modify-write races under concurrent requests
 
-**Plans**: TBD
-**Note**: Highest-uncertainty step in the milestone — confirm the exact `streamable_http_app(middleware=...)` kwarg shape against the installed SDK before building `ClientIPMiddleware` on top of it (research flag).
+**Plans**: 3 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — Demo limiter core: five env-tunable Settings knobs, `src/mcp_server/limits.py` (rolling per-IP window, UTC-day cap, race-safe counters, injected clock, fail-closed client-IP resolution), unit tests (HOST-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 11-02-PLAN.md — Demo-mode gating in the tool path: `ThinDeps.limiter`, `DemoClampedExa`, check-and-consume gate in `get_account_evidence`, D-07 exhaustion wording, functional rationing tests (HOST-04)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 11-03-PLAN.md — Streamable HTTP transport: `build_server` FastMCP kwargs + explicit `TransportSecuritySettings`, `--transport` dispatch, `make mcp-http`/`make mcp-demo`, in-process ASGI HTTP tests, full phase gate (HOST-02, HOST-04)
+
+**Note**: Highest-uncertainty step in the milestone — confirm the exact `streamable_http_app(middleware=...)` kwarg shape against the installed SDK before building `ClientIPMiddleware` on top of it (research flag). [RESOLVED by 11-RESEARCH.md: no `middleware=` kwarg exists and no middleware is needed at all; `host`/`port`/`stateless_http`/`transport_security` are `FastMCP` constructor kwargs, and the client IP is read per-message from `ctx.request_context.request` (verified against installed mcp==1.28.1 source).]
 
 ### Phase 12: Full-Tier Tool, Resources & Prompt
 
@@ -161,7 +176,7 @@ Plans:
 | 8. README and Loom Refresh | v1.0 | 4/4 | Complete | 2026-07-15 |
 | 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
 | 10. Stdio MCP Server (Thin Tier) | v1.1 | 5/5 | Complete    | 2026-07-16 |
-| 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/TBD | Not started | - |
+| 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/3 | Not started | - |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
 | 13. Hosted Deploy & Docs Close | v1.1 | 0/TBD | Not started | - |
 </content>
