@@ -170,3 +170,30 @@ class ScoredAccount(_Frozen):
         status: AccountStatus = AccountStatus.hook_suppressed,
     ) -> ScoredAccount:
         return cls(account=account, status=status, enrichment=enrichment, error=reason)
+
+
+RetrievalStatus = Literal["ok", "thin", "empty"]
+
+
+class EvidencePack(_Frozen):
+    retrieval_status: RetrievalStatus
+    justifications: tuple[Justification, ...] = ()
+    news: tuple[NewsItem, ...] = ()
+
+    @classmethod
+    def from_context(
+        cls,
+        about_text: str,
+        news_items: list[NewsItem],
+        justifications: tuple[Justification, ...],
+        *,
+        about_text_min_chars: int,
+    ) -> EvidencePack:
+        status: RetrievalStatus
+        if not about_text and not news_items:
+            status = "empty"
+        elif len(about_text) < about_text_min_chars:
+            status = "thin"
+        else:
+            status = "ok"
+        return cls(retrieval_status=status, justifications=justifications, news=tuple(news_items))
