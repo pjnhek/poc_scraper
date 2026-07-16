@@ -178,9 +178,7 @@ class TestEvidencePack:
         assert pack.about_text == ""
 
     def test_from_context_stores_about_text(self) -> None:
-        pack = EvidencePack.from_context(
-            "some capped text", [], (), about_text_min_chars=200
-        )
+        pack = EvidencePack.from_context("some capped text", [], (), about_text_min_chars=200)
         assert pack.about_text == "some capped text"
 
     def test_model_dump_includes_about_text(self) -> None:

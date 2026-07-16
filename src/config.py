@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     # because the inner clients still call the live providers.
     record_bundle: Path | None = None
 
+    # MCP server tier override (MCP-06): forces the thin (Exa-only) tier
+    # regardless of which keys are present. Used by the hosted demo so a
+    # misconfigured or leaked full-tier key never gets exercised there.
+    mcp_demo_mode: bool = False
+
     @property
     def resolved_provider(self) -> LLMProvider:
         if self.llm_provider:
@@ -174,6 +179,26 @@ class Settings(BaseSettings):
                 f"missing required env vars for live pipeline: {', '.join(missing)}. "
                 "See .env.example."
             )
+
+    def mcp_tier(self) -> Literal["thin", "full"]:
+        """Resolve the MCP server's capability tier once at startup.
+
+        Thin = retrieval-only (Exa, optional Browserbase fallback). Full =
+        adds writer/judge LLM tooling (registered in Phase 12). EXA_API_KEY
+        is required for either tier, so its absence fails fast before the
+        demo-mode early return.
+        """
+        if not self.exa_api_key:
+            raise RuntimeError(
+                "missing required env vars for MCP server: EXA_API_KEY. See .env.example."
+            )
+        if self.mcp_demo_mode:
+            return "thin"
+        provider = self.resolved_provider
+        provider_key = self.deepseek_api_key if provider == "deepseek" else self.nvidia_api_key
+        if provider_key and self.browserbase_api_key and self.browserbase_project_id:
+            return "full"
+        return "thin"
 
 
 @lru_cache(maxsize=1)
