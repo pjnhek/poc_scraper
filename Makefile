@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo mcp eval eval-live eval-fixtures eval-calibration eval-report test smoke lint format typecheck clean verify-public-repo
+.PHONY: install setup-sheet run run-demo mcp eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo
 
 install:
 	uv sync --extra dev
@@ -35,6 +35,9 @@ test:
 
 smoke:
 	uv run pytest -m smoke -v
+
+smoke-mcp:
+	uv run pytest tests/smoke/test_mcp_e2e.py -v
 
 lint:
 	uv run ruff check src tests evals
