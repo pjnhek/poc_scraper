@@ -124,3 +124,95 @@ def test_require_for_pipeline_passes_when_set(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("BROWSERBASE_PROJECT_ID", "proj")
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     s.require_for_pipeline()
+
+
+def _clear_mcp_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in (
+        "NVIDIA_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "EXA_API_KEY",
+        "BROWSERBASE_API_KEY",
+        "BROWSERBASE_PROJECT_ID",
+        "LLM_PROVIDER",
+        "MCP_DEMO_MODE",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_mcp_demo_mode_defaults_to_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mcp_env(monkeypatch)
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_demo_mode is False
+
+
+def test_mcp_tier_thin_with_only_exa_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("EXA_API_KEY", "exa")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_tier() == "thin"
+
+
+def test_mcp_tier_full_with_provider_and_browserbase_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("EXA_API_KEY", "exa")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    monkeypatch.setenv("BROWSERBASE_API_KEY", "bb")
+    monkeypatch.setenv("BROWSERBASE_PROJECT_ID", "proj")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_tier() == "full"
+
+
+def test_mcp_tier_demo_mode_forces_thin_regardless_of_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("EXA_API_KEY", "exa")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    monkeypatch.setenv("BROWSERBASE_API_KEY", "bb")
+    monkeypatch.setenv("BROWSERBASE_PROJECT_ID", "proj")
+    monkeypatch.setenv("MCP_DEMO_MODE", "1")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_tier() == "thin"
+
+
+def test_mcp_tier_raises_when_exa_key_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mcp_env(monkeypatch)
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    with pytest.raises(RuntimeError, match="EXA_API_KEY"):
+        s.mcp_tier()
+
+
+def test_mcp_tier_raises_when_exa_key_missing_even_in_demo_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("MCP_DEMO_MODE", "1")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    with pytest.raises(RuntimeError, match="EXA_API_KEY"):
+        s.mcp_tier()
+
+
+def test_mcp_tier_thin_when_resolved_provider_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("EXA_API_KEY", "exa")
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nv")
+    monkeypatch.setenv("BROWSERBASE_API_KEY", "bb")
+    monkeypatch.setenv("BROWSERBASE_PROJECT_ID", "proj")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_tier() == "thin"
+
+
+def test_mcp_tier_thin_when_browserbase_project_id_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("EXA_API_KEY", "exa")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    monkeypatch.setenv("BROWSERBASE_API_KEY", "bb")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_tier() == "thin"
