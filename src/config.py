@@ -121,6 +121,24 @@ class Settings(BaseSettings):
     # misconfigured or leaked full-tier key never gets exercised there.
     mcp_demo_mode: bool = False
 
+    # Demo-mode rate limits (HOST-04): env-tunable per-IP and global caps on
+    # the hosted server. This is a requirement-locked exception to the
+    # no-new-knobs principle (D-03) -- HOST-04 explicitly demands these be
+    # env-tunable so the operator can retune the Exa credit budget without a
+    # code change.
+    mcp_demo_ip_limit: int = Field(default=5, ge=1)
+    # Global evidence calls allowed per fixed UTC day, across all IPs (HOST-04).
+    mcp_demo_daily_cap: int = Field(default=25, ge=1)
+    # Exa results clamp applied to evidence retrieval when mcp_demo_mode is
+    # on, regardless of transport (D-03). Consumed by the demo-mode Exa
+    # clamp wrapper in src/mcp_server/wiring.py (plan 11-02).
+    mcp_demo_exa_results: int = Field(default=5, ge=1)
+    # Local HTTP bind defaults (D-09): loopback-only by default so exposure
+    # is a deliberate deploy-time act (the Dockerfile overrides host to
+    # 0.0.0.0), not a local default. Both env-overridable.
+    mcp_http_port: int = Field(default=8000, ge=1, le=65535)
+    mcp_http_host: str = "127.0.0.1"
+
     @property
     def resolved_provider(self) -> LLMProvider:
         if self.llm_provider:

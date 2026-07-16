@@ -135,6 +135,11 @@ def _clear_mcp_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "BROWSERBASE_PROJECT_ID",
         "LLM_PROVIDER",
         "MCP_DEMO_MODE",
+        "MCP_DEMO_IP_LIMIT",
+        "MCP_DEMO_DAILY_CAP",
+        "MCP_DEMO_EXA_RESULTS",
+        "MCP_HTTP_HOST",
+        "MCP_HTTP_PORT",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -216,3 +221,28 @@ def test_mcp_tier_thin_when_browserbase_project_id_missing(
     monkeypatch.setenv("BROWSERBASE_API_KEY", "bb")
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.mcp_tier() == "thin"
+
+
+def test_mcp_demo_and_http_knobs_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mcp_env(monkeypatch)
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_demo_ip_limit == 5
+    assert s.mcp_demo_daily_cap == 25
+    assert s.mcp_demo_exa_results == 5
+    assert s.mcp_http_port == 8000
+    assert s.mcp_http_host == "127.0.0.1"
+
+
+def test_mcp_demo_and_http_knobs_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mcp_env(monkeypatch)
+    monkeypatch.setenv("MCP_DEMO_IP_LIMIT", "2")
+    monkeypatch.setenv("MCP_DEMO_DAILY_CAP", "3")
+    monkeypatch.setenv("MCP_DEMO_EXA_RESULTS", "1")
+    monkeypatch.setenv("MCP_HTTP_PORT", "9000")
+    monkeypatch.setenv("MCP_HTTP_HOST", "0.0.0.0")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mcp_demo_ip_limit == 2
+    assert s.mcp_demo_daily_cap == 3
+    assert s.mcp_demo_exa_results == 1
+    assert s.mcp_http_port == 9000
+    assert s.mcp_http_host == "0.0.0.0"
