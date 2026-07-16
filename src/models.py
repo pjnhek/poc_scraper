@@ -177,6 +177,7 @@ RetrievalStatus = Literal["ok", "thin", "empty"]
 
 class EvidencePack(_Frozen):
     retrieval_status: RetrievalStatus
+    about_text: str = ""
     justifications: tuple[Justification, ...] = ()
     news: tuple[NewsItem, ...] = ()
 
@@ -197,4 +198,9 @@ class EvidencePack(_Frozen):
             status = "thin"
         else:
             status = "ok"
-        return cls(retrieval_status=status, justifications=justifications, news=tuple(news_items))
+        return cls(
+            retrieval_status=status,
+            about_text=about_text,
+            justifications=justifications,
+            news=tuple(news_items),
+        )
