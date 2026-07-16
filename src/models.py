@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import StrEnum
+from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -31,13 +32,15 @@ class Account(_Frozen):
         original = v
 
         def invalid() -> ValueError:
-            return ValueError(f"invalid domain: {original!r}")
+            return ValueError("invalid domain")
 
         if any(ord(char) <= 31 or ord(char) == 127 for char in original):
             raise invalid()
 
         value = original.strip()
         if not value:
+            raise invalid()
+        if "?" in value or "#" in value:
             raise invalid()
 
         has_scheme = "://" in value
@@ -74,10 +77,25 @@ class Account(_Frozen):
             domain = domain[4:]
         if domain.endswith(".") or len(domain) > 253 or "." not in domain:
             raise invalid()
+        try:
+            ip_address(domain)
+        except ValueError:
+            pass
+        else:
+            raise invalid()
 
         labels = domain.split(".")
-        if any(not DNS_LABEL.fullmatch(label) for label in labels):
-            raise invalid()
+        for label in labels:
+            if not DNS_LABEL.fullmatch(label):
+                raise invalid()
+            if label.startswith("xn--"):
+                try:
+                    decoded = label.encode("ascii").decode("idna")
+                    round_trip = decoded.encode("idna").decode("ascii").lower()
+                except UnicodeError:
+                    raise invalid() from None
+                if round_trip != label:
+                    raise invalid()
         return domain
 
 
