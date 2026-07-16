@@ -218,6 +218,51 @@ def test_pack_from_context_drops_over_limit_url_as_an_indivisible_unit() -> None
     assert len(pack.model_dump_json().encode("utf-8")) <= EVIDENCE_PACK_MAX_BYTES
 
 
+def test_pack_from_context_filters_invalid_news_before_count_cap() -> None:
+    over_limit_news = tuple(
+        _news(_long_url(CITATION_URL_MCP_CAP), headline=f"Invalid {index}")
+        for index in range(NEWS_ITEM_MCP_CAP)
+    )
+    safe = _news("https://example.com/news/safe", headline="Safe")
+    ctx = RawContext(
+        about_text="",
+        about_citations=(),
+        news_items=(*over_limit_news, safe),
+    )
+
+    pack = pack_from_context(ctx)
+
+    assert pack.news == (safe,)
+    assert str(pack.news[0].citation.url) == "https://example.com/news/safe"
+    assert [item.index for item in pack.justifications] == [1]
+    assert str(pack.justifications[0].citation.url) == "https://example.com/news/safe"
+    assert pack.retrieval_status == "ok"
+    assert len(pack.model_dump_json().encode("utf-8")) <= EVIDENCE_PACK_MAX_BYTES
+
+
+def test_pack_from_context_keeps_first_ten_valid_news_in_source_order() -> None:
+    valid_news = tuple(
+        _news(f"https://example.com/news/{index}", headline=f"Valid {index}")
+        for index in range(NEWS_ITEM_MCP_CAP + 2)
+    )
+    source_news = tuple(
+        item
+        for index, valid in enumerate(valid_news)
+        for item in (_news(_long_url(CITATION_URL_MCP_CAP), headline=f"Invalid {index}"), valid)
+    )
+    ctx = RawContext(about_text="", about_citations=(), news_items=source_news)
+
+    pack = pack_from_context(ctx)
+
+    assert pack.news == valid_news[:NEWS_ITEM_MCP_CAP]
+    assert [str(item.citation.url) for item in pack.news] == [
+        str(item.citation.url) for item in valid_news[:NEWS_ITEM_MCP_CAP]
+    ]
+    assert [item.index for item in pack.justifications] == list(
+        range(1, NEWS_ITEM_MCP_CAP + 1)
+    )
+
+
 def test_pack_from_context_returns_honest_empty_pack_when_no_provenance_can_fit() -> None:
     over_limit = Citation.make(
         url=_long_url(CITATION_URL_MCP_CAP),
