@@ -397,17 +397,15 @@ Note: `create_connected_server_and_client_session` accepts `Server[Any] | FastMC
 
 **This table is empty:** All claims in this research were verified this session against the pinned `mcp==1.28.1` package's actual source, the live PyPI registry, or the installed `claude` CLI — no user confirmation needed before planning proceeds.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the MCP-boundary `about_text` cap (~2000 chars, D-03) interact with the existing 140-char `_clean_summary` cap on justification summaries, or are these two independent caps on two different fields?**
-   - What we know: `about_text` (the raw about-page text passed to `from_context`) and `Justification.summary` (built by `_number_justifications` via `_clean_summary`, already capped at `SUMMARY_MAX_CHARS = 140`) are distinct fields on `EvidencePack`. D-03 names both "about_text ~2000 chars" and "per-justification summary ~300 chars" as separate caps.
-   - What's unclear: whether the "~300 chars" justification-summary target in D-03 is meant to *replace* or *sit above* the existing 140-char `_clean_summary` cap (which would make a 300-char MCP cap a permanent no-op, since input is already ≤140 chars by the time it reaches `EvidencePack`).
-   - Recommendation: Plan should apply the ~300-char cap defensively in `evidence.py` regardless of whether it is currently reachable (future-proofs against `_clean_summary`'s cap changing), and treat the about_text cap (~2000 chars) as the one with real, immediate effect since `about_text` can be up to 6000 chars post-Browserbase-fallback.
+1. **Resolved: the MCP-boundary `about_text` cap and the existing `_clean_summary` cap are independent ceilings on different fields.**
+   - `about_text` is bounded independently at the MCP boundary because Browserbase output can reach 6000 characters before composition.
+   - `_number_justifications` currently cleans each `Justification.summary` to `SUMMARY_MAX_CHARS = 140` upstream. The 300-character MCP cap remains as a defensive independent ceiling above that 140-character cleaning cap so a future upstream change cannot bypass the MCP boundary.
 
-2. **Exact call shape for `mcp.shared.memory.create_connected_server_and_client_session`: pass `FastMCP` instance directly, or its `._mcp_server` (low-level `Server`)?**
-   - What we know: the function signature accepts `Server[Any] | FastMCP` (confirmed via source read this session), so both are type-valid.
-   - What's unclear: whether passing the `FastMCP` wrapper vs the inner `Server` produces identical behavior for tool-calling in tests (annotations, structured output) — not exercised end-to-end this session due to time budget.
-   - Recommendation: Planner should have the functional-test task try `FastMCP` instance first (simpler, one less internal attribute reference) and fall back to `._mcp_server` only if a concrete test failure surfaces a mismatch.
+2. **Resolved: pass the `FastMCP` instance directly to `create_connected_server_and_client_session`.**
+   - Plan 10-02 selected the public wrapper call shape, and `tests/functional/test_mcp_server.py` proved it end to end for structured tool output, annotations, sanitized errors, and tier behavior.
+   - No private `._mcp_server` access is needed.
 
 ## Environment Availability
 
