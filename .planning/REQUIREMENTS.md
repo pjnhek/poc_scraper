@@ -1,0 +1,88 @@
+# Requirements: poc_scraper v1.1 MCP Server Surface
+
+**Defined:** 2026-07-15
+**Core Value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation; the MCP surface must preserve that guarantee on every path.
+**Design authority:** docs/superpowers/specs/2026-07-15-mcp-server-design.md (commit 3a46444), refined by .planning/research/SUMMARY.md
+
+## v1.1 Requirements
+
+### MCP Server Core (MCP)
+
+- [ ] **MCP-01**: An MCP client can call `get_account_evidence(domain)` and receive numbered, cited evidence as structured JSON with a `retrieval_status` honesty field (`ok`/`thin`/`empty`), with evidence snippets capped in size at the MCP boundary
+- [ ] **MCP-02**: An MCP client can read the ICP rubric via the `icp://rubric` resource
+- [ ] **MCP-03**: An MCP client can read the eval calibration report via the `icp://eval-report` resource
+- [ ] **MCP-04**: A user can invoke the `research_account` prompt, guiding their agent through rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
+- [ ] **MCP-05**: A BYOK user (writer/judge + Browserbase keys) can call `research_account_full(domain, run_eval)` and receive the complete grounded `ScoredAccount` JSON including `AccountStatus`
+- [ ] **MCP-06**: The server resolves its capability tier once at startup (thin with Exa only; full with all keys; `MCP_DEMO_MODE=1` forces thin regardless of keys) and logs the resolved tier
+- [ ] **MCP-07**: Both tools carry `readOnlyHint`/`destructiveHint` annotations, and all domain failures (invalid domain, provider failure, rate limits) surface as `isError: true` tool results, never protocol-level errors
+
+### Transports and Hosting (HOST)
+
+- [ ] **HOST-01**: A local user can run the server over stdio (`make mcp`) and connect it to Claude Code or Claude Desktop, with all logging routed to stderr (verified against a real client connection)
+- [ ] **HOST-02**: The same server runs over streamable HTTP (`make mcp-http`) from the same entry point
+- [ ] **HOST-03**: A stranger can connect to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieve cited evidence
+- [ ] **HOST-04**: Demo mode enforces the per-IP hourly limit (5), global daily cap (25), and Exa results clamp (5), env-tunable, returning structured rationing errors with reset times; client IP resolves from `Fly-Client-IP` (rightmost-XFF fallback, fail closed on missing/malformed headers)
+- [ ] **HOST-05**: Tool error payloads never contain stack traces, env names, or key fragments
+- [ ] **HOST-06**: The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist (DNS-rebinding protection), and `fly.toml` pins exactly one machine so in-memory limits stay truly global
+
+### Pipeline Integration (INTEG)
+
+- [ ] **INTEG-01**: Client wiring is extracted from `pipeline.main()` into a reusable `open_deps()` async context manager used by both CLI and MCP server, with existing CLI behavior and tests unchanged
+- [ ] **INTEG-02**: Exa-only retrieval works via public `collect_context()` plus a `NullBrowserbase` null object whose `render()` returns `None`, flowing through the existing Exa-only continue path (reworded per Phase 9 decision D-07)
+- [ ] **INTEG-03**: A frozen `EvidencePack` model (extra="forbid", tuple collections) carries evidence across the MCP boundary, following existing model conventions
+
+### Docs and Charter (DOCS)
+
+- [ ] **DOCS-01**: CLAUDE.md is amended: `mcp>=1.28,<2.0` added to the locked stack, MCP surface noted as in scope
+- [ ] **DOCS-02**: README gains an MCP section with client config snippets for Claude Desktop, Claude Code, and `npx mcp-remote`, plus the grounding-by-instruction vs grounding-by-construction contrast
+
+### Testing (TEST)
+
+- [ ] **TEST-01**: Unit, functional (in-memory MCP client via `mcp.shared.memory`), and integration tests cover tiering, limits (injected clock), evidence construction, and error paths; strict mypy stays clean with no new overrides
+- [ ] **TEST-02**: Opt-in `make smoke-mcp` runs the stdio server as a real subprocess against one live domain, skipped in CI
+
+## Future Requirements (deferred)
+
+- PyPI/uvx packaging of the server
+- Auth on the hosted endpoint
+- `structuredContent` field alongside text content
+- Official MCP Registry listing (needs a stable hosted URL first)
+- Company-name-to-domain resolution
+
+## Out of Scope
+
+| Feature | Reason |
+|---|---|
+| Batch/CSV tool over MCP | Agents can loop; batch invites client timeouts |
+| Sheets-writing tool | Server stays read-only; zero blast radius on the public surface |
+| Rubric-editing tool | Config changes stay human-reviewed per project constraint |
+| OAuth 2.1 on hosted endpoint | Rate limits are the only gate; nothing sensitive reachable |
+| Sales-workflow features (review queue, CRM, Slack, persistence) | Rejected in the 2026-07-15 v2 review; different product thesis |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| MCP-01 | Phase 10 | Pending |
+| MCP-02 | Phase 12 | Pending |
+| MCP-03 | Phase 12 | Pending |
+| MCP-04 | Phase 12 | Pending |
+| MCP-05 | Phase 12 | Pending |
+| MCP-06 | Phase 10 | Pending |
+| MCP-07 | Phase 10 | Pending |
+| HOST-01 | Phase 10 | Pending |
+| HOST-02 | Phase 11 | Pending |
+| HOST-03 | Phase 13 | Pending |
+| HOST-04 | Phase 11 | Pending |
+| HOST-05 | Phase 13 | Pending |
+| HOST-06 | Phase 13 | Pending |
+| INTEG-01 | Phase 9 | Pending |
+| INTEG-02 | Phase 9 | Pending |
+| INTEG-03 | Phase 9 | Pending |
+| DOCS-01 | Phase 13 | Pending |
+| DOCS-02 | Phase 13 | Pending |
+| TEST-01 | Phase 13 | Pending |
+| TEST-02 | Phase 10 | Pending |
+
+Coverage: 20/20 v1.1 requirements mapped, 0 orphans.
+</content>

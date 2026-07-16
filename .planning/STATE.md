@@ -4,9 +4,9 @@ milestone: v1.1
 milestone_name: MCP Server Surface
 current_phase: 9
 current_phase_name: Pipeline Extraction & Supporting Models
-status: planning
+status: executing
 stopped_at: Phase 9 context gathered
-last_updated: "2026-07-16T04:34:26.799Z"
+last_updated: "2026-07-16T05:10:02.587Z"
 last_activity: 2026-07-15
 last_activity_desc: ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
 progress:
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 9 of 5 in milestone v1.1 (Pipeline Extraction & Supporting Models) — first phase of v1.1, continues numbering after v1.0's Phase 8
 Plan: — (not yet planned)
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-07-15 — ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
 
 Progress: [░░░░░░░░░░] 0%
