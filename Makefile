@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo mcp eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo
+.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo
 
 install:
 	uv sync --extra dev
@@ -15,6 +15,12 @@ run-demo:
 
 mcp:
 	uv run python -m src.mcp_server
+
+mcp-http:
+	uv run python -m src.mcp_server --transport http
+
+mcp-demo:
+	MCP_DEMO_MODE=1 uv run python -m src.mcp_server --transport http
 
 eval: eval-live
 
