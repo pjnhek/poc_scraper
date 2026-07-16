@@ -147,16 +147,14 @@ def _fit_pack_to_byte_budget(
 
 
 def pack_from_context(ctx: RawContext) -> EvidencePack:
-    # Cap news FIRST so justification numbering and the news field agree;
-    # numbering the uncapped news tuple would emit indices for items the
-    # payload never actually includes.
     source_units_present = bool(ctx.about_citations or ctx.news_items)
     about_citations = tuple(
         citation for citation in ctx.about_citations if _url_within_cap(citation)
     )
-    news = tuple(
-        item for item in ctx.news_items[:NEWS_ITEM_MCP_CAP] if _url_within_cap(item.citation)
+    valid_news = tuple(
+        item for item in ctx.news_items if _url_within_cap(item.citation)
     )
+    news = valid_news[:NEWS_ITEM_MCP_CAP]
     about_text = _truncate_words(ctx.about_text, ABOUT_TEXT_MCP_CAP)
     if source_units_present and not about_citations and not news:
         return _fit_pack_to_byte_budget("", (), ())
