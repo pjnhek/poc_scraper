@@ -1,37 +1,39 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 0
-status: Awaiting next milestone
-stopped_at: Phase 8 context gathered
-last_updated: "2026-07-15T00:58:13.289Z"
+milestone: v1.1
+milestone_name: MCP Server Surface
+current_phase: 9
+current_phase_name: Pipeline Extraction & Supporting Models
+status: planning
+stopped_at: Phase 9 context gathered
+last_updated: "2026-07-16T04:34:26.799Z"
 last_activity: 2026-07-15
-last_activity_desc: Milestone v1.0 completed and archived
+last_activity_desc: ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 34
-  completed_plans: 33
-  percent: 88
-current_phase_name: readme-and-loom-refresh
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-14)
+See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 08 — readme-and-loom-refresh
+**Current focus:** Phase 9 — pipeline-extraction-and-supporting-models
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-15 — Milestone v1.0 completed and archived
+Phase: 9 of 5 in milestone v1.1 (Pipeline Extraction & Supporting Models) — first phase of v1.1, continues numbering after v1.0's Phase 8
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-07-15 — ROADMAP.md created for v1.1 (5 phases, 20/20 requirements mapped, 0 orphans)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -82,11 +84,15 @@ Last activity: 2026-07-15 — Milestone v1.0 completed and archived
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Milestone framed as "demo-ready v1" (brownfield hardening, no net-new features)
-- Phase 1 is an audit, not a feature (groundedness state not yet fully understood)
-- README/Loom refresh deferred to Phase 8 (no mid-milestone re-recording)
-- Public-repo discipline elevated to PROJECT.md constraint with a dedicated Phase 7
-- Phases 5, 6, 7 parallelizable after Phase 2 lands the `AccountStatus` schema; Phase 7 must precede Phase 8
+- v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) — MCP wraps existing seams at a fraction of the cost, stays on the groundedness differentiator, teaches the target skill
+- Roadmap follows the research-endorsed dependency-driven build order, consolidated into 5 phases (extraction+models -> stdio thin tier -> limits+HTTP transport -> gated full tier+resources/prompt -> hosted deploy+docs)
+- TEST-01 (cross-cutting test coverage) traced to the closing Phase 13 as the gate where full coverage across tiering/limits/evidence/errors is verifiable; each phase 9-12 still carries its own test acceptance per research's per-phase testing guidance
+- HOST-06 (TransportSecuritySettings + fly.toml single-machine pin) traced to Phase 13 since the fly.toml half of the requirement cannot exist before the deploy phase
+- Milestone framed as "demo-ready v1" (brownfield hardening, no net-new features) — v1.0
+- Phase 1 is an audit, not a feature (groundedness state not yet fully understood) — v1.0
+- README/Loom refresh deferred to Phase 8 (no mid-milestone re-recording) — v1.0
+- Public-repo discipline elevated to PROJECT.md constraint with a dedicated Phase 7 — v1.0
+- Phases 5, 6, 7 parallelizable after Phase 2 lands the `AccountStatus` schema; Phase 7 must precede Phase 8 — v1.0
 - [Phase ?]: evals/COVERAGE.md: 18-cell matrix traced to named pitfalls; size is 25-40 derived from matrix
 - [Phase ?]: Phase 4 Plan 1: --emit-log uses field-by-field payload construction
 - [Phase ?]: Phase 4 Plan 2: Renderer pydantic loaders inherit _Frozen from src.models (extra=forbid for run-log rows; extra=allow on Calibration shell to tolerate emitter-side fields not displayed)
@@ -138,7 +144,7 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet. Phase 1's six open questions (sentence-coverage shape, history rewrite vs document, specificity/recency timing, demo-bundle caching need, `great-tables` yes/no, label migration vs re-label) will be resolved within the audit itself, not blockers.
+None yet. Research flags three one-time SDK-surface checks scoped to specific v1.1 phases, not carried risk: Phase 10 needs the `ToolError` import path and lifespan-once-per-process confirmed; Phase 11 needs the `streamable_http_app(middleware=...)` kwarg shape confirmed against the installed SDK; Phase 13 needs an early `fly launch` dry run before writing the Dockerfile/`fly.toml` in earnest.
 
 ### Quick Tasks Completed
 
@@ -154,13 +160,17 @@ Items acknowledged and carried forward:
 |----------|------|--------|-------------|
 | Eval rubric | Specificity and recency as 1-5 judge axes (AXIS-01) | v2, conditional on Phase 1 audit decision | 2026-05-14 |
 | Eval tooling | `great-tables` for PNG-quality eval tables (EVAL-V2-01) | v2, conditional on Phase 4 Markdown sufficiency | 2026-05-14 |
+| MCP server | PyPI/uvx packaging, hosted-endpoint auth, `structuredContent`, MCP Registry listing, company-name-to-domain resolution | v2, per v1.1 REQUIREMENTS.md Future Requirements | 2026-07-15 |
 
 ## Session Continuity
 
-Last session: 2026-06-04T02:34:27.858Z
-Stopped at: Phase 8 context gathered
-Resume file: None
+Last session: 2026-07-16T04:34:26.791Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-pipeline-extraction-supporting-models/09-CONTEXT.md
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Review .planning/ROADMAP.md for the v1.1 phase structure
+- Run `/gsd-plan-phase 9` to create the first phase plan (Pipeline Extraction & Supporting Models)
+
+</content>
