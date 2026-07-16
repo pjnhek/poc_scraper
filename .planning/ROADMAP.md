@@ -30,7 +30,7 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
 **Build order:** Phases 9-13 are strictly sequential. Each phase's server surface builds on the seam the previous phase established (extraction -> stdio thin tier -> HTTP transport + limits -> gated full tier -> hosted deploy), following the dependency-driven order from `.planning/research/SUMMARY.md`.
 
 - [x] **Phase 9: Pipeline Extraction & Supporting Models** - Extract `open_deps()` from `pipeline.main()`, promote `collect_context()`, add `NullBrowserbase` and a frozen `EvidencePack` model (completed 2026-07-16)
-- [ ] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain
+- [x] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain (completed 2026-07-16)
 - [ ] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio
 - [ ] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt
 - [ ] **Phase 13: Hosted Deploy & Docs Close** - Public Fly.io URL, hardened error payloads, CLAUDE.md and README updated for the new surface
@@ -76,12 +76,20 @@ Plans:
   4. All server logging routes to stderr so stdio JSON-RPC is never contaminated
   5. `make smoke-mcp` runs the stdio server as a real subprocess against one live domain and asserts non-empty numbered justifications, skipped in CI
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Foundation: `mcp>=1.28,<2.0` dependency, `EvidencePack.about_text`, `Settings.mcp_tier()` + `mcp_demo_mode`
-- [ ] 10-02-PLAN.md — `src/mcp_server/` package: evidence caps, thin-tier lifespan wiring, FastMCP tool + sanitized errors + tier logging, stdio entrypoint, `make mcp`, unit + in-memory functional tests
-- [ ] 10-03-PLAN.md — Real-transport gates: `make smoke-mcp` subprocess smoke (skipped in CI) + Claude Code real-client verification checkpoint
+**Wave 1**
+
+- [x] 10-01-PLAN.md — Foundation: `mcp>=1.28,<2.0` dependency, `EvidencePack.about_text`, `Settings.mcp_tier()` + `mcp_demo_mode`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 10-02-PLAN.md — `src/mcp_server/` package: evidence caps, thin-tier lifespan wiring, FastMCP tool + sanitized errors + tier logging, stdio entrypoint, `make mcp`, unit + in-memory functional tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 10-03-PLAN.md — Real-transport gates: `make smoke-mcp` subprocess smoke (skipped in CI) + Claude Code real-client verification checkpoint
 
 **Note**: First phase exercising the `mcp` SDK — verify the `ToolError` import path and confirm the lifespan-runs-once-per-process guarantee before building on it (research flag). [RESOLVED by 10-RESEARCH.md: `ToolError` lives at `mcp.server.fastmcp.exceptions` but plain exceptions suffice; lifespan-once-per-process confirmed against mcp==1.28.1 source.]
 
@@ -143,7 +151,7 @@ Plans:
 | 7. Public-Repo Audit       | v1.0 | 3/3 | Complete | 2026-05-27 |
 | 8. README and Loom Refresh | v1.0 | 4/4 | Complete | 2026-07-15 |
 | 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
-| 10. Stdio MCP Server (Thin Tier) | v1.1 | 0/TBD | Not started | - |
+| 10. Stdio MCP Server (Thin Tier) | v1.1 | 3/3 | Complete   | 2026-07-16 |
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/TBD | Not started | - |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
 | 13. Hosted Deploy & Docs Close | v1.1 | 0/TBD | Not started | - |

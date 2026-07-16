@@ -8,17 +8,17 @@
 
 ### MCP Server Core (MCP)
 
-- [ ] **MCP-01**: An MCP client can call `get_account_evidence(domain)` and receive numbered, cited evidence as structured JSON with a `retrieval_status` honesty field (`ok`/`thin`/`empty`), with evidence snippets capped in size at the MCP boundary
+- [x] **MCP-01**: An MCP client can call `get_account_evidence(domain)` and receive numbered, cited evidence as structured JSON with a `retrieval_status` honesty field (`ok`/`thin`/`empty`), with evidence snippets capped in size at the MCP boundary
 - [ ] **MCP-02**: An MCP client can read the ICP rubric via the `icp://rubric` resource
 - [ ] **MCP-03**: An MCP client can read the eval calibration report via the `icp://eval-report` resource
 - [ ] **MCP-04**: A user can invoke the `research_account` prompt, guiding their agent through rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
 - [ ] **MCP-05**: A BYOK user (writer/judge + Browserbase keys) can call `research_account_full(domain, run_eval)` and receive the complete grounded `ScoredAccount` JSON including `AccountStatus`
-- [ ] **MCP-06**: The server resolves its capability tier once at startup (thin with Exa only; full with all keys; `MCP_DEMO_MODE=1` forces thin regardless of keys) and logs the resolved tier
-- [ ] **MCP-07**: Both tools carry `readOnlyHint`/`destructiveHint` annotations, and all domain failures (invalid domain, provider failure, rate limits) surface as `isError: true` tool results, never protocol-level errors
+- [x] **MCP-06**: The server resolves its capability tier once at startup (thin with Exa only; full with all keys; `MCP_DEMO_MODE=1` forces thin regardless of keys) and logs the resolved tier
+- [x] **MCP-07**: Both tools carry `readOnlyHint`/`destructiveHint` annotations, and all domain failures (invalid domain, provider failure, rate limits) surface as `isError: true` tool results, never protocol-level errors
 
 ### Transports and Hosting (HOST)
 
-- [ ] **HOST-01**: A local user can run the server over stdio (`make mcp`) and connect it to Claude Code or Claude Desktop, with all logging routed to stderr (verified against a real client connection)
+- [x] **HOST-01**: A local user can run the server over stdio (`make mcp`) and connect it to Claude Code or Claude Desktop, with all logging routed to stderr (verified against a real client connection)
 - [ ] **HOST-02**: The same server runs over streamable HTTP (`make mcp-http`) from the same entry point
 - [ ] **HOST-03**: A stranger can connect to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieve cited evidence
 - [ ] **HOST-04**: Demo mode enforces the per-IP hourly limit (5), global daily cap (25), and Exa results clamp (5), env-tunable, returning structured rationing errors with reset times; client IP resolves from `Fly-Client-IP` (rightmost-XFF fallback, fail closed on missing/malformed headers)
@@ -27,9 +27,9 @@
 
 ### Pipeline Integration (INTEG)
 
-- [ ] **INTEG-01**: Client wiring is extracted from `pipeline.main()` into a reusable `open_deps()` async context manager used by both CLI and MCP server, with existing CLI behavior and tests unchanged
-- [ ] **INTEG-02**: Exa-only retrieval works via public `collect_context()` plus a `NullBrowserbase` null object whose `render()` returns `None`, flowing through the existing Exa-only continue path (reworded per Phase 9 decision D-07)
-- [ ] **INTEG-03**: A frozen `EvidencePack` model (extra="forbid", tuple collections) carries evidence across the MCP boundary, following existing model conventions
+- [x] **INTEG-01**: Client wiring is extracted from `pipeline.main()` into a reusable `open_deps()` async context manager used by both CLI and MCP server, with existing CLI behavior and tests unchanged
+- [x] **INTEG-02**: Exa-only retrieval works via public `collect_context()` plus a `NullBrowserbase` null object whose `render()` returns `None`, flowing through the existing Exa-only continue path (reworded per Phase 9 decision D-07)
+- [x] **INTEG-03**: A frozen `EvidencePack` model (extra="forbid", tuple collections) carries evidence across the MCP boundary, following existing model conventions
 
 ### Docs and Charter (DOCS)
 
@@ -39,7 +39,7 @@
 ### Testing (TEST)
 
 - [ ] **TEST-01**: Unit, functional (in-memory MCP client via `mcp.shared.memory`), and integration tests cover tiering, limits (injected clock), evidence construction, and error paths; strict mypy stays clean with no new overrides
-- [ ] **TEST-02**: Opt-in `make smoke-mcp` runs the stdio server as a real subprocess against one live domain, skipped in CI
+- [x] **TEST-02**: Opt-in `make smoke-mcp` runs the stdio server as a real subprocess against one live domain, skipped in CI
 
 ## Future Requirements (deferred)
 
@@ -63,26 +63,26 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MCP-01 | Phase 10 | Pending |
+| MCP-01 | Phase 10 | Complete |
 | MCP-02 | Phase 12 | Pending |
 | MCP-03 | Phase 12 | Pending |
 | MCP-04 | Phase 12 | Pending |
 | MCP-05 | Phase 12 | Pending |
-| MCP-06 | Phase 10 | Pending |
-| MCP-07 | Phase 10 | Pending |
-| HOST-01 | Phase 10 | Pending |
+| MCP-06 | Phase 10 | Complete |
+| MCP-07 | Phase 10 | Complete |
+| HOST-01 | Phase 10 | Complete |
 | HOST-02 | Phase 11 | Pending |
 | HOST-03 | Phase 13 | Pending |
 | HOST-04 | Phase 11 | Pending |
 | HOST-05 | Phase 13 | Pending |
 | HOST-06 | Phase 13 | Pending |
-| INTEG-01 | Phase 9 | Pending |
-| INTEG-02 | Phase 9 | Pending |
-| INTEG-03 | Phase 9 | Pending |
+| INTEG-01 | Phase 9 | Complete |
+| INTEG-02 | Phase 9 | Complete |
+| INTEG-03 | Phase 9 | Complete |
 | DOCS-01 | Phase 13 | Pending |
 | DOCS-02 | Phase 13 | Pending |
 | TEST-01 | Phase 13 | Pending |
-| TEST-02 | Phase 10 | Pending |
+| TEST-02 | Phase 10 | Complete |
 
 Coverage: 20/20 v1.1 requirements mapped, 0 orphans.
 </content>

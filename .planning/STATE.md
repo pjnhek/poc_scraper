@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
 current_phase: 10
-current_phase_name: Thin Tier
+current_phase_name: stdio-mcp-server-thin-tier
 status: verifying
-stopped_at: Phase 10 context gathered
-last_updated: "2026-07-16T17:33:53.012Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-07-16T20:10:52.061Z"
 last_activity: 2026-07-16
-last_activity_desc: Phase 09 complete, transitioned to Phase 10
+last_activity_desc: Phase 10 execution started
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 20
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 7
+  percent: 40
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 09 — pipeline-extraction-supporting-models
+**Current focus:** Phase 10 — stdio-mcp-server-thin-tier
 
 ## Current Position
 
-Phase: 10 — Stdio MCP Server (Thin Tier)
-Plan: Not started
+Phase: 10 (stdio-mcp-server-thin-tier) — EXECUTING
+Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-07-16 — Phase 09 complete, transitioned to Phase 10
+Last activity: 2026-07-16 — Phase 10 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -81,6 +81,9 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 09-pipeline-extraction-supporting-models P02 | 12min | 2 tasks | 4 files |
 | Phase 09-pipeline-extraction-supporting-models P03 | 5min | 2 tasks | 2 files |
 | Phase 09-pipeline-extraction-supporting-models P04 | 1min | 1 tasks | 0 files |
+| Phase 10-stdio-mcp-server-thin-tier P01 | 4min | 3 tasks | 6 files |
+| Phase 10 P02 | 6min | 3 tasks | 8 files |
+| Phase 10 P3 | 1h13m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -147,6 +150,12 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 09-02]: NullBrowserbase.render() returns None rather than raising BrowserbaseError (D-07 deviation) so it threads through collect_context's existing continue-with-Exa-only branch
 - [Phase 09-03]: from_context takes about_text_min_chars as an explicit keyword arg rather than importing ABOUT_TEXT_MIN_CHARS, avoiding a models.py<->enrich.py import cycle (D-09)
 - [Phase ?]: No code changes required in 09-04 -- all three gates (make test, make typecheck, make lint) passed cleanly on first run against the fully merged Wave-1 changeset
+- [Phase ?]: [Phase 10-01]: mcp_tier() checks EXA_API_KEY before the mcp_demo_mode early return since no tier can retrieve without Exa
+- [Phase ?]: [Phase 10-01]: mcp SDK SUS heuristic flag resolved as false positive via uv pip show + Project-URL metadata cross-check against official modelcontextprotocol/python-sdk repo
+- [Phase 10]: [Phase 10-02]: news capped before justification numbering so indices and the news field never disagree
+- [Phase 10]: [Phase 10-02]: get_account_evidence strips pydantic's 'Value error, ' prefix from ValidationError messages so client-visible text matches Account's own validator wording
+- [Phase 10]: [Phase 10-02]: create_connected_server_and_client_session accepts a FastMCP instance directly and already calls initialize() internally
+- [Phase 10]: Codex substituted for Claude Code in the real-client checkpoint after Claude session quota exhaustion — The user explicitly approved the substitution; Codex exercised the same local stdio MCP process with valid-invalid-valid calls and no fallback tools.
 
 ### Pending Todos
 
@@ -174,9 +183,9 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-16T17:33:53.004Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-stdio-mcp-server-thin-tier/10-CONTEXT.md
+Last session: 2026-07-16T20:10:42.410Z
+Stopped at: Completed 10-03-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
