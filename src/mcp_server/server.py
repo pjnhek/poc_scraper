@@ -8,6 +8,7 @@ from typing import Literal
 import httpx
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 from starlette.requests import Request
@@ -95,8 +96,45 @@ async def get_account_evidence(
 
 def build_server(
     lifespan: Callable[[FastMCP], AbstractAsyncContextManager[ThinDeps]],
+    settings: Settings | None = None,
 ) -> FastMCP:
-    server = FastMCP("poc-scraper", lifespan=lifespan)
+    """Construct the FastMCP server for either transport.
+
+    `settings=None` (stdio path, and every pre-existing test) builds the
+    server exactly as before: zero behavior change. `settings` provided
+    (HTTP path) additionally passes host/port/stateless/transport-security
+    kwargs sourced from this project's own Settings, never the SDK's
+    parallel FASTMCP_*-prefixed env config, so there is exactly one source
+    of truth (HOST-02, D-08, D-09).
+    """
+    if settings is None:
+        server = FastMCP("poc-scraper", lifespan=lifespan)
+    else:
+        # The allowlist is explicit rather than relying on the SDK's
+        # auto-built localhost wildcard so it is greppable in project code
+        # and gives Phase 13 a single place to swap in the Fly hostname
+        # (D-08). stateless_http=True avoids long-lived per-session tasks
+        # on an unauthenticated public endpoint and is spec-compliant for
+        # standard clients (RESEARCH.md A1: a one-kwarg flip if a Phase 13
+        # client misbehaves).
+        server = FastMCP(
+            "poc-scraper",
+            lifespan=lifespan,
+            host=settings.mcp_http_host,
+            port=settings.mcp_http_port,
+            stateless_http=True,
+            transport_security=TransportSecuritySettings(
+                enable_dns_rebinding_protection=True,
+                allowed_hosts=[
+                    f"127.0.0.1:{settings.mcp_http_port}",
+                    f"localhost:{settings.mcp_http_port}",
+                ],
+                allowed_origins=[
+                    f"http://127.0.0.1:{settings.mcp_http_port}",
+                    f"http://localhost:{settings.mcp_http_port}",
+                ],
+            ),
+        )
     server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))(
         get_account_evidence
     )
