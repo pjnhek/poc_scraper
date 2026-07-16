@@ -9,6 +9,7 @@ from src.models import (
     Citation,
     Enrichment,
     EvalScore,
+    EvidencePack,
     Firmographics,
     ICPScore,
     Justification,
@@ -169,3 +170,24 @@ class TestScoredAccountUnscoreable:
         enr = Enrichment(account=acc)
         with pytest.raises(ValidationError):
             ScoredAccount(account=acc, status="invalid_status", enrichment=enr)  # type: ignore[arg-type]
+
+
+class TestEvidencePack:
+    def test_empty_when_no_about_text_and_no_news(self) -> None:
+        pack = EvidencePack.from_context("", [], (), about_text_min_chars=200)
+        assert pack.retrieval_status == "empty"
+
+    def test_thin_when_about_text_below_threshold(self) -> None:
+        pack = EvidencePack.from_context("short text", [], (), about_text_min_chars=200)
+        assert pack.retrieval_status == "thin"
+
+    def test_ok_when_about_text_meets_threshold(self) -> None:
+        pack = EvidencePack.from_context("x" * 250, [], (), about_text_min_chars=200)
+        assert pack.retrieval_status == "ok"
+
+    def test_is_frozen_and_rejects_extra_fields(self) -> None:
+        pack = EvidencePack(retrieval_status="ok")
+        with pytest.raises(ValidationError):
+            pack.retrieval_status = "thin"  # type: ignore[misc]
+        with pytest.raises(ValidationError):
+            EvidencePack(retrieval_status="ok", unexpected_field=1)  # type: ignore[call-arg]
