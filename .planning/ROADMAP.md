@@ -29,7 +29,7 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
 
 **Build order:** Phases 9-13 are strictly sequential. Each phase's server surface builds on the seam the previous phase established (extraction -> stdio thin tier -> HTTP transport + limits -> gated full tier -> hosted deploy), following the dependency-driven order from `.planning/research/SUMMARY.md`.
 
-- [ ] **Phase 9: Pipeline Extraction & Supporting Models** - Extract `open_deps()` from `pipeline.main()`, promote `collect_context()`, add `NullBrowserbase` and a frozen `EvidencePack` model
+- [x] **Phase 9: Pipeline Extraction & Supporting Models** - Extract `open_deps()` from `pipeline.main()`, promote `collect_context()`, add `NullBrowserbase` and a frozen `EvidencePack` model (completed 2026-07-16)
 - [ ] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain
 - [ ] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio
 - [ ] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt
@@ -49,17 +49,17 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
   3. `NullBrowserbase` satisfies `BrowserbaseLike` and returns `None` on fetch (D-07: deliberate deviation from the original design spec's "raises BrowserbaseError" wording), verified by a test that exercises `collect_context`'s existing catch-and-continue path with Exa-only results
   4. A frozen `EvidencePack` model (`extra="forbid"`, tuple collections) exists in `src/models.py` following existing model conventions
 
-**Plans**: 4 plans
+**Plans**: 4/4 plans complete
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Extract `open_deps()` async context manager from `pipeline.main()` (INTEG-01)
-- [ ] 09-02-PLAN.md — Promote `collect_context()`/`RawContext` and add `NullBrowserbase` (INTEG-02)
-- [ ] 09-03-PLAN.md — Add frozen `EvidencePack` model with `from_context` factory (INTEG-03)
+- [x] 09-01-PLAN.md — Extract `open_deps()` async context manager from `pipeline.main()` (INTEG-01)
+- [x] 09-02-PLAN.md — Promote `collect_context()`/`RawContext` and add `NullBrowserbase` (INTEG-02)
+- [x] 09-03-PLAN.md — Add frozen `EvidencePack` model with `from_context` factory (INTEG-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-04-PLAN.md — Full offline regression gate (tests + strict mypy + lint) across the merged changeset
+- [x] 09-04-PLAN.md — Full offline regression gate (tests + strict mypy + lint) across the merged changeset
 
 **Note**: Pure refactor plus additive, convention-following code; no `mcp` SDK dependency yet, so this is a standard pattern per research (no dedicated research-phase needed).
 
@@ -76,8 +76,14 @@ Plans:
   4. All server logging routes to stderr so stdio JSON-RPC is never contaminated
   5. `make smoke-mcp` runs the stdio server as a real subprocess against one live domain and asserts non-empty numbered justifications, skipped in CI
 
-**Plans**: TBD
-**Note**: First phase exercising the `mcp` SDK — verify the `ToolError` import path and confirm the lifespan-runs-once-per-process guarantee before building on it (research flag).
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Foundation: `mcp>=1.28,<2.0` dependency, `EvidencePack.about_text`, `Settings.mcp_tier()` + `mcp_demo_mode`
+- [ ] 10-02-PLAN.md — `src/mcp_server/` package: evidence caps, thin-tier lifespan wiring, FastMCP tool + sanitized errors + tier logging, stdio entrypoint, `make mcp`, unit + in-memory functional tests
+- [ ] 10-03-PLAN.md — Real-transport gates: `make smoke-mcp` subprocess smoke (skipped in CI) + Claude Code real-client verification checkpoint
+
+**Note**: First phase exercising the `mcp` SDK — verify the `ToolError` import path and confirm the lifespan-runs-once-per-process guarantee before building on it (research flag). [RESOLVED by 10-RESEARCH.md: `ToolError` lives at `mcp.server.fastmcp.exceptions` but plain exceptions suffice; lifespan-once-per-process confirmed against mcp==1.28.1 source.]
 
 ### Phase 11: Rate Limits & Streamable HTTP Transport
 
@@ -136,7 +142,7 @@ Plans:
 | 6. Sheet Polish            | v1.0 | 4/4 | Complete | 2026-07-15 |
 | 7. Public-Repo Audit       | v1.0 | 3/3 | Complete | 2026-05-27 |
 | 8. README and Loom Refresh | v1.0 | 4/4 | Complete | 2026-07-15 |
-| 9. Pipeline Extraction & Supporting Models | v1.1 | 0/4 | Planned | - |
+| 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
 | 10. Stdio MCP Server (Thin Tier) | v1.1 | 0/TBD | Not started | - |
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/TBD | Not started | - |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
