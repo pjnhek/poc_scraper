@@ -407,6 +407,24 @@ async def test_lifespan_demo_mode_builds_clamped_exa_and_limiter() -> None:
 
 
 @pytest.mark.asyncio
+async def test_lifespan_demo_mode_forces_null_browserbase_despite_credentials() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        browserbase_api_key="x",
+        browserbase_project_id="y",
+        mcp_demo_mode=True,
+    )
+    lifespan = make_thin_lifespan(settings)
+    app = FastMCP("test")
+
+    async with lifespan(app) as deps:
+        assert isinstance(deps.browserbase, NullBrowserbase)
+        assert deps.limiter is not None
+        assert isinstance(deps.exa, DemoClampedExa)
+
+
+@pytest.mark.asyncio
 async def test_lifespan_non_demo_mode_builds_plain_exa_and_no_limiter() -> None:
     settings = Settings(_env_file=None, exa_api_key="x")  # type: ignore[call-arg]
     lifespan = make_thin_lifespan(settings)

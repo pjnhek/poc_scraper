@@ -79,6 +79,10 @@ def make_thin_lifespan(
                 # (D-01/D-02/D-03): the limiter presence, not the transport,
                 # is what downstream code checks.
                 exa = DemoClampedExa(exa, max_results=settings.mcp_demo_exa_results)
+                # Demo mode may spend rationed Exa credit but must never trigger
+                # paid Browserbase fallback, per the design spec's demo scope
+                # clamps -- override any key-aware BrowserbaseClient above.
+                bb = NullBrowserbase()
                 limiter = DemoLimiter(
                     ip_limit=settings.mcp_demo_ip_limit,
                     daily_cap=settings.mcp_demo_daily_cap,
