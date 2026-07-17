@@ -16,7 +16,7 @@ import asyncio
 
 from src.config import get_settings
 from src.mcp_server.server import build_server, resolve_and_log_tier
-from src.mcp_server.wiring import make_thin_lifespan
+from src.mcp_server.wiring import make_full_lifespan, make_thin_lifespan
 
 log = logging.getLogger(__name__)
 
@@ -27,9 +27,14 @@ def main() -> int:
     args = parser.parse_args()
 
     settings = get_settings()
-    resolve_and_log_tier(settings)
+    tier = resolve_and_log_tier(settings)
+    # No key validation needed here: mcp_tier() == "full" already implies
+    # writer/judge/Browserbase keys are present, and open_deps defers key
+    # checks by design.
+    lifespan = make_full_lifespan(settings) if tier == "full" else make_thin_lifespan(settings)
     app = build_server(
-        lifespan=make_thin_lifespan(settings),
+        lifespan=lifespan,
+        tier=tier,
         settings=settings if args.transport == "http" else None,
     )
 
