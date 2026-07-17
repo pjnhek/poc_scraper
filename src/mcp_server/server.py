@@ -260,17 +260,17 @@ def build_server(
     else:
         # The allowlist is explicit rather than relying on the SDK's
         # auto-built localhost wildcard so it is greppable in project code
-        # and gives Phase 13 a single place to swap in the Fly hostname
-        # (D-08). The loopback entries stay so the default bind keeps
-        # working; settings.mcp_http_host is also threaded in (WR-02), but
-        # note it is a BIND address, not the hostname clients send: this
-        # entry only helps when the bind value doubles as a routable
-        # hostname (e.g. a service-name bind), and is skipped entirely for
-        # a wildcard bind (0.0.0.0, ::), which is never a legitimate Host
-        # header value (HOST-06, D-07; closes 12-REVIEW WR-03). The public
-        # hostname a real client's Host header actually carries (e.g. Fly's
-        # edge-forwarded hostname) is sourced from settings.mcp_public_hostname
-        # instead (D-05). stateless_http=True avoids long-lived per-session
+        # and gives a single place to set the public hostname (D-08). Only
+        # two kinds of value are trusted as a Host header: the loopback dev
+        # entries below (so the default bind keeps working locally) and the
+        # validated public hostname a real client actually sends, sourced
+        # from settings.mcp_public_hostname (D-05). The BIND address
+        # (settings.mcp_http_host) is deliberately NOT added: a listener
+        # address is not a Host header, and folding a routable bind value
+        # into the allowlist would widen the DNS-rebinding surface for no
+        # gain (HOST-06, D-07). This supersedes the earlier WR-02 bind
+        # threading, now that D-05 supplies the client-facing hostname
+        # separately. stateless_http=True avoids long-lived per-session
         # tasks on an unauthenticated public endpoint and is spec-compliant
         # for standard clients (RESEARCH.md A1: a one-kwarg flip if a
         # Phase 13 client misbehaves).
@@ -282,9 +282,6 @@ def build_server(
             f"http://127.0.0.1:{settings.mcp_http_port}",
             f"http://localhost:{settings.mcp_http_port}",
         ]
-        if settings.mcp_http_host not in ("0.0.0.0", "::"):
-            allowed_hosts.append(f"{settings.mcp_http_host}:{settings.mcp_http_port}")
-            allowed_origins.append(f"http://{settings.mcp_http_host}:{settings.mcp_http_port}")
         if settings.mcp_public_hostname:
             # Bare hostname: Fly's edge forwards the client's original Host
             # header verbatim, and HTTPS on default port 443 omits the port
