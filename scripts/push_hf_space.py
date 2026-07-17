@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from fnmatch import fnmatch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,17 +30,46 @@ ALLOWLIST_FILES = ["Dockerfile", "pyproject.toml", "uv.lock", ".dockerignore"]
 ALLOWLIST_DIRS = ["src", "evals", "configs"]
 SPACE_README = ROOT / "deploy" / "hf-space" / "README.md"
 
+# Copying a whole tree is only an allowlist at the top level; a secret nested
+# inside src/, evals/, or configs/ (or a symlink pointing at one) would still
+# be uploaded to the public Space. Reject these filenames at EVERY depth, and
+# never follow a symlink into the upload.
+SECRET_PATTERNS = (
+    ".env",
+    ".env.*",
+    "*.env",
+    "credentials*.json",
+    "service-account*.json",
+    ".secrets-denylist",
+    "*.log",
+)
+
+
+def _reject_secrets_and_symlinks(dir_path: str, names: list[str]) -> set[str]:
+    base = Path(dir_path)
+    skip: set[str] = {"__pycache__"}
+    for name in names:
+        if name.endswith(".pyc"):
+            skip.add(name)
+        elif (base / name).is_symlink():
+            skip.add(name)
+        elif any(fnmatch(name, pattern) for pattern in SECRET_PATTERNS):
+            skip.add(name)
+    return skip
+
 
 def assemble(workdir: Path) -> None:
     for name in ALLOWLIST_FILES:
         src = ROOT / name
-        if src.exists():
+        # Skip symlinks: a symlinked allowlist entry could resolve to a secret
+        # outside the intended file.
+        if src.is_file() and not src.is_symlink():
             shutil.copy2(src, workdir / name)
     for name in ALLOWLIST_DIRS:
         shutil.copytree(
             ROOT / name,
             workdir / name,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            ignore=_reject_secrets_and_symlinks,
         )
     shutil.copy2(SPACE_README, workdir / "README.md")
 
