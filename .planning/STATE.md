@@ -204,11 +204,11 @@ Items acknowledged and carried forward:
 
 Last session: 2026-07-17T02:48:37.511Z
 Stopped at: Phase 11 closeout complete: re-verified against amended HOST-04, VALIDATION.md filled (nyquist_compliant), WR-02 scope corrected, demo Browserbase rail fixed (4fbc1bf)
-Resume file: .planning/phases/11-rate-limits-streamable-http-transport/11-VERIFICATION.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Review .planning/ROADMAP.md for the v1.1 phase structure
-- Run `/gsd-plan-phase 9` to create the first phase plan (Pipeline Extraction & Supporting Models)
+- Run `/gsd-discuss-phase 12` to capture context for Phase 12 (Full-Tier Tool, Resources & Prompt)
+- Then `/gsd-plan-phase 12` to plan it
 
 </content>
