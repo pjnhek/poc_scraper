@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
@@ -34,7 +34,7 @@ from .contacts import ContactExtractor
 from .csv_io import read_accounts
 from .enrich import Enricher
 from .icp_config import get_config
-from .models import Account, AccountStatus, Enrichment, ScoredAccount
+from .models import Account, AccountStatus, Enrichment, EvalScore, ScoredAccount
 from .outreach import OutreachGenerator
 from .score import Scorer
 from .sheets import SheetsWriter
@@ -128,7 +128,13 @@ async def open_deps(settings: Settings) -> AsyncIterator[Deps]:
                 await judge_llm.aclose()
 
 
-async def process_account(account: Account, deps: Deps) -> ScoredAccount:
+async def process_account(
+    account: Account,
+    deps: Deps,
+    *,
+    run_eval: bool = True,
+    on_stage: Callable[[str], Awaitable[None]] | None = None,
+) -> ScoredAccount:
     try:
         enrichment = await deps.enricher.enrich(account)
     except (
@@ -146,6 +152,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
             f"enrich failed [{type(exc).__name__}]: {exc}",
             status=AccountStatus.hook_suppressed,
         )
+    if on_stage is not None:
+        await on_stage("enrich")
 
     if enrichment.is_empty:
         return ScoredAccount.unscoreable(
@@ -162,6 +170,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
             f"score failed [{type(exc).__name__}]: {exc}",
             status=AccountStatus.hook_suppressed,
         )
+    if on_stage is not None:
+        await on_stage("score")
     if score is None:
         return ScoredAccount.unscoreable(
             account,
@@ -175,6 +185,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
     except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
         log.warning("contacts failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
         contacts = ()
+    if on_stage is not None:
+        await on_stage("contacts")
 
     hooks = []
     for c in contacts:
@@ -190,6 +202,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
             )
             continue
         hooks.append(hook)
+    if on_stage is not None:
+        await on_stage("outreach")
 
     sa = ScoredAccount(
         account=account,
@@ -200,15 +214,24 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
         hooks=tuple(hooks),
     )
 
-    try:
-        eval_score = await deps.eval_rubric.evaluate_account(sa)
-    except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
-        log.warning("eval failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
-        eval_score = None
+    eval_score: EvalScore | None = None
+    if run_eval:
+        try:
+            eval_score = await deps.eval_rubric.evaluate_account(sa)
+        except (RateLimitError, APIStatusError, APIError, ValidationError) as exc:
+            log.warning("eval failed [%s] for %s: %s", type(exc).__name__, account.domain, exc)
+            eval_score = None
+        if on_stage is not None:
+            await on_stage("eval")
 
-    # D-03 precedence: worst-observability-first so a judge failure is never masked.
+    # D-03/D-02 precedence: worst-observability-first so a judge failure is never masked,
+    # and a deliberate judge skip is never mistaken for one.
     # judge_failed wins because it signals the eval layer is broken, not just the content.
     # hook_suppressed is next because no content was delivered regardless of eval result.
+    # run_eval=False sits strictly between those two checks and the eval_score=None ->
+    # judge_failed mapping below: a caller who opted out of the judge never sees
+    # judge_failed or low_groundedness, only the honest clean/hook_suppressed outcome the
+    # pipeline already determined without it (D-02, Phase 12).
     # eval_score=None from an exception (not unparseable output) also maps to judge_failed
     # so the sheet reader can distinguish "evaluated clean" from "eval crashed silently".
     # low_groundedness means content exists but the judge flagged it.
@@ -217,6 +240,8 @@ async def process_account(account: Account, deps: Deps) -> ScoredAccount:
         final_status = AccountStatus.judge_failed
     elif all(h.paragraph == "" for h in hooks):
         final_status = AccountStatus.hook_suppressed
+    elif not run_eval:
+        final_status = AccountStatus.clean
     elif eval_score is None:
         # Eval raised a network or runtime exception; treat as judge_failed so the
         # reader knows the eval layer did not run, not that content passed review.
