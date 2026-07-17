@@ -113,10 +113,14 @@ def build_server(
         # The allowlist is explicit rather than relying on the SDK's
         # auto-built localhost wildcard so it is greppable in project code
         # and gives Phase 13 a single place to swap in the Fly hostname
-        # (D-08). stateless_http=True avoids long-lived per-session tasks
-        # on an unauthenticated public endpoint and is spec-compliant for
-        # standard clients (RESEARCH.md A1: a one-kwarg flip if a Phase 13
-        # client misbehaves).
+        # (D-08). The loopback entries stay so the default bind keeps
+        # working; settings.mcp_http_host is also threaded in so a
+        # non-loopback MCP_HTTP_HOST override (e.g. the Dockerfile's
+        # 0.0.0.0) is not silently rejected by the allowlist it never
+        # touched (WR-02). stateless_http=True avoids long-lived
+        # per-session tasks on an unauthenticated public endpoint and is
+        # spec-compliant for standard clients (RESEARCH.md A1: a one-kwarg
+        # flip if a Phase 13 client misbehaves).
         server = FastMCP(
             "poc-scraper",
             lifespan=lifespan,
@@ -128,10 +132,12 @@ def build_server(
                 allowed_hosts=[
                     f"127.0.0.1:{settings.mcp_http_port}",
                     f"localhost:{settings.mcp_http_port}",
+                    f"{settings.mcp_http_host}:{settings.mcp_http_port}",
                 ],
                 allowed_origins=[
                     f"http://127.0.0.1:{settings.mcp_http_port}",
                     f"http://localhost:{settings.mcp_http_port}",
+                    f"http://{settings.mcp_http_host}:{settings.mcp_http_port}",
                 ],
             ),
         )
