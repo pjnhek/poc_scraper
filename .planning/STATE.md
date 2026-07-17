@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
 current_phase: 13
-current_phase_name: Hosted Deploy & Docs Close
 status: verifying
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-07-17T05:08:26.830Z"
+stopped_at: Phase 13 complete and verified
+last_updated: "2026-07-17T18:43:42.459Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 12 complete, transitioned to Phase 13
+last_activity_desc: Phase 13 complete
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 80
+  completed_phases: 5
+  total_plans: 21
+  completed_plans: 21
+  percent: 100
+current_phase_name: hosted-deploy-docs-close
 ---
 
 # Project State
@@ -24,22 +24,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 12 — full-tier-tool-resources-prompt
+**Current focus:** Milestone v1.1 (MCP Server Surface) fully executed — ready for `/gsd-complete-milestone`
 
 ## Current Position
 
-Phase: 13 — Hosted Deploy & Docs Close
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-07-17 — Phase 12 complete, transitioned to Phase 13
+Phase: 13 — hosted-deploy-docs-close
+Plan: 5 of 5 complete
+Status: Phase 13 complete and verified (6/6 requirements: HOST-03, HOST-05, HOST-06, DOCS-01, DOCS-02, TEST-01). Verifier independently re-ran the offline gates (503 pytest passed, mypy/ruff/black clean, no new overrides) and re-probed the live Oracle endpoint (`https://170.9.7.144.sslip.io/mcp`: valid MCP initialize, HTTPS redirect, forged Host header rejected at the Caddy edge). The D-14 live real-client checkpoint (HOST-03/05/06 live halves) is human-approved and recorded in `13-04-SUMMARY.md` and `docs/DEPLOY.md`. `13-VERIFICATION.md` written. This is the last phase, so milestone v1.1 is now fully executed.
+Last activity: 2026-07-17 — Phase 13 verified and marked complete; milestone v1.1 ready to close
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 39
+- Total plans completed: 44
 - Average duration: -
 - Total execution time: -
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | 10 | 5 | - | - |
 | 11 | 3 | - | - |
 | 12 | 4 | - | - |
+| 13 | 5 | - | - |
 
 **Recent Trend:**
 
@@ -96,6 +97,11 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12 P02 | 20min | 2 tasks | 3 files |
 | Phase 12 P03 | 15min | 2 tasks | 4 files |
 | Phase 12 P04 | 7min | 2 tasks | 1 files |
+| Phase 13 P01 | 15min | 2 tasks | 5 files |
+| Phase 13 P02 | 18min | 3 tasks | 5 files |
+| Phase 13 P03 | 5min | 2 tasks | 1 files |
+| Phase 13-hosted-deploy-docs-close P04 | 185min | 3 tasks | 1 files |
+| Phase 13 P05 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -189,6 +195,27 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 12-03]: tier is threaded through build_server as an explicit parameter derived from resolve_and_log_tier, never re-derived from the settings=None/not-None check, so MCP_DEMO_MODE hides research_account_full regardless of transport
 - [Phase ?]: [Phase 12-04]: HappyWriterLLM/HappyJudgeLLM kept as separate fakes so judge invocation count is independently assertable for D-02
 - [Phase ?]: [Phase 12-04]: title=None on fake about-page ExaResult mirrors test_pipeline_failures.py so justification summary clears the rapidfuzz groundedness_suppress_threshold gate reliably
+- [Phase ?]: mcp_public_hostname sources allowlist entries additively; wildcard binds (0.0.0.0, ::) excluded from the bind-derived allowlist entry entirely (D-07)
+- [Phase ?]: D-06 guard checks transport==http and mcp_http_host not in loopback set and not mcp_public_hostname, matching the WR-03 guard shape and call-site convention exactly
+- [Phase ?]: MCP_PUBLIC_HOSTNAME .env.example documentation deferred to docs/DEPLOY.md (plan 13-02) because .env.example is outside this session's file-access permissions
+- [Phase ?]: fly launch dry run degraded gracefully (13-02): flyctl installed via brew but no Fly.io account was available in the automated session; only the smoke-checks flag was confirmed without auth, remaining 4 observations deferred to plan 13-04's deploy preflight
+- [Phase ?]: Dockerfile copies README.md into the uv sync layer (13-02) because hatchling's readme field is read during project install, not just dependency install
+- [Phase 13-03]: HOST-05 offline regression coverage lives in tests/integration/test_mcp_error_sanitization.py with a BANNED_SUBSTRINGS constant checked against all three get_account_evidence error paths; TEST-01 offline gate confirmed green with no new mypy overrides
+- [Phase 13-04]: Hosted deploy target switched from Fly.io to Hugging Face Spaces mid-plan; `fly apps create` requires a payment method on file even for free-tier usage and the operator declined. HF Spaces (free CPU-basic Docker Space, no card) is now primary; Fly.io artifacts (Dockerfile shared, fly.toml) stay committed as a documented, unverified-live alternative in docs/DEPLOY.md's appendix. `make deploy` now wraps `scripts/push_hf_space.py`; `make deploy-fly` is the prior Fly target.
+- [Phase 13-04]: D-01/D-03 (suspend-on-idle cost posture, single-machine pin) map onto HF's free CPU-basic Spaces as: exactly one container replica by construction (no scale knob to misconfigure) and sleep-after-inactivity with cold-start-on-wake (documented as ~48h by HF, subject to change), same DemoLimiter-counters-reset-on-restart tradeoff as Fly's suspend behavior.
+- [Phase 13-04]: scripts/push_hf_space.py assembles an explicit file allowlist (mirrors .dockerignore) into a scratch dir and pushes via `hf upload` (single-commit, not git push); verified locally with huggingface_hub's filter_repo_objects that the allowlist excludes tests/, .planning/, .env, credentials.json, and the project's own top-level README.md.
+- [Phase 13-04]: HF Spaces Docker/Gradio SDK space creation now returns 402 Payment Required without a PRO subscription (confirmed 2026-07-17 against the live API with a write-scoped token; a throwaway dataset repo create/delete on the same token succeeded, isolating this to the SDK-type gate, not a token-scope problem). Only "static" SDK spaces are free; not viable for a Dockerized MCP server. Both Fly.io (card required) and HF Spaces (PRO required) now gate their previously-free Docker hosting behind payment; operator decision needed before Task 2 can proceed.
+- [Phase 13-04]: Deploy-target decision chain resolved: Fly.io (card required, 402-equivalent) -> HF Spaces (PRO required, 402) -> Oracle Cloud Always Free (chosen 2026-07-17; card required at signup for identity verification only, $0/mo thereafter unless explicitly upgraded to Pay As You Go). Oracle is now primary in docs/DEPLOY.md; HF and Fly stay committed as labeled appendices, each annotated with why it is not primary.
+- [Phase 13-04]: D-01 (idle-behavior cost intent) reinterpreted for a raw VM with no suspend primitive: the Always Free VM runs 24/7 at $0/month instead of idling to hit the cost goal; DemoLimiter counters persist across quiet periods and reset only on redeploy/crash, same tradeoff class as the Fly/HF suspend-reset behavior.
+- [Phase 13-04]: deploy/oracle/setup.sh is deliberately the single artifact used both as OCI instance user-data (cloud-init runs a plain `#!/bin/bash` user-data script directly, no separate cloud-init YAML) and as a manually re-run redeploy/secret-pickup script over SSH, to avoid drift between first-boot and redeploy behavior (DRY).
+- [Phase 13-04]: Chose Ubuntu 22.04 (apt-based) over Oracle Linux for deploy/oracle/setup.sh to keep the script single-OS; image OCID is looked up dynamically per shape (`oci compute image list --shape ...`) so the ARM (A1.Flex) vs AMD (E2.1.Micro) image split never needs a hand-maintained OCID.
+- [Phase 13-04]: setup.sh adds a 2GB swapfile when total RAM is below 2GB (the E2.1.Micro Always Free fallback has 1GB) as a Rule 2 defensive addition, since `docker build`'s `uv sync` step is the most likely OOM point on that shape.
+- [Phase 13-04]: Container binds to 127.0.0.1:8000 only on the Oracle VM (not the public interface); Caddy is the sole public-facing process (defense in depth beyond what the managed Fly/HF edges provide by default).
+- [Phase 13-04]: D-14 live real-client verification passed: official MCP Python SDK client retrieved cited evidence for notion.so (HOST-03) and got a clean one-line sanitized error for an invalid domain (HOST-05 live half) against https://170.9.7.144.sslip.io/mcp
+- [Phase 13-04]: Live URL for 13-05's README Try it live section: https://170.9.7.144.sslip.io/mcp
+- [Phase 13-04]: HOST-06 live half confirmed: exactly one instance/container, forged Host header rejected at both Caddy edge and the app's own TransportSecuritySettings allowlist
+- [Phase ?]: Plan 13-05 substituted the confirmed live Oracle Cloud endpoint (https://170.9.7.144.sslip.io/mcp) for the plan's fly.dev placeholder throughout README.md, per the 13-04 deploy-target pivot
+- [Phase ?]: CLAUDE.md Makefile-targets mention lists provision-oracle/deploy-oracle/deploy-hf/deploy-fly (the real current targets) instead of the plan's generic deploy target
 
 ### Pending Todos
 
@@ -196,7 +223,7 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet. Research flags three one-time SDK-surface checks scoped to specific v1.1 phases, not carried risk: Phase 10 needs the `ToolError` import path and lifespan-once-per-process confirmed; Phase 11 needs the `streamable_http_app(middleware=...)` kwarg shape confirmed against the installed SDK; Phase 13 needs an early `fly launch` dry run before writing the Dockerfile/`fly.toml` in earnest.
+None
 
 ### Quick Tasks Completed
 
@@ -217,13 +244,13 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-17T04:55:09.043Z
-Stopped at: Completed 12-03-PLAN.md
+Last session: 2026-07-17T18:20:33.352Z
+Stopped at: Completed 13-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Run `/gsd-discuss-phase 12` to capture context for Phase 12 (Full-Tier Tool, Resources & Prompt)
-- Then `/gsd-plan-phase 12` to plan it
+- Run `/gsd-execute-phase 13` (or execute 13-05-PLAN.md directly) to close out Phase 13: README "Try it live" hook + MCP section + Loom scope note, CLAUDE.md charter sync (DOCS-01, DOCS-02)
+- 13-05 should use the confirmed live URL `https://170.9.7.144.sslip.io/mcp`
 
 </content>

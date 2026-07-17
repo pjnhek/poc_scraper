@@ -33,7 +33,7 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
 - [x] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain (completed 2026-07-16)
 - [x] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio (completed 2026-07-16)
 - [x] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt (completed 2026-07-17)
-- [ ] **Phase 13: Hosted Deploy & Docs Close** - Public Fly.io URL, hardened error payloads, CLAUDE.md and README updated for the new surface
+- [x] **Phase 13: Hosted Deploy & Docs Close** - Public Fly.io URL, hardened error payloads, CLAUDE.md and README updated for the new surface (completed 2026-07-17)
 
 ## Phase Details
 
@@ -174,23 +174,23 @@ Plans:
   4. CLAUDE.md lists `mcp>=1.28,<2.0` in the locked stack with the MCP surface noted in scope; README gains an MCP section with client config snippets (Claude Desktop, Claude Code, `npx mcp-remote`) and the grounding-by-instruction vs grounding-by-construction contrast
   5. The full offline test suite (unit, functional via in-memory MCP client, integration) covers tiering, limits with an injected clock, evidence construction, and error paths; strict mypy stays clean with no new overrides
 
-**Plans**: 5 plans
+**Plans**: 5/5 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — `mcp_public_hostname` setting, additive `TransportSecuritySettings` allowlist with wildcard-bind exclusion, D-06 fail-fast guard, unit + D-07 functional tests (HOST-06, TEST-01)
-- [ ] 13-02-PLAN.md — `fly launch` dry run, then Dockerfile, `.dockerignore`, `fly.toml`, `make deploy`, `docs/DEPLOY.md` runbook (HOST-03, HOST-06)
+- [x] 13-01-PLAN.md — `mcp_public_hostname` setting, additive `TransportSecuritySettings` allowlist with wildcard-bind exclusion, D-06 fail-fast guard, unit + D-07 functional tests (HOST-06, TEST-01)
+- [x] 13-02-PLAN.md — `fly launch` dry run, then Dockerfile, `.dockerignore`, `fly.toml`, `make deploy`, `docs/DEPLOY.md` runbook (HOST-03, HOST-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-03-PLAN.md — `tests/integration/test_mcp_error_sanitization.py` banned-substring coverage plus full offline gate (HOST-05, TEST-01)
-- [ ] 13-04-PLAN.md — Fly secret checkpoint, deploy + `fly scale count 1` pin + live transport verification, D-14 real-client checkpoint (HOST-03, HOST-05, HOST-06)
+- [x] 13-03-PLAN.md — `tests/integration/test_mcp_error_sanitization.py` banned-substring coverage plus full offline gate (HOST-05, TEST-01)
+- [x] 13-04-PLAN.md — Fly secret checkpoint, deploy + `fly scale count 1` pin + live transport verification, D-14 real-client checkpoint (HOST-03, HOST-05, HOST-06)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 13-05-PLAN.md — README "Try it live" hook + MCP section + Loom scope note, CLAUDE.md charter sync (DOCS-01, DOCS-02)
+- [x] 13-05-PLAN.md — README "Try it live" hook + MCP section + Loom scope note, CLAUDE.md charter sync (DOCS-01, DOCS-02)
 
 **Note**: Do an early `fly launch` dry run before writing the Dockerfile/`fly.toml` in earnest — no confirmed reference exists for Python + streamable HTTP on Fly (research flag).
 
@@ -210,5 +210,5 @@ Plans:
 | 10. Stdio MCP Server (Thin Tier) | v1.1 | 5/5 | Complete    | 2026-07-16 |
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 3/3 | Complete    | 2026-07-16 |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 4/4 | Complete    | 2026-07-17 |
-| 13. Hosted Deploy & Docs Close | v1.1 | 0/5 | Planned | - |
+| 13. Hosted Deploy & Docs Close | v1.1 | 5/5 | Complete    | 2026-07-17 |
 </content>

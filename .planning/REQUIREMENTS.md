@@ -20,10 +20,10 @@
 
 - [x] **HOST-01**: A local user can run the server over stdio (`make mcp`) and connect it to Claude Code or Claude Desktop, with all logging routed to stderr (verified against a real client connection)
 - [x] **HOST-02**: The same server runs over streamable HTTP (`make mcp-http`) from the same entry point
-- [ ] **HOST-03**: A stranger can connect to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieve cited evidence
+- [x] **HOST-03**: A stranger can connect to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieve cited evidence
 - [x] **HOST-04**: Demo mode enforces the per-IP hourly limit (5), global daily cap (25), and Exa results clamp (5), env-tunable, returning structured rationing errors with reset times; client IP resolves from `Fly-Client-IP` only, failing closed into one shared bucket on missing or malformed headers (no X-Forwarded-For fallback: the header is client-spoofable, amended post-review per WR-01)
-- [ ] **HOST-05**: Tool error payloads never contain stack traces, env names, or key fragments
-- [ ] **HOST-06**: The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist (DNS-rebinding protection) whose public hostname is configured separately from the bind address (`MCP_HTTP_HOST` is a listener address like `0.0.0.0`, never a Host header value), and `fly.toml` pins exactly one machine so in-memory limits stay truly global
+- [x] **HOST-05**: Tool error payloads never contain stack traces, env names, or key fragments
+- [x] **HOST-06**: The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist (DNS-rebinding protection) whose public hostname is configured separately from the bind address (`MCP_HTTP_HOST` is a listener address like `0.0.0.0`, never a Host header value), and `fly.toml` pins exactly one machine so in-memory limits stay truly global
 
 ### Pipeline Integration (INTEG)
 
@@ -33,12 +33,12 @@
 
 ### Docs and Charter (DOCS)
 
-- [ ] **DOCS-01**: CLAUDE.md is amended: `mcp>=1.28,<2.0` added to the locked stack, MCP surface noted as in scope
-- [ ] **DOCS-02**: README gains an MCP section with client config snippets for Claude Desktop, Claude Code, and `npx mcp-remote`, plus the grounding-by-instruction vs grounding-by-construction contrast
+- [x] **DOCS-01**: CLAUDE.md is amended: `mcp>=1.28,<2.0` added to the locked stack, MCP surface noted as in scope
+- [x] **DOCS-02**: README gains an MCP section with client config snippets for Claude Desktop, Claude Code, and `npx mcp-remote`, plus the grounding-by-instruction vs grounding-by-construction contrast
 
 ### Testing (TEST)
 
-- [ ] **TEST-01**: Unit, functional (in-memory MCP client via `mcp.shared.memory`), and integration tests cover tiering, limits (injected clock), evidence construction, and error paths; strict mypy stays clean with no new overrides
+- [x] **TEST-01**: Unit, functional (in-memory MCP client via `mcp.shared.memory`), and integration tests cover tiering, limits (injected clock), evidence construction, and error paths; strict mypy stays clean with no new overrides
 - [x] **TEST-02**: Opt-in `make smoke-mcp` runs the stdio server as a real subprocess against one live domain, skipped in CI
 
 ## Future Requirements (deferred)
@@ -72,16 +72,16 @@
 | MCP-07 | Phase 10 | Complete |
 | HOST-01 | Phase 10 | Complete |
 | HOST-02 | Phase 11 | Complete |
-| HOST-03 | Phase 13 | Pending |
+| HOST-03 | Phase 13 | Complete |
 | HOST-04 | Phase 11 | Complete |
-| HOST-05 | Phase 13 | Pending |
-| HOST-06 | Phase 13 | Pending |
+| HOST-05 | Phase 13 | Complete |
+| HOST-06 | Phase 13 | Complete |
 | INTEG-01 | Phase 9 | Complete |
 | INTEG-02 | Phase 9 | Complete |
 | INTEG-03 | Phase 9 | Complete |
-| DOCS-01 | Phase 13 | Pending |
-| DOCS-02 | Phase 13 | Pending |
-| TEST-01 | Phase 13 | Pending |
+| DOCS-01 | Phase 13 | Complete |
+| DOCS-02 | Phase 13 | Complete |
+| TEST-01 | Phase 13 | Complete |
 | TEST-02 | Phase 10 | Complete |
 
 Coverage: 20/20 v1.1 requirements mapped, 0 orphans.
