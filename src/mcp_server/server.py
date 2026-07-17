@@ -19,7 +19,7 @@ from src.config import Settings
 from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.evidence import build_evidence_pack
 from src.mcp_server.limits import DAILY_CAP_MESSAGE, resolve_client_ip
-from src.mcp_server.wiring import ThinDeps
+from src.mcp_server.wiring import EvidenceDeps
 from src.models import Account, EvidencePack
 
 log = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def resolve_and_log_tier(settings: Settings) -> Literal["thin", "full"]:
 
 
 async def get_account_evidence(
-    domain: str, ctx: Context[ServerSession, ThinDeps, Request]
+    domain: str, ctx: Context[ServerSession, EvidenceDeps, Request]
 ) -> EvidencePack:
     """Retrieve numbered, cited evidence for a company domain (about page and
     last-90-day news). Every downstream claim you build from this evidence
@@ -139,7 +139,7 @@ def research_account(domain: str) -> str:
 
 
 def build_server(
-    lifespan: Callable[[FastMCP], AbstractAsyncContextManager[ThinDeps]],
+    lifespan: Callable[[FastMCP], AbstractAsyncContextManager[EvidenceDeps]],
     settings: Settings | None = None,
 ) -> FastMCP:
     """Construct the FastMCP server for either transport.

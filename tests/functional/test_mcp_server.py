@@ -19,7 +19,8 @@ from src.config import Settings
 from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.limits import DemoLimiter
 from src.mcp_server.server import build_server, resolve_and_log_tier
-from src.mcp_server.wiring import DemoClampedExa, ThinDeps, make_thin_lifespan
+from src.mcp_server.wiring import DemoClampedExa, ThinDeps, make_full_lifespan, make_thin_lifespan
+from src.pipeline import Deps
 from tests.functional.test_enrich import FakeExa
 
 
@@ -436,6 +437,31 @@ async def test_lifespan_non_demo_mode_builds_plain_exa_and_no_limiter() -> None:
     async with lifespan(app) as deps:
         assert deps.limiter is None
         assert isinstance(deps.exa, ExaClient)
+
+
+@pytest.mark.asyncio
+async def test_make_full_lifespan_delegates_to_open_deps() -> None:
+    """Task 1: full-tier lifespan is a thin wrapper around open_deps.
+
+    Dummy key strings are sufficient because only client construction is
+    exercised here (mirrors tests/functional/test_pipeline_open_deps.py) --
+    no live network calls occur.
+    """
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        deepseek_api_key="y",
+        browserbase_api_key="z",
+        browserbase_project_id="p",
+    )
+    lifespan = make_full_lifespan(settings)
+    app = FastMCP("test")
+
+    async with lifespan(app) as deps:
+        assert isinstance(deps, Deps)
+        assert deps.limiter is None
+        assert deps.exa is not None
+        assert deps.enricher is not None
 
 
 @pytest.mark.asyncio

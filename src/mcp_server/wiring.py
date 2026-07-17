@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
+from typing import Protocol
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -12,6 +13,7 @@ from src.clients.exa_client import ExaClient, ExaResult
 from src.clients.protocols import BrowserbaseLike, ExaLike
 from src.config import Settings
 from src.mcp_server.limits import DemoLimiter
+from src.pipeline import Deps, open_deps
 
 
 class DemoClampedExa:
@@ -45,6 +47,30 @@ class ThinDeps:
     exa: ExaLike
     browserbase: BrowserbaseLike
     limiter: DemoLimiter | None = None
+
+
+class EvidenceDeps(Protocol):
+    """Structural contract for get_account_evidence's lifespan context.
+
+    Names exactly the three attributes get_account_evidence reads: exa,
+    browserbase, limiter. Property members (not plain attributes) are
+    load-bearing: property return types are covariant, so the frozen
+    ThinDeps (limiter: DemoLimiter | None) and the extended Deps from
+    src.pipeline (limiter typed bare None, keeping pipeline.py MCP-free)
+    both satisfy this protocol structurally under strict mypy without either
+    inheriting from it -- this is the codebase's existing *Like protocol
+    convention (ExaLike, BrowserbaseLike) applied to the lifespan-context
+    shape instead of a client shape.
+    """
+
+    @property
+    def exa(self) -> ExaLike: ...
+
+    @property
+    def browserbase(self) -> BrowserbaseLike: ...
+
+    @property
+    def limiter(self) -> DemoLimiter | None: ...
 
 
 def make_thin_lifespan(
@@ -91,5 +117,29 @@ def make_thin_lifespan(
                 limiter = None
 
             yield ThinDeps(exa=exa, browserbase=bb, limiter=limiter)
+
+    return lifespan
+
+
+def make_full_lifespan(
+    settings: Settings,
+) -> Callable[[FastMCP], AbstractAsyncContextManager[Deps]]:
+    """Build the full-tier lifespan factory for the given settings.
+
+    Full tier is never demo mode (locked decision), so no limiter/clamp/
+    NullBrowserbase wiring belongs here -- Deps.limiter stays None by its
+    field default. Delegating entirely to open_deps means the full-tier
+    server runs one shared httpx connection pool (not a second one built
+    independently, as make_thin_lifespan does) and inherits open_deps's
+    replay/record branching for free: a second, independently-constructed
+    client stack would silently skip replay fixtures for get_account_evidence
+    while research_account_full correctly replayed from disk in the same
+    process (RESEARCH.md "Alternatives Considered").
+    """
+
+    @asynccontextmanager
+    async def lifespan(_app: FastMCP) -> AsyncIterator[Deps]:
+        async with open_deps(settings) as deps:
+            yield deps
 
     return lifespan
