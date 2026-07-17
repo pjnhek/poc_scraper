@@ -31,7 +31,7 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
 
 - [x] **Phase 9: Pipeline Extraction & Supporting Models** - Extract `open_deps()` from `pipeline.main()`, promote `collect_context()`, add `NullBrowserbase` and a frozen `EvidencePack` model (completed 2026-07-16)
 - [x] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain (completed 2026-07-16)
-- [ ] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio
+- [x] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio (completed 2026-07-16)
 - [ ] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt
 - [ ] **Phase 13: Hosted Deploy & Docs Close** - Public Fly.io URL, hardened error payloads, CLAUDE.md and README updated for the new surface
 
@@ -111,24 +111,24 @@ Plans:
 
   1. `make mcp-http` serves the same tool surface over streamable HTTP as `make mcp` does over stdio, from one entry point
   2. Demo mode enforces 5 evidence calls per IP per hour and 25 per UTC day globally (both env-tunable), returning structured rationing errors with reset times
-  3. Client IP resolves from `Fly-Client-IP` with rightmost-XFF fallback and fails closed into one shared bucket on missing or malformed headers, verified with an injected clock
+  3. Client IP resolves from `Fly-Client-IP` only and fails closed into one shared bucket on missing or malformed headers (no X-Forwarded-For fallback: the header is client-spoofable, amended post-review per WR-01), verified with an injected clock
   4. Rate-limit counters are protected against read-modify-write races under concurrent requests
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — Demo limiter core: five env-tunable Settings knobs, `src/mcp_server/limits.py` (rolling per-IP window, UTC-day cap, race-safe counters, injected clock, fail-closed client-IP resolution), unit tests (HOST-04)
+- [x] 11-01-PLAN.md — Demo limiter core: five env-tunable Settings knobs, `src/mcp_server/limits.py` (rolling per-IP window, UTC-day cap, race-safe counters, injected clock, fail-closed client-IP resolution), unit tests (HOST-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 11-02-PLAN.md — Demo-mode gating in the tool path: `ThinDeps.limiter`, `DemoClampedExa`, check-and-consume gate in `get_account_evidence`, D-07 exhaustion wording, functional rationing tests (HOST-04)
+- [x] 11-02-PLAN.md — Demo-mode gating in the tool path: `ThinDeps.limiter`, `DemoClampedExa`, check-and-consume gate in `get_account_evidence`, D-07 exhaustion wording, functional rationing tests (HOST-04)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 11-03-PLAN.md — Streamable HTTP transport: `build_server` FastMCP kwargs + explicit `TransportSecuritySettings`, `--transport` dispatch, `make mcp-http`/`make mcp-demo`, in-process ASGI HTTP tests, full phase gate (HOST-02, HOST-04)
+- [x] 11-03-PLAN.md — Streamable HTTP transport: `build_server` FastMCP kwargs + explicit `TransportSecuritySettings`, `--transport` dispatch, `make mcp-http`/`make mcp-demo`, in-process ASGI HTTP tests, full phase gate (HOST-02, HOST-04)
 
 **Note**: Highest-uncertainty step in the milestone — confirm the exact `streamable_http_app(middleware=...)` kwarg shape against the installed SDK before building `ClientIPMiddleware` on top of it (research flag). [RESOLVED by 11-RESEARCH.md: no `middleware=` kwarg exists and no middleware is needed at all; `host`/`port`/`stateless_http`/`transport_security` are `FastMCP` constructor kwargs, and the client IP is read per-message from `ctx.request_context.request` (verified against installed mcp==1.28.1 source).]
 
@@ -154,7 +154,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
   1. A stranger connects to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieves cited evidence
-  2. The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist, and `fly.toml` pins exactly one machine so in-memory rate limits stay truly global
+  2. The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist sourced from a public-hostname setting distinct from the bind address (a `0.0.0.0` Docker bind never appears in `allowed_hosts`; clients send the Fly hostname), verified by an integration test pairing a `0.0.0.0` bind with the external Host header, and `fly.toml` pins exactly one machine so in-memory rate limits stay truly global
   3. Tool error payloads never contain stack traces, env names, or key fragments, verified against a deliberately triggered failure
   4. CLAUDE.md lists `mcp>=1.28,<2.0` in the locked stack with the MCP surface noted in scope; README gains an MCP section with client config snippets (Claude Desktop, Claude Code, `npx mcp-remote`) and the grounding-by-instruction vs grounding-by-construction contrast
   5. The full offline test suite (unit, functional via in-memory MCP client, integration) covers tiering, limits with an injected clock, evidence construction, and error paths; strict mypy stays clean with no new overrides
@@ -176,7 +176,7 @@ Plans:
 | 8. README and Loom Refresh | v1.0 | 4/4 | Complete | 2026-07-15 |
 | 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
 | 10. Stdio MCP Server (Thin Tier) | v1.1 | 5/5 | Complete    | 2026-07-16 |
-| 11. Rate Limits & Streamable HTTP Transport | v1.1 | 0/3 | Not started | - |
+| 11. Rate Limits & Streamable HTTP Transport | v1.1 | 3/3 | Complete    | 2026-07-16 |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
 | 13. Hosted Deploy & Docs Close | v1.1 | 0/TBD | Not started | - |
 </content>

@@ -8,6 +8,19 @@ A generic account-research prototype. Given a CSV of company domains, it produce
 
 Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader. If everything else slips, this must hold — it is the whole story.
 
+## Current Milestone: v1.1 MCP Server Surface
+
+**Goal:** Expose the grounded account-research pipeline as a public MCP server: a hosted URL anyone can paste into Claude Desktop for capped, evidence-cited demo research, plus a full BYOK stdio server for cloned-repo users.
+
+**Target features:**
+- Tiered FastMCP server in `src/mcp_server/`: thin tier (evidence tool, rubric + eval-report resources, research prompt; Exa-only) always registered; full-pipeline tool gated on BYOK writer/judge/Browserbase keys
+- Both transports from one entry point: stdio (local clients) and streamable HTTP (hosted)
+- Hosted demo on Fly.io behind `MCP_DEMO_MODE`: 5 evidence calls per IP per hour, 25 per UTC day globally, Exa results clamp, structured rationing errors, in-memory counters
+- Supporting refactors: `open_deps()` extraction from `pipeline.main()`, `collect_context()` promotion in `src/enrich.py`, `NullBrowserbase`, frozen `EvidencePack` model
+- CLAUDE.md charter amendment (adds the `mcp` SDK to the locked stack), README MCP section, tests across all 5 layers
+
+**Design authority:** `docs/superpowers/specs/2026-07-15-mcp-server-design.md` (commit `3a46444`). Economics decided: operator's hard-capped Exa key (unbilled $14.20 credit pool) funds demo retrieval; connectors' own Claude credits fund the reasoning. Server is read-only: no Sheets writes, no batch tools, no rubric editing. PyPI packaging and endpoint auth deferred.
+
 ## Requirements
 
 ### Validated
@@ -37,11 +50,18 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 - ✓ Public-repo scrub (history rewrite + pre-commit name guard) — v1.0 (Phase 7)
 - ✓ Front-loaded README + recorded walkthrough pinned to a specific commit — v1.0 (Phase 8)
 
+<!-- v1.1 MCP Server Surface (in progress). -->
+
+- ✓ Pipeline seams extracted for MCP reuse: `open_deps()` wiring seam (INTEG-01), public `collect_context()`/`RawContext` + `NullBrowserbase` Exa-only path (INTEG-02), frozen `EvidencePack` with `retrieval_status` honesty field (INTEG-03); CLI behavior unchanged, 329 offline tests + strict mypy + lint green — Validated in Phase 9: Pipeline Extraction & Supporting Models (2026-07-16)
+
 ### Active
 
-<!-- Next milestone not yet defined. Run /gsd-new-milestone to scope v1.1+. -->
+<!-- v1.1 MCP Server Surface. REQ-IDs live in .planning/REQUIREMENTS.md. -->
 
-(No active requirements — v1.0 shipped. Define the next milestone with /gsd-new-milestone.)
+- MCP server exposes grounded account evidence, the ICP rubric, and the eval report to any MCP client (thin tier, Exa-only)
+- Full grounded pipeline available as a gated MCP tool for BYOK users (stdio)
+- Hosted streamable-HTTP demo with hard rate limits and daily budget cap
+- Existing pipeline behavior, CLI, and Sheets output unchanged; charter amended for the `mcp` SDK
 
 ### Out of Scope
 
@@ -49,7 +69,7 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 
 - Feedback loop from sales rejections — v2, requires production usage data we do not have
 - CRM trigger automation — v2, scope creep beyond a research POC
-- Webapp / dashboard / Slack bot — v3, the Google Sheet is the deliverable surface
+- Webapp / dashboard / Slack bot — v3, the Google Sheet is the deliverable surface (the v1.1 MCP server is a protocol adapter over existing seams, not a webapp; explicitly in scope per the 2026-07-15 design spec)
 - Multi-tenant config — v3, single-operator tool by design
 - Custom prompt-caching layer — DeepSeek auto-caches at 1/10 input price on hits, NVIDIA does not expose cache control; revisit only if moving to a provider where explicit cache control is necessary
 - Net-new features beyond hardening the existing pipeline for a demo-ready v1 — out of scope for this milestone, not the project
@@ -82,6 +102,7 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 | Phase 7 narrowed from broad vertical/vendor/synthetic scrub to a hiring-company-name-only audit (2026-05-14) | The pipeline must run against real companies to demonstrate it works; real prospect domains and incidental vendor names are acceptable. The only fatal leak is the hiring company name. REPO-02 withdrawn; REPO-01 redefined | — Decided 2026-05-14 |
 | History rewritten and force-pushed to purge the hiring company name (2026-05-14) | The name was baked into ~40 commits of source/prompts plus a commit message on origin/main; git filter-repo replaced it, force-pushed, working repo reset, stale branches deleted, original preserved at ../poc_scraper-FULL-BACKUP.bundle. Repo had 0 forks; exposure closed. Satisfies REPO-03 (rewrite chosen over document) | — Done 2026-05-14 |
 | Pre-commit company-name guard added in lieu of detect-secrets/gitleaks (2026-05-14) | scripts/check_public_discipline.py reads a local-only gitignored .secrets-denylist so the term never enters the public repo; no-ops if absent. Generic secret scanners do not target a project-specific name. Satisfies REPO-04 | — Done 2026-05-14 |
+| v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) | MCP wraps existing seams at a fraction of the cost of the review-queue/CRM product, stays on the groundedness differentiator, and teaches the target skill (building MCPs). Demo economics: operator's capped Exa key funds retrieval, caller's Claude credits fund reasoning. Charter amended to add the mcp SDK | — Decided 2026-07-15 |
 
 ## Evolution
 
@@ -102,7 +123,9 @@ This document evolves at phase transitions and milestone boundaries.
 
 ## Current State
 
-Shipped the demo-ready v1.0 MVP (8 phases, 2026-07-15). The pipeline is grounded end-to-end (unciteable claims dropped before the sheet), the eval rigor is legible via `evals/REPORT.md` (2.73/5.0 holdout), failure modes are hardened, the Google Sheet output is demo-legible, the public repo is scrubbed, and the README + recorded walkthrough are live and pinned to commit `f868a09`. All 320 offline tests pass; strict mypy clean. Next milestone (v1.1+) is not yet scoped; run `/gsd-new-milestone` to define it.
+Shipped the demo-ready v1.0 MVP (8 phases, 2026-07-15). The pipeline is grounded end-to-end (unciteable claims dropped before the sheet), the eval rigor is legible via `evals/REPORT.md` (2.73/5.0 holdout), failure modes are hardened, the Google Sheet output is demo-legible, the public repo is scrubbed, and the README + recorded walkthrough are live and pinned to commit `f868a09`.
+
+Milestone v1.1 (MCP Server Surface) is underway: Phases 9-11 complete (2026-07-16). Phase 9 extracted the `open_deps()`, `collect_context()`/`RawContext`/`NullBrowserbase`, and `EvidencePack` seams; Phase 10 shipped the stdio MCP server (thin tier); Phase 11 added demo-mode rate limits (`DemoLimiter` with per-IP hour window + UTC-day global cap, fail-closed client-IP resolution) and streamable HTTP transport from the same entry point (`make mcp-http`/`make mcp-demo`), validating HOST-02 and HOST-04 as amended post-review (Fly-Client-IP-only bucketing per WR-01; demo mode forces NullBrowserbase regardless of credentials per quick task 260716-p8r; 459 offline tests, strict mypy, lint all clean). Next: Phase 12, full-tier tool, resources & prompt.
 
 ---
-*Last updated: 2026-07-15 after the v1.0 MVP milestone: shipped Phases 1-8 (groundedness audit and fix, eval-set expansion, eval narrative, failure-mode hardening, sheet polish, public-repo audit, README and walkthrough refresh). All eight demo-ready requirements validated.*
+*Last updated: 2026-07-16 after Phase 11 completion (Rate Limits & Streamable HTTP Transport). v1.0 history unchanged above.*

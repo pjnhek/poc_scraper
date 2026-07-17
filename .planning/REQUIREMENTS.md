@@ -19,11 +19,11 @@
 ### Transports and Hosting (HOST)
 
 - [x] **HOST-01**: A local user can run the server over stdio (`make mcp`) and connect it to Claude Code or Claude Desktop, with all logging routed to stderr (verified against a real client connection)
-- [ ] **HOST-02**: The same server runs over streamable HTTP (`make mcp-http`) from the same entry point
+- [x] **HOST-02**: The same server runs over streamable HTTP (`make mcp-http`) from the same entry point
 - [ ] **HOST-03**: A stranger can connect to the hosted Fly.io URL (directly or via `npx mcp-remote`) with zero setup and retrieve cited evidence
-- [ ] **HOST-04**: Demo mode enforces the per-IP hourly limit (5), global daily cap (25), and Exa results clamp (5), env-tunable, returning structured rationing errors with reset times; client IP resolves from `Fly-Client-IP` (rightmost-XFF fallback, fail closed on missing/malformed headers)
+- [x] **HOST-04**: Demo mode enforces the per-IP hourly limit (5), global daily cap (25), and Exa results clamp (5), env-tunable, returning structured rationing errors with reset times; client IP resolves from `Fly-Client-IP` only, failing closed into one shared bucket on missing or malformed headers (no X-Forwarded-For fallback: the header is client-spoofable, amended post-review per WR-01)
 - [ ] **HOST-05**: Tool error payloads never contain stack traces, env names, or key fragments
-- [ ] **HOST-06**: The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist (DNS-rebinding protection), and `fly.toml` pins exactly one machine so in-memory limits stay truly global
+- [ ] **HOST-06**: The HTTP transport is configured with an explicit `TransportSecuritySettings` allowed-hosts allowlist (DNS-rebinding protection) whose public hostname is configured separately from the bind address (`MCP_HTTP_HOST` is a listener address like `0.0.0.0`, never a Host header value), and `fly.toml` pins exactly one machine so in-memory limits stay truly global
 
 ### Pipeline Integration (INTEG)
 
@@ -71,9 +71,9 @@
 | MCP-06 | Phase 10 | Complete |
 | MCP-07 | Phase 10 | Complete |
 | HOST-01 | Phase 10 | Complete |
-| HOST-02 | Phase 11 | Pending |
+| HOST-02 | Phase 11 | Complete |
 | HOST-03 | Phase 13 | Pending |
-| HOST-04 | Phase 11 | Pending |
+| HOST-04 | Phase 11 | Complete |
 | HOST-05 | Phase 13 | Pending |
 | HOST-06 | Phase 13 | Pending |
 | INTEG-01 | Phase 9 | Complete |

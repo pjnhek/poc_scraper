@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
-current_phase: 11
-current_phase_name: Rate Limits & Streamable HTTP Transport
-status: executing
-stopped_at: Phase 11 context gathered
-last_updated: "2026-07-16T22:22:20.897Z"
-last_activity: 2026-07-16
-last_activity_desc: Phase 10 complete, transitioned to Phase 11
+current_phase: 12
+current_phase_name: Full-Tier Tool, Resources & Prompt
+status: planning
+stopped_at: "Phase 11 closeout complete: re-verified against amended HOST-04, VALIDATION.md filled (nyquist_compliant), WR-02 scope corrected, demo Browserbase rail fixed (4fbc1bf)"
+last_updated: "2026-07-17T02:49:19.920Z"
+last_activity: 2026-07-17
+last_activity_desc: Phase 11 closeout complete (re-verified, validated, post-review fixes); Phase 12 ready to discuss
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
-  percent: 40
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
+  percent: 60
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Phase 10 — stdio-mcp-server-thin-tier
+**Current focus:** Phase 12 — full-tier-tool-resources-prompt
 
 ## Current Position
 
-Phase: 11 — Rate Limits & Streamable HTTP Transport
+Phase: 12 — Full-Tier Tool, Resources & Prompt
 Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-16 — Phase 10 complete, transitioned to Phase 11
+Status: planning (Phase 11 verified, validated, and closed)
+Last activity: 2026-07-17 — Phase 11 closeout: re-verification against amended HOST-04, VALIDATION.md filled, post-review fixes landed
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,7 +39,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 32
+- Total plans completed: 35
 - Average duration: -
 - Total execution time: -
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 | 8 | 4 | - | - |
 | 09 | 4 | - | - |
 | 10 | 5 | - | - |
+| 11 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -87,6 +88,9 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10 P3 | 1h13m | 2 tasks | 2 files |
 | Phase 10 P4 | 10min | 2 tasks | 5 files |
 | Phase 10 P5 | 4min | 2 tasks | 5 files |
+| Phase 11 P01 | 8min | 2 tasks | 5 files |
+| Phase 11 P02 | 4min | 3 tasks | 3 files |
+| Phase 11 P03 | 4min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -163,6 +167,13 @@ Recent decisions affecting current work:
 - [Phase 10]: Account accepts only bare hostnames or root HTTP(S) URLs and validates ASCII DNS labels before retrieval.
 - [Phase 10]: Filter indivisible invalid news provenance before applying NEWS_ITEM_MCP_CAP. — Rejected evidence units must not consume the client-visible count allowance.
 - [Phase 10]: Keep Account as the sole domain boundary with standard-library IP and exact IDNA validation plus constant invalid-domain errors. — One shared boundary prevents provider calls and bounded wording prevents raw-input reflection.
+- [Phase ?]: [Phase 11-01]: resolve_client_ip takes starlette.requests.Request | None directly, not an MCP Context, keeping limits.py dependency-free of the mcp SDK
+- [Phase ?]: [Phase 11-01]: check_and_consume checks per-IP before the global daily cap so a doubly-exhausted caller sees the per-IP refusal message
+- [Phase ?]: [Phase 11-02]: DemoClampedExa uses min() clamp semantics so a caller's smaller num_results request is never inflated
+- [Phase ?]: [Phase 11-02]: D-07 exhaustion check extends the existing except (httpx.HTTPError, BrowserbaseError) branch body rather than adding a new except clause
+- [Phase ?]: [Phase 11-03]: stateless_http=True locked for the HTTP transport per RESEARCH.md A1 (avoids long-lived per-session tasks on an unauthenticated public endpoint)
+- [Phase ?]: [Phase 11-03]: TransportSecuritySettings passed explicitly rather than relying on the SDK's auto-built localhost wildcard, so the allowlist is greppable and Phase 13 has a single place to swap in the Fly hostname
+- [Phase ?]: [Phase 11-03]: ASGI-transport HTTP tests enter the Starlette lifespan manually via asgi_app.router.lifespan_context(asgi_app), the exact context uvicorn runs; documented for Phase 13's deploy verification to reuse
 
 ### Pending Todos
 
@@ -177,6 +188,7 @@ None yet. Research flags three one-time SDK-surface checks scoped to specific v1
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260714-mrg | Document specificity and recency in judge rubric tab | 2026-07-14 | 6f8be41 | [260714-mrg-fix-rubric-tab-add-specificity-and-recen](./quick/260714-mrg-fix-rubric-tab-add-specificity-and-recen/) |
+| 260716-p8r | Fix demo-mode Browserbase safety rail regression in MCP server wiring | 2026-07-17 | 4fbc1bf | [260716-p8r-fix-demo-mode-browserbase-safety-rail-re](./quick/260716-p8r-fix-demo-mode-browserbase-safety-rail-re/) |
 
 ## Deferred Items
 
@@ -190,9 +202,9 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-16T22:22:20.888Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-rate-limits-streamable-http-transport/11-CONTEXT.md
+Last session: 2026-07-17T02:48:37.511Z
+Stopped at: Phase 11 closeout complete: re-verified against amended HOST-04, VALIDATION.md filled (nyquist_compliant), WR-02 scope corrected, demo Browserbase rail fixed (4fbc1bf)
+Resume file: .planning/phases/11-rate-limits-streamable-http-transport/11-VERIFICATION.md
 
 ## Operator Next Steps
 
