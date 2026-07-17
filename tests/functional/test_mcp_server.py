@@ -9,11 +9,14 @@ import httpx
 import pytest
 from mcp.server.fastmcp import FastMCP
 from mcp.shared.memory import create_connected_server_and_client_session
+from pydantic import AnyUrl
 
+from evals.report import REPORT_PATH
 from src.clients.browserbase_client import NullBrowserbase
 from src.clients.exa_client import ExaClient, ExaResult
 from src.clients.protocols import ExaLike
 from src.config import Settings
+from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.limits import DemoLimiter
 from src.mcp_server.server import build_server, resolve_and_log_tier
 from src.mcp_server.wiring import DemoClampedExa, ThinDeps, make_thin_lifespan
@@ -497,3 +500,84 @@ async def test_demo_mid_flight_failure_still_consumes_quota() -> None:
     assert second.isError is True
     second_text = second.content[0].text  # type: ignore[union-attr]
     assert "rate limit reached" in second_text
+
+
+@pytest.mark.asyncio
+async def test_rubric_resource_serves_verbatim_yaml() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.read_resource(AnyUrl("icp://rubric"))
+
+    content = result.contents[0]
+    assert content.text == DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")  # type: ignore[union-attr]
+    assert content.mimeType == "application/yaml"
+
+
+@pytest.mark.asyncio
+async def test_eval_report_resource_serves_verbatim_markdown() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.read_resource(AnyUrl("icp://eval-report"))
+
+    content = result.contents[0]
+    assert content.text == REPORT_PATH.read_text(encoding="utf-8")  # type: ignore[union-attr]
+    assert content.mimeType == "text/markdown"
+
+
+@pytest.mark.asyncio
+async def test_list_resources_includes_rubric_and_eval_report() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_resources()
+
+    uris = {str(resource.uri) for resource in listed.resources}
+    assert "icp://rubric" in uris
+    assert "icp://eval-report" in uris
+
+
+@pytest.mark.asyncio
+async def test_research_account_prompt_contains_required_elements() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.get_prompt("research_account", {"domain": "notion.so"})
+
+    assert len(result.messages) >= 1
+    message = result.messages[0]
+    assert message.role == "user"
+    text = message.content.text  # type: ignore[union-attr]
+    for required in ("icp://rubric", "get_account_evidence", "notion.so", "[N]", "drop", "fabricate"):
+        assert required in text
+
+
+@pytest.mark.asyncio
+async def test_research_account_prompt_never_mentions_full_tier_tool() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.get_prompt("research_account", {"domain": "notion.so"})
+
+    text = result.messages[0].content.text  # type: ignore[union-attr]
+    assert "research_account_full" not in text
+
+
+@pytest.mark.asyncio
+async def test_list_prompts_includes_research_account_with_required_domain_arg() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_prompts()
+
+    prompt = next(p for p in listed.prompts if p.name == "research_account")
+    assert prompt.arguments is not None
+    domain_arg = next(a for a in prompt.arguments if a.name == "domain")
+    assert domain_arg.required is True
