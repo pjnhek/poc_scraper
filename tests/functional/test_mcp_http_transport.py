@@ -185,6 +185,52 @@ async def test_dns_rebinding_rejected_for_foreign_host() -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_hostname_allowed_but_bare_bind_address_is_not() -> None:
+    # D-07: a 0.0.0.0 bind (the Dockerfile/Fly path) must accept the real
+    # client's Fly-forwarded Host header while never allowlisting the bind
+    # address itself as a Host header value (12-REVIEW WR-03 follow-up).
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        mcp_http_host="0.0.0.0",
+        mcp_public_hostname="poc-scraper-mcp.fly.dev",
+    )
+    exa = FakeExa(about=[_exa_about()], news=[_exa_news()])
+    app = build_server(lifespan=_lifespan_factory(exa), settings=settings)
+    asgi_app = app.streamable_http_app()
+
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": LATEST_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "public-hostname-test", "version": "0.1"},
+        },
+    }
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+    }
+
+    async with asgi_app.router.lifespan_context(asgi_app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=asgi_app),
+            base_url="https://poc-scraper-mcp.fly.dev",
+        ) as public_client:
+            public_response = await public_client.post("/mcp", json=body, headers=headers)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=asgi_app), base_url="http://0.0.0.0:8000"
+        ) as bind_client:
+            bind_response = await bind_client.post("/mcp", json=body, headers=headers)
+
+    assert public_response.status_code != 421
+    assert bind_response.status_code == 421
+
+
+@pytest.mark.asyncio
 async def test_configured_non_loopback_host_is_allowed() -> None:
     # WR-02: a MCP_HTTP_HOST override (the Dockerfile's non-loopback bind
     # path) must be threaded into the DNS-rebinding allowlist, or every
