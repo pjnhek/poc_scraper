@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo
+.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo deploy
 
 install:
 	uv sync --extra dev
@@ -62,3 +62,6 @@ clean:
 
 verify-public-repo:
 	uv run python -m scripts.verify_public_repo
+
+deploy:
+	fly deploy --smoke-checks=false
