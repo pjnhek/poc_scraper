@@ -614,3 +614,77 @@ async def test_list_prompts_includes_research_account_with_required_domain_arg()
     assert prompt.arguments is not None
     domain_arg = next(a for a in prompt.arguments if a.name == "domain")
     assert domain_arg.required is True
+
+
+@pytest.mark.asyncio
+async def test_demo_hides_full_tool_even_with_full_keys_present() -> None:
+    """Task 2, Test 1: roadmap success criterion 2.
+
+    MCP_DEMO_MODE with all four full-tier keys present must still resolve
+    to the thin tier and hide research_account_full -- not merely refuse it
+    at call time (MCP-06's "hidden, not visible-but-refusing" requirement).
+    """
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        deepseek_api_key="y",
+        browserbase_api_key="z",
+        browserbase_project_id="p",
+        mcp_demo_mode=True,
+    )
+    assert settings.mcp_tier() == "thin"
+
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa), tier=settings.mcp_tier())
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_tools()
+
+    assert [tool.name for tool in listed.tools] == ["get_account_evidence"]
+
+
+@pytest.mark.asyncio
+async def test_full_tool_registered_and_described_over_stdio() -> None:
+    """Task 2, Test 2: full tier registers both tools, stdio-style.
+
+    `settings` is left at its default None -- the stdio path -- to prove
+    tier gating never re-derives from that parameter (RESEARCH Pitfall 1).
+    """
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        deepseek_api_key="y",
+        browserbase_api_key="z",
+        browserbase_project_id="p",
+    )
+    assert settings.mcp_tier() == "full"
+
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa), tier="full")
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_tools()
+
+    names = {tool.name for tool in listed.tools}
+    assert names == {"get_account_evidence", "research_account_full"}
+
+    full_tool = next(t for t in listed.tools if t.name == "research_account_full")
+    assert full_tool.annotations is not None
+    assert full_tool.annotations.readOnlyHint is True
+    assert full_tool.annotations.destructiveHint is False
+    assert full_tool.description is not None
+    assert "30-60" in full_tool.description
+    assert "run_eval=False" in full_tool.description
+    assert "[N]" in full_tool.description
+
+
+@pytest.mark.asyncio
+async def test_build_server_default_tier_registers_thin_tool_only() -> None:
+    """Task 2, Test 3: every pre-existing call site keeps its exact behavior."""
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_tools()
+
+    assert [tool.name for tool in listed.tools] == ["get_account_evidence"]
