@@ -122,6 +122,22 @@ def read_eval_report() -> str:
         return "resource unavailable: the eval calibration report could not be read on the server."
 
 
+def research_account(domain: str) -> str:
+    """Guide rubric-based ICP research for one domain with hard [N]-citation
+    discipline: never fabricate, drop any uncited claim.
+    """
+    return (
+        f"Research {domain} for ICP fit. Read the icp://rubric resource for the "
+        "current axis definitions and weights. Call "
+        f"get_account_evidence({domain!r}) to retrieve numbered justifications. "
+        "Score each rubric axis 1-5 using the stated weights, propose the top 3 "
+        "buyer personas, and draft an outreach hook per persona. Every claim MUST "
+        "cite an [N] index from justifications; drop any claim without a matching "
+        "index. If retrieval_status is 'empty', state that the account cannot be "
+        "researched, never fabricate."
+    )
+
+
 def build_server(
     lifespan: Callable[[FastMCP], AbstractAsyncContextManager[ThinDeps]],
     settings: Settings | None = None,
@@ -178,4 +194,5 @@ def build_server(
     )
     server.resource("icp://rubric", mime_type="application/yaml")(read_icp_rubric)
     server.resource("icp://eval-report", mime_type="text/markdown")(read_eval_report)
+    server.prompt()(research_account)
     return server

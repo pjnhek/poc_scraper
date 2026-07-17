@@ -553,7 +553,14 @@ async def test_research_account_prompt_contains_required_elements() -> None:
     message = result.messages[0]
     assert message.role == "user"
     text = message.content.text  # type: ignore[union-attr]
-    for required in ("icp://rubric", "get_account_evidence", "notion.so", "[N]", "drop", "fabricate"):
+    for required in (
+        "icp://rubric",
+        "get_account_evidence",
+        "notion.so",
+        "[N]",
+        "drop",
+        "fabricate",
+    ):
         assert required in text
 
 
