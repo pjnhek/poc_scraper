@@ -131,6 +131,10 @@ EOF
   echo "Wrote $ENV_FILE with a placeholder EXA_API_KEY."
   echo "Edit it (EXA_API_KEY=<your key>), then re-run this script to pick it up."
 fi
+# Enforce owner-only perms every run: the file holds EXA_API_KEY and cat> would
+# otherwise leave it world-readable (default umask 022 -> 0644) to the ubuntu
+# account. Applies to a just-written or a pre-existing file.
+chmod 600 "$ENV_FILE"
 
 # --- Caddyfile: automatic HTTPS reverse proxy to the loopback-only container
 CADDY_HOSTNAME=$(grep '^MCP_PUBLIC_HOSTNAME=' "$ENV_FILE" | cut -d= -f2-)
