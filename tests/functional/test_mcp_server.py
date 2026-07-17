@@ -14,13 +14,14 @@ from pydantic import AnyUrl
 from evals.report import REPORT_PATH
 from src.clients.browserbase_client import NullBrowserbase
 from src.clients.exa_client import ExaClient, ExaResult
-from src.clients.protocols import ExaLike
+from src.clients.nvidia_client import LLMResponse
+from src.clients.protocols import ExaLike, LLMClient
 from src.config import Settings
 from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.limits import DemoLimiter
 from src.mcp_server.server import build_server, resolve_and_log_tier
 from src.mcp_server.wiring import DemoClampedExa, ThinDeps, make_full_lifespan, make_thin_lifespan
-from src.pipeline import Deps
+from src.pipeline import Deps, build_deps
 from tests.functional.test_enrich import FakeExa
 
 
@@ -688,3 +689,236 @@ async def test_build_server_default_tier_registers_thin_tool_only() -> None:
         listed = await client.list_tools()
 
     assert [tool.name for tool in listed.tools] == ["get_account_evidence"]
+
+
+def _full_lifespan_factory(
+    deps: Deps,
+) -> Callable[[FastMCP], AbstractAsyncContextManager[Deps]]:
+    """Mirrors `_lifespan_factory` above but yields a caller-prepared full `Deps`
+    bundle instead of building one internally -- the tests below construct
+    `Deps` via `build_deps` with fake writer/judge LLMs and a FakeExa, stubs
+    at the API boundary per the functional-test layer (CLAUDE.md)."""
+
+    @asynccontextmanager
+    async def lifespan(_app: FastMCP) -> AsyncIterator[Deps]:
+        yield deps
+
+    return lifespan
+
+
+def _full_about(text: str = "Notion is a workspace tool. " * 30) -> ExaResult:
+    # title=None so the justification summary derives from the snippet,
+    # guaranteeing high rapidfuzz overlap with the fake writer's claim text
+    # (mirrors tests/integration/test_pipeline_failures.py::_exa_about).
+    return ExaResult(url="https://notion.so/about", title=None, snippet=text, published_at=None)
+
+
+class HappyWriterLLM:
+    """Fake writer LLM producing valid firmographics/score/contacts/outreach
+    JSON for every writer-stage prompt. Kept separate from the judge fake so
+    judge invocations are independently countable (D-02 honesty test)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def synthesize(
+        self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+    ) -> LLMResponse:
+        self.calls += 1
+        if "You are a sales analyst" in system:
+            return LLMResponse(
+                text=(
+                    '{"name":"Notion","industry":"productivity software",'
+                    '"headcount_range":"201-500","tech_signals":[]}'
+                )
+            )
+        if "score companies against an ICP rubric" in system:
+            return LLMResponse(
+                text=(
+                    '{"support_volume":5,"support_volume_reason":"r",'
+                    '"ai_maturity":5,"ai_maturity_reason":"r",'
+                    '"stage_fit":5,"stage_fit_reason":"r",'
+                    '"channel_breadth":5,"channel_breadth_reason":"r",'
+                    '"justification":"ok"}'
+                )
+            )
+        if "propose the top 3 buyer personas" in system:
+            return LLMResponse(
+                text=(
+                    '[{"role_title":"a","rationale":"r"},'
+                    '{"role_title":"b","rationale":"r"},'
+                    '{"role_title":"c","rationale":"r"}]'
+                )
+            )
+        if "You write outreach claims from a seller" in system:
+            return LLMResponse(
+                text=(
+                    '{"claims":[{"claim":"Notion is a workspace tool",'
+                    '"cited_indices":[1]}],"connective_text":"reach out"}'
+                )
+            )
+        raise AssertionError(f"unscripted writer prompt: {system[:60]}")
+
+
+class HappyJudgeLLM:
+    """Fake judge LLM: every claim cited, groundedness 5.0, never flagged."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def synthesize(
+        self, system: str, context: str, user_prompt: str, max_tokens: int | None = None
+    ) -> LLMResponse:
+        self.calls += 1
+        if "LLM judge evaluating" in system:
+            return LLMResponse(
+                text=(
+                    '{"claims":['
+                    '{"text":"x","supported_by":1},'
+                    '{"text":"y","supported_by":1},'
+                    '{"text":"z","supported_by":1}],'
+                    '"icp_relevance":4,"personalization":4,'
+                    '"specificity":3,"recency":3}'
+                )
+            )
+        raise AssertionError(f"unscripted judge prompt: {system[:60]}")
+
+
+def _build_full_test_deps(writer: LLMClient, judge: LLMClient, exa: ExaLike) -> Deps:
+    return build_deps(writer=writer, judge=judge, exa=exa, browserbase=NullBrowserbase())
+
+
+@pytest.mark.asyncio
+async def test_full_tool_happy_path_returns_complete_scored_account() -> None:
+    """Roadmap success criterion 1 + D-01: the wire payload carries every
+    ScoredAccount field and every hook's cited_indices resolve within the
+    payload's own enrichment.justifications indices."""
+    exa = FakeExa(about=[_full_about()])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool("research_account_full", {"domain": "notion.so"})
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    content = result.structuredContent
+    for field in ("account", "status", "enrichment", "score", "contacts", "hooks", "eval_score", "error"):
+        assert field in content
+    assert content["status"] in {"clean", "low_groundedness", "hook_suppressed", "judge_failed"}
+
+    justifications = content["enrichment"]["justifications"]
+    assert len(justifications) > 0
+    index_set = {j["index"] for j in justifications}
+    for j in justifications:
+        assert j["index"] >= 1
+
+    assert content["hooks"], "happy-path fakes must survive the citation gate"
+    for hook in content["hooks"]:
+        assert set(hook["cited_indices"]).issubset(index_set)
+
+
+@pytest.mark.asyncio
+async def test_full_tool_run_eval_false_skips_judge() -> None:
+    """D-02: run_eval=False over the wire yields eval_score null, a
+    non-failure status, and zero judge invocations."""
+    exa = FakeExa(about=[_full_about()])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "research_account_full", {"domain": "notion.so", "run_eval": False}
+        )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    assert result.structuredContent["eval_score"] is None
+    assert result.structuredContent["status"] == "clean"
+    assert judge.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_full_tool_empty_retrieval_mirrors_sheet_row() -> None:
+    """D-03: empty retrieval through the full tool is a SUCCESSFUL result
+    carrying error text and hook_suppressed status, never isError."""
+    exa = FakeExa(about=[], news=[])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool("research_account_full", {"domain": "dead.example"})
+
+    assert result.isError is False
+    content = result.structuredContent
+    assert content is not None
+    assert content["status"] == "hook_suppressed"
+    assert content["error"] == "empty enrichment"
+    assert content["score"] is None
+    assert content["hooks"] == []
+
+
+@pytest.mark.asyncio
+async def test_full_tool_invalid_domain_sanitized_error() -> None:
+    exa = FakeExa(about=[], news=[])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "research_account_full", {"domain": "example.com/path"}
+        )
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "invalid domain" in text
+    assert "Traceback" not in text
+    assert "/Users/" not in text
+    assert exa.calls == []
+
+
+@pytest.mark.asyncio
+async def test_full_tool_reports_five_stage_progress_notifications() -> None:
+    """D-04: per-stage progress is reported over the actual JSON-RPC
+    round-trip on a run_eval=True happy path -- 5 notifications, progress
+    1.0..5.0 with total 5.0, in enrich/score/contacts/outreach/eval order."""
+    exa = FakeExa(about=[_full_about()])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    progress_events: list[tuple[float, float | None, str | None]] = []
+
+    async def _collect(progress: float, total: float | None, message: str | None) -> None:
+        progress_events.append((progress, total, message))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "research_account_full",
+            {"domain": "notion.so"},
+            progress_callback=_collect,
+        )
+
+    assert result.isError is False
+    assert len(progress_events) == 5
+    for expected_progress, (progress, total, message) in zip(
+        (1.0, 2.0, 3.0, 4.0, 5.0), progress_events, strict=True
+    ):
+        assert progress == expected_progress
+        assert total == 5.0
+        assert message is not None and message.endswith("complete")
+    stage_names = [
+        message.removesuffix(" complete")
+        for (_progress, _total, message) in progress_events
+        if message is not None
+    ]
+    assert stage_names == ["enrich", "score", "contacts", "outreach", "eval"]
