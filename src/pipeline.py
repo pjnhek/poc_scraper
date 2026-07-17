@@ -49,6 +49,14 @@ class Deps:
     contacts: ContactExtractor
     outreach: OutreachGenerator
     eval_rubric: EvalRubric
+    exa: ExaLike
+    browserbase: BrowserbaseLike
+    # Full tier is never demo mode (locked decision): this stays bare `None`
+    # rather than an optional limiter type so this module never imports from
+    # the MCP server package, preserving the one-directional dependency arrow
+    # (src/mcp_server/ imports src/, never the reverse). Plan 12-03's
+    # read-only-property Protocol accepts it covariantly.
+    limiter: None = None
 
 
 def build_deps(
@@ -63,6 +71,8 @@ def build_deps(
         contacts=ContactExtractor(llm=writer),
         outreach=OutreachGenerator(llm=writer),
         eval_rubric=EvalRubric(llm=judge),
+        exa=exa,
+        browserbase=browserbase,
     )
 
 
