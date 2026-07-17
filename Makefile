@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo deploy
+.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo deploy deploy-fly
 
 install:
 	uv sync --extra dev
@@ -64,4 +64,11 @@ verify-public-repo:
 	uv run python -m scripts.verify_public_repo
 
 deploy:
+	@if [ -z "$(HF_SPACE)" ]; then \
+		echo "Set HF_SPACE=<owner>/<space-name>, e.g. make deploy HF_SPACE=you/poc-scraper-mcp" >&2; \
+		exit 1; \
+	fi
+	uv run python -m scripts.push_hf_space $(HF_SPACE)
+
+deploy-fly:
 	fly deploy --smoke-checks=false
