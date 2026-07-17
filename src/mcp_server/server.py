@@ -114,10 +114,14 @@ def build_server(
         # auto-built localhost wildcard so it is greppable in project code
         # and gives Phase 13 a single place to swap in the Fly hostname
         # (D-08). The loopback entries stay so the default bind keeps
-        # working; settings.mcp_http_host is also threaded in so a
-        # non-loopback MCP_HTTP_HOST override (e.g. the Dockerfile's
-        # 0.0.0.0) is not silently rejected by the allowlist it never
-        # touched (WR-02). stateless_http=True avoids long-lived
+        # working; settings.mcp_http_host is also threaded in (WR-02), but
+        # note it is a BIND address, not the hostname clients send: this
+        # entry only helps when the bind value doubles as a routable
+        # hostname (e.g. a service-name bind). A 0.0.0.0 bind still needs
+        # Phase 13's separate public-hostname setting (HOST-06) because
+        # real clients send the Fly hostname as the Host header, which
+        # this allowlist would otherwise 421. stateless_http=True avoids
+        # long-lived
         # per-session tasks on an unauthenticated public endpoint and is
         # spec-compliant for standard clients (RESEARCH.md A1: a one-kwarg
         # flip if a Phase 13 client misbehaves).
