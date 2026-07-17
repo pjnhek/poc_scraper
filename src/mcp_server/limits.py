@@ -106,12 +106,14 @@ class DemoLimiter:
 def resolve_client_ip(request: Request | None) -> str:
     """Resolve the rate-limit bucket key for a request (HOST-04 verbatim).
 
-    Prefers Fly-Client-IP; falls back to the rightmost X-Forwarded-For
-    entry only when Fly-Client-IP is absent. Fails closed into
-    SHARED_BUCKET on a None request (stdio) or on missing/malformed
-    headers. A present-but-malformed Fly-Client-IP is a tamper signal, not
-    a fallback trigger: it never consults X-Forwarded-For. Never logs raw
-    header values (untrusted input).
+    Trusts only Fly-Client-IP, which Fly's edge sets on every request that
+    reaches this process (deploys are Fly-only; see mcp_http_host docs).
+    Deliberately does not fall back to X-Forwarded-For: that header is
+    fully attacker-controlled unless a trusted proxy is guaranteed to
+    overwrite rather than append to it, and nothing here enforces that
+    boundary. Fails closed into SHARED_BUCKET on a None request (stdio) or
+    on a missing/malformed Fly-Client-IP header. Never logs raw header
+    values (untrusted input).
     """
     if request is None:
         return SHARED_BUCKET
@@ -120,11 +122,9 @@ def resolve_client_ip(request: Request | None) -> str:
     if fly_ip is not None:
         return _validated_ip(fly_ip)
 
-    xff = request.headers.get("x-forwarded-for")
-    if xff is not None:
-        candidate = xff.rsplit(",", 1)[-1].strip()
-        return _validated_ip(candidate)
-
+    # No X-Forwarded-For fallback: Fly always sets Fly-Client-Ip at its
+    # edge, so absence of it means we are not behind Fly and must not
+    # trust client-supplied forwarding headers.
     return SHARED_BUCKET
 
 

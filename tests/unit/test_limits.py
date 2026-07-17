@@ -210,12 +210,15 @@ def test_resolve_client_ip_malformed_fly_client_ip_fails_closed_ignores_xff() ->
     assert resolve_client_ip(request) == SHARED_BUCKET
 
 
-def test_resolve_client_ip_uses_rightmost_xff_when_fly_absent() -> None:
+def test_resolve_client_ip_ignores_xff_fallback_when_fly_absent() -> None:
+    # WR-01: X-Forwarded-For is fully client-spoofable and is never
+    # consulted, even when it is well-formed. Absence of Fly-Client-IP
+    # fails closed to SHARED_BUCKET rather than trusting it.
     request = _request([(b"x-forwarded-for", b"198.51.100.1, 203.0.113.7")])
-    assert resolve_client_ip(request) == "203.0.113.7"
+    assert resolve_client_ip(request) == SHARED_BUCKET
 
 
-def test_resolve_client_ip_malformed_rightmost_xff_returns_shared_bucket() -> None:
+def test_resolve_client_ip_ignores_malformed_xff_when_fly_absent() -> None:
     request = _request([(b"x-forwarded-for", b"198.51.100.1, not-an-ip")])
     assert resolve_client_ip(request) == SHARED_BUCKET
 
