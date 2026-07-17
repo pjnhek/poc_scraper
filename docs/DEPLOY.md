@@ -332,6 +332,31 @@ appendix's "Dry run findings" above.
    `restart unless-stopped`), satisfying D-03/HOST-06's single-machine
    intent for the `DemoLimiter` counters.
 
+### Live real-client verification (13-04 Task 3, D-14)
+
+Performed live against `https://170.9.7.144.sslip.io/mcp` with the official
+MCP Python SDK's streamable-http client, operator watching the raw payloads
+as they came back (this is the D-14 checkpoint; it is deliberately not
+scripted):
+
+1. `initialize` succeeded: server `poc-scraper` v1.28.1, tools list
+   `["get_account_evidence"]`.
+2. **HOST-03 confirmed live:** `get_account_evidence("notion.so")` returned
+   `retrieval_status: "ok"` with real `about_text` and 7+ numbered
+   justifications, each carrying a citation URL (for example
+   `https://www.notion.so/llms.txt`, a news article dated 2026-05-13), source
+   `exa`. This is also when the operator set the real `EXA_API_KEY` on the VM
+   for the first time (see "Inject EXA_API_KEY" above); it had been left at
+   the `setup.sh` placeholder since the Task 2 provisioning run.
+3. **HOST-05 confirmed live:** `get_account_evidence("not-a-domain")`
+   returned `isError: true` with exactly one plain line,
+   `Error executing tool get_account_evidence: invalid domain`. No stack
+   trace, environment variable name, key fragment, or file path leaked.
+
+Both checks pass. HOST-03 and the live half of HOST-05 are now confirmed
+end to end against the real deployment, not only by the offline
+`tests/integration/test_mcp_error_sanitization.py` suite from plan 13-03.
+
 ### Cost
 
 Always Free VM shapes (`VM.Standard.A1.Flex` up to 4 OCPU / 24GB total across
