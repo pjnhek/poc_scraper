@@ -60,11 +60,10 @@ hostname a real client's `Host` header carries (for example
 
 ## Oracle Cloud Always Free (primary)
 
-**Status:** scaffolding drafted and committed (Dockerfile-compatible,
-idempotent); not yet run against a live OCI account in this milestone. The
-commands below are the confirmed design; once a live provisioning pass
-happens, this section is updated with any deviations found, following the
-same discipline as the Fly appendix's "Dry run findings" below.
+**Status:** live. Provisioned and deployed against a real OCI Always Free
+account on 2026-07-17 (13-04 Task 2); the commands below are the confirmed
+sequence, corrected against what actually happened. See "Live provisioning
+findings" below for the deviations found during that run.
 
 ### Decision mapping (D-01 through D-04, D-13)
 
@@ -108,15 +107,51 @@ same discipline as the Fly appendix's "Dry run findings" below.
    ```
    or configure a long-lived API key profile per Oracle's docs if you prefer
    not to re-authenticate each session.
-4. One-time network setup (console is the fastest path for a first VM): in
-   the OCI console, Networking > Virtual Cloud Networks > **Start VCN
-   Wizard** > "Create VCN with Internet Connectivity". This creates a VCN, a
-   public subnet, an internet gateway, a route table, and a default security
-   list in one step. Note the public subnet's OCID
-   (`Networking > Virtual Cloud Networks > <vcn> > Subnets > <subnet>`).
-5. Generate an SSH key pair if you do not already have one:
+4. One-time network setup. The OCI console's Networking > Virtual Cloud
+   Networks > **Start VCN Wizard** > "Create VCN with Internet Connectivity"
+   does this in one click and is the fastest path for a first VM. It can also
+   be done entirely from the CLI (confirmed live, 13-04 Task 2), useful when
+   the operator cannot use the console in this environment:
    ```
-   ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+   VCN_ID=$(oci network vcn create --compartment-id "$OCI_COMPARTMENT_ID" \
+     --cidr-block "10.0.0.0/16" --display-name "poc-scraper-vcn" \
+     --dns-label "pocscraper" --wait-for-state AVAILABLE \
+     --query 'data.id' --raw-output)
+
+   IGW_ID=$(oci network internet-gateway create \
+     --compartment-id "$OCI_COMPARTMENT_ID" --vcn-id "$VCN_ID" \
+     --is-enabled true --display-name "poc-scraper-igw" \
+     --wait-for-state AVAILABLE --query 'data.id' --raw-output)
+
+   RT_ID=$(oci network vcn get --vcn-id "$VCN_ID" \
+     --query 'data."default-route-table-id"' --raw-output)
+   oci network route-table update --rt-id "$RT_ID" --force \
+     --route-rules "[{\"destination\": \"0.0.0.0/0\", \"destinationType\": \"CIDR_BLOCK\", \"networkEntityId\": \"$IGW_ID\"}]"
+
+   SL_ID=$(oci network vcn get --vcn-id "$VCN_ID" \
+     --query 'data."default-security-list-id"' --raw-output)
+   oci network security-list update --security-list-id "$SL_ID" --force \
+     --ingress-security-rules '[
+       {"protocol":"6","source":"0.0.0.0/0","sourceType":"CIDR_BLOCK","isStateless":false,"tcpOptions":{"destinationPortRange":{"min":22,"max":22}}},
+       {"protocol":"6","source":"0.0.0.0/0","sourceType":"CIDR_BLOCK","isStateless":false,"tcpOptions":{"destinationPortRange":{"min":80,"max":80}}},
+       {"protocol":"6","source":"0.0.0.0/0","sourceType":"CIDR_BLOCK","isStateless":false,"tcpOptions":{"destinationPortRange":{"min":443,"max":443}}}
+     ]' \
+     --egress-security-rules '[{"protocol":"all","destination":"0.0.0.0/0","destinationType":"CIDR_BLOCK","isStateless":false}]'
+
+   export OCI_SUBNET_ID=$(oci network subnet create \
+     --compartment-id "$OCI_COMPARTMENT_ID" --vcn-id "$VCN_ID" \
+     --cidr-block "10.0.0.0/24" --display-name "poc-scraper-public-subnet" \
+     --dns-label "public" --route-table-id "$RT_ID" \
+     --security-list-ids "[\"$SL_ID\"]" --prohibit-public-ip-on-vnic false \
+     --wait-for-state AVAILABLE --query 'data.id' --raw-output)
+   ```
+   Either path opens 22 (SSH), 80 (ACME HTTP-01), and 443 (HTTPS) on the
+   default security list and routes 0.0.0.0/0 through the internet gateway.
+   Note the resulting subnet OCID either way.
+5. Generate a dedicated SSH key pair for this deploy (do not reuse a
+   general-purpose key; never commit it):
+   ```
+   ssh-keygen -t ed25519 -f ~/.ssh/poc_scraper_oracle -N ""
    ```
 
 ### Provision the instance
@@ -127,9 +162,16 @@ export OCI_AD=$(oci iam availability-domain list \
   --compartment-id "$OCI_COMPARTMENT_ID" \
   --query 'data[0].name' --raw-output)
 export OCI_SUBNET_ID=<the public subnet OCID from step 4 above>
-export SSH_PUBLIC_KEY_FILE=~/.ssh/id_ed25519.pub
+export SSH_PUBLIC_KEY_FILE=~/.ssh/poc_scraper_oracle.pub
 make provision-oracle
 ```
+
+Before provisioning, make sure the commit you want deployed is pushed to
+`origin/main` (or set `REPO_URL`/branch to wherever it lives).
+`deploy/oracle/setup.sh` clones from GitHub, not from your local working
+tree; a local-only commit is invisible to the VM and produces a confusing
+"Dockerfile not found" build failure (see "Live provisioning findings"
+below).
 
 `deploy/oracle/provision.sh` tries the Always Free ARM shape first
 (`VM.Standard.A1.Flex`, 1 OCPU / 6GB), and falls back to the smaller Always
@@ -223,6 +265,72 @@ Replace `<host>` with the confirmed `<public-ip>.sslip.io` hostname.
    ```
    Caddy issues a real Let's Encrypt certificate on first request to `<host>`
    via the ACME HTTP-01 challenge (port 80 must already be open, see above).
+4. Confirm a forged `Host` header is rejected. Two layers reject it, tested
+   independently live (13-04 Task 2): Caddy's own vhost matching rejects a
+   mismatched `Host`/`:authority` before the request ever reaches the
+   container (an empty `200` with `content-length: 0`, no corresponding line
+   in `docker logs`), and the app's own `TransportSecuritySettings` allowlist
+   independently rejects it with `421 Invalid Host header` when hit directly
+   (bypass Caddy over SSH to confirm this layer specifically):
+   ```
+   ssh ubuntu@<host> 'curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/mcp -H "Host: evil.example.com" -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"x\",\"version\":\"0\"}}}"'
+   ```
+   Expect `421`.
+
+### Live provisioning findings (13-04 Task 2)
+
+Recorded from the first live run against a real OCI Always Free account
+(2026-07-17, `us-sanjose-1`), following the same discipline as the Fly
+appendix's "Dry run findings" above.
+
+1. **Network setup ran non-interactively via the CLI**, not the console
+   wizard (no console access in this environment). The exact commands are
+   folded into "Prerequisites" step 4 above; they produced a VCN, one public
+   subnet, an internet gateway, a default route to it, and a security list
+   with 22/80/443 open, matching what the console wizard would have created.
+2. **`VM.Standard.A1.Flex` was out of capacity** in `US-SANJOSE-1-AD-1` (this
+   region has exactly one availability domain): `oci compute instance
+   launch` returned `InternalError: Out of host capacity.` This is the
+   documented Always Free gotcha, not a bug; `provision.sh` caught it and
+   fell back to `VM.Standard.E2.1.Micro` automatically, as designed. No
+   script change was needed here.
+3. **The instance's public IP is not present in OCI's instance-metadata
+   service on this account.** `setup.sh` originally read
+   `curl -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/`
+   and the `/opc/v1/vnics/0/publicIp` fallback, expecting a `publicIp` field;
+   live testing found neither the v2 instance document nor the v1/v2 vnics
+   documents carry that field on this account/region (both list only
+   `privateIp`). The public IP is an ephemeral address NAT'd onto the VNIC by
+   OCI's edge, not metadata handed to the instance. **Fixed** (Rule 1 bug):
+   `setup.sh` now falls back to an external echo service
+   (`https://ifconfig.me`, then `https://ipv4.icanhazip.com`) after both
+   metadata attempts return empty, since the instance's own outbound traffic
+   already egresses via that same public IP. Confirmed working: resolved
+   `170.9.7.144.sslip.io` correctly on the corrected script.
+4. **`git clone` on the VM pulled a tree with no `Dockerfile`** on the first
+   run: this repository's `origin/main` on GitHub was 12 commits behind the
+   local branch that authored the Oracle scaffolding (the phase 13 commits,
+   including the one that added `Dockerfile`, had never been pushed).
+   `setup.sh` clones from `origin`, not from the local working tree, so the
+   VM silently got a pre-Dockerfile snapshot and `docker build` failed with
+   `open Dockerfile: no such file or directory`. **Fixed** by pushing
+   `main` to `origin` (a plain fast-forward; nothing to reconcile) before
+   re-running `setup.sh`. This is a process gotcha, not a script bug; the
+   "before provisioning" note under "Provision the instance" above now
+   calls it out explicitly.
+5. **Live transport verification (RESEARCH assumption A1): CONFIRMED.** A
+   JSON-RPC `initialize` POST to `https://170.9.7.144.sslip.io/mcp` with the
+   real hostname as `Host` returned `200` with a valid MCP handshake response
+   (not `421`, not `5xx`); `http://170.9.7.144.sslip.io/mcp` returned a `308`
+   redirect to `https://`. `docker logs` showed the expected startup lines:
+   tier resolved `thin (exa-only)` and demo limits `5 calls/ip/hour, 25/day
+   global, exa results clamp 5`. No allowlist or `TransportSecuritySettings`
+   code change was needed; A1 held as designed on the first live attempt.
+6. **Exactly one instance and one container** were confirmed via
+   `oci compute instance list --display-name poc-scraper-mcp` (one result)
+   and `docker ps -a` on the VM (one `poc-scraper-mcp` container, `Up`,
+   `restart unless-stopped`), satisfying D-03/HOST-06's single-machine
+   intent for the `DemoLimiter` counters.
 
 ### Cost
 

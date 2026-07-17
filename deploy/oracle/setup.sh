@@ -95,14 +95,27 @@ else
 fi
 
 # --- public hostname (sslip.io, no DNS account needed) ---------------------
+# The v2/v1 OCI instance-metadata endpoints below do not carry a "publicIp"
+# field on this account/region (confirmed live during 13-04 Task 2: both the
+# v2 instance document and the v1/v2 vnics documents list only privateIp).
+# The public IP is an ephemeral NAT'd address associated with the VNIC, not
+# metadata the instance itself is handed, so an external echo service is the
+# reliable fallback (the instance's own outbound traffic already egresses
+# via that public IP).
 PUBLIC_IP=$(curl -fsS -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ 2>/dev/null \
   | grep -o '"publicIp" *: *"[^"]*"' | cut -d'"' -f4 || true)
 if [ -z "$PUBLIC_IP" ]; then
   PUBLIC_IP=$(curl -fsS http://169.254.169.254/opc/v1/vnics/0/publicIp 2>/dev/null || true)
 fi
 if [ -z "$PUBLIC_IP" ]; then
-  echo "Could not resolve the public IP from OCI instance metadata; set" >&2
-  echo "MCP_PUBLIC_HOSTNAME manually in $ENV_FILE and re-run." >&2
+  PUBLIC_IP=$(curl -fsS https://ifconfig.me 2>/dev/null || true)
+fi
+if [ -z "$PUBLIC_IP" ]; then
+  PUBLIC_IP=$(curl -fsS https://ipv4.icanhazip.com 2>/dev/null | tr -d '[:space:]' || true)
+fi
+if [ -z "$PUBLIC_IP" ]; then
+  echo "Could not resolve the public IP from OCI instance metadata or an" >&2
+  echo "external echo service; set MCP_PUBLIC_HOSTNAME manually in $ENV_FILE and re-run." >&2
   PUBLIC_IP="UNKNOWN"
 fi
 HOSTNAME_VALUE="${PUBLIC_IP}.sslip.io"
