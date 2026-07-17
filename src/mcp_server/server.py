@@ -13,8 +13,10 @@ from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 from starlette.requests import Request
 
+from evals.report import REPORT_PATH
 from src.clients.browserbase_client import BrowserbaseError
 from src.config import Settings
+from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.evidence import build_evidence_pack
 from src.mcp_server.limits import DAILY_CAP_MESSAGE, resolve_client_ip
 from src.mcp_server.wiring import ThinDeps
@@ -94,6 +96,32 @@ async def get_account_evidence(
         raise ValueError("internal error, try again") from None
 
 
+def read_icp_rubric() -> str:
+    """Serve configs/icp.yaml verbatim so any MCP client can inspect the ICP
+    rubric this server scores against. Reads from disk on every call, no
+    startup caching, so an edited rubric is visible without a server restart
+    (D-07).
+    """
+    try:
+        return DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        log.warning("icp rubric resource unavailable: %s", exc)
+        return "resource unavailable: the ICP rubric could not be read on the server."
+
+
+def read_eval_report() -> str:
+    """Serve evals/REPORT.md verbatim so any MCP client can inspect the eval
+    calibration narrative backing this server's groundedness claims. Reads
+    from disk on every call, no startup caching, so a refreshed report is
+    visible without a server restart (D-07).
+    """
+    try:
+        return REPORT_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        log.warning("eval report resource unavailable: %s", exc)
+        return "resource unavailable: the eval calibration report could not be read on the server."
+
+
 def build_server(
     lifespan: Callable[[FastMCP], AbstractAsyncContextManager[ThinDeps]],
     settings: Settings | None = None,
@@ -148,4 +176,6 @@ def build_server(
     server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))(
         get_account_evidence
     )
+    server.resource("icp://rubric", mime_type="application/yaml")(read_icp_rubric)
+    server.resource("icp://eval-report", mime_type="text/markdown")(read_eval_report)
     return server
