@@ -205,7 +205,18 @@ async def research_account_full(
 
     async def on_stage(stage: str) -> None:
         seen["n"] += 1
-        await ctx.report_progress(seen["n"], total, message=f"{stage} complete")
+        try:
+            await ctx.report_progress(seen["n"], total, message=f"{stage} complete")
+        except Exception as exc:
+            # WR-02: progress is advisory ("clients that ignore it lose
+            # nothing," per this tool's own docstring). A client that
+            # requests it and then misbehaves (disconnects mid-run, closed
+            # stdio) must not discard the completed pipeline run and the
+            # writer/judge tokens already spent on it. process_account's
+            # on_stage call sites sit deliberately outside its per-stage
+            # try/except blocks, so this is the one place that owns "the
+            # progress send itself failed" and keeps it from propagating.
+            log.warning("progress notification failed at stage %s for %s: %s", stage, domain, exc)
 
     try:
         return await process_account(account, deps, run_eval=run_eval, on_stage=on_stage)

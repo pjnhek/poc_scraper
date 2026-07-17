@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from mcp.server.fastmcp import FastMCP
+from mcp.server.session import ServerSession
 from mcp.shared.memory import create_connected_server_and_client_session
 from pydantic import AnyUrl
 
@@ -952,3 +953,48 @@ async def test_full_tool_thin_lifespan_misconfiguration_fails_loudly(
     assert "misconfiguration" in text
     assert "internal error" not in text
     assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_full_tool_progress_send_failure_does_not_discard_result(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """WR-02: a failed progress notification send (e.g. client disconnects
+    mid-run) must not discard a completed pipeline run and its already-spent
+    writer/judge tokens. Patches ServerSession.send_progress_notification --
+    what ctx.report_progress calls -- to raise, then asserts the tool call
+    still succeeds with a complete result and the failure is only logged at
+    WARNING, never propagated."""
+
+    async def _raise_send_progress(*args: object, **kwargs: object) -> None:
+        raise httpx.HTTPError("client disconnected mid-run")
+
+    monkeypatch.setattr(ServerSession, "send_progress_notification", _raise_send_progress)
+
+    exa = FakeExa(about=[_full_about()])
+    writer = HappyWriterLLM()
+    judge = HappyJudgeLLM()
+    deps = _build_full_test_deps(writer, judge, exa)
+    app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
+
+    async def _progress_cb(progress: float, total: float | None, message: str | None) -> None:
+        pass
+
+    with caplog.at_level(logging.WARNING):
+        async with create_connected_server_and_client_session(app) as client:
+            result = await client.call_tool(
+                "research_account_full",
+                {"domain": "notion.so"},
+                progress_callback=_progress_cb,
+            )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    assert result.structuredContent["status"] in {
+        "clean",
+        "low_groundedness",
+        "hook_suppressed",
+        "judge_failed",
+    }
+    assert result.structuredContent["hooks"], "the completed run must not be discarded"
+    assert any("progress notification failed" in record.message for record in caplog.records)
