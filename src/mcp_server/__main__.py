@@ -14,11 +14,34 @@ logging.basicConfig(
 import argparse
 import asyncio
 
-from src.config import get_settings
+from src.config import Settings, get_settings
 from src.mcp_server.server import build_server, resolve_and_log_tier
 from src.mcp_server.wiring import make_full_lifespan, make_thin_lifespan
 
 log = logging.getLogger(__name__)
+
+
+def guard_full_tier_http_exposure(settings: Settings, transport: str, tier: str) -> None:
+    """Refuse to serve the full tier over HTTP without an explicit opt-in.
+
+    WR-03: research_account_full performs no quota check at all (Deps.limiter
+    is always None on the full-tier path) and the endpoint has no auth, so
+    "forget to demote to thin" must not fail open into unmetered public LLM
+    spend. Demo mode already forces tier back to "thin" before this runs
+    (Settings.mcp_tier), so this only ever fires for a deliberately full-tier
+    deployment; MCP_ALLOW_FULL_HTTP=true is that deployment's explicit
+    acknowledgement. stdio full tier and demo/thin HTTP are untouched.
+
+    A small named function (rather than inlining the check in main()) so it
+    can be unit-tested without spinning up a server or parsing argv.
+    """
+    if transport == "http" and tier == "full" and not settings.mcp_allow_full_http:
+        raise SystemExit(
+            "refusing to serve the full tier over HTTP without MCP_ALLOW_FULL_HTTP=true "
+            "(research_account_full has no rate limiting and no auth over HTTP). "
+            "Set MCP_ALLOW_FULL_HTTP=true only for a deliberate, trusted full-tier "
+            "HTTP deployment; use --transport stdio or MCP_DEMO_MODE=true otherwise."
+        )
 
 
 def main() -> int:
@@ -28,6 +51,7 @@ def main() -> int:
 
     settings = get_settings()
     tier = resolve_and_log_tier(settings)
+    guard_full_tier_http_exposure(settings, args.transport, tier)
     # No key validation needed here: mcp_tier() == "full" already implies
     # writer/judge/Browserbase keys are present, and open_deps defers key
     # checks by design.

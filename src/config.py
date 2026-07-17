@@ -138,6 +138,13 @@ class Settings(BaseSettings):
     # 0.0.0.0), not a local default. Both env-overridable.
     mcp_http_port: int = Field(default=8000, ge=1, le=65535)
     mcp_http_host: str = "127.0.0.1"
+    # Explicit opt-in (WR-03) for serving the full tier over HTTP:
+    # research_account_full has no rate limiting (Deps.limiter is always
+    # None on that path) and no auth, so the default must be to refuse
+    # rather than fail open into unmetered public LLM spend. False leaves
+    # every existing deploy (stdio full tier, demo/thin HTTP) unaffected;
+    # only a deliberate full-tier HTTP deployment sets this to true.
+    mcp_allow_full_http: bool = False
 
     @property
     def resolved_provider(self) -> LLMProvider:
