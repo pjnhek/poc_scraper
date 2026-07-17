@@ -144,7 +144,22 @@ Plans:
   3. An MCP client reads `configs/icp.yaml` via the `icp://rubric` resource and `evals/REPORT.md` via the `icp://eval-report` resource
   4. Invoking the `research_account` prompt guides rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 12-01-PLAN.md — Pipeline seam: `Deps.exa/browserbase/limiter` fields plus `run_eval`/`on_stage` keyword params on `process_account` with D-02 status honesty (MCP-05)
+- [ ] 12-02-PLAN.md — `icp://rubric` and `icp://eval-report` resources with sanitized read failures, plus the static `research_account` prompt (MCP-02, MCP-03, MCP-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 12-03-PLAN.md — `EvidenceDeps` protocol, `make_full_lifespan` over `open_deps`, gated `research_account_full` with progress reporting, tier threading in `__main__`, demo-hides-full-tool test (MCP-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 12-04-PLAN.md — Behavioral functional tests for the full tool (complete `ScoredAccount` round-trip, run_eval honesty, degraded mirroring, progress) plus the full phase gate (MCP-05)
 
 ### Phase 13: Hosted Deploy & Docs Close
 
