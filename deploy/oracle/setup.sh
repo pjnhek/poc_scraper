@@ -136,7 +136,13 @@ fi
 CADDY_HOSTNAME=$(grep '^MCP_PUBLIC_HOSTNAME=' "$ENV_FILE" | cut -d= -f2-)
 cat >/etc/caddy/Caddyfile <<EOF
 $CADDY_HOSTNAME {
-    reverse_proxy 127.0.0.1:8000
+    reverse_proxy 127.0.0.1:8000 {
+        # Overwrite any client-supplied Fly-Client-IP with the real TCP peer.
+        # The app trusts this header verbatim as the rate-limit bucket key
+        # (src/mcp_server/limits.py); without this line a caller could send its
+        # own Fly-Client-IP and pick a fresh per-IP bucket on every request.
+        header_up Fly-Client-IP {remote_host}
+    }
 }
 EOF
 systemctl enable --now caddy

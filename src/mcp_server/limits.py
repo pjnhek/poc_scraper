@@ -106,11 +106,15 @@ class DemoLimiter:
 def resolve_client_ip(request: Request | None) -> str:
     """Resolve the rate-limit bucket key for a request (HOST-04 verbatim).
 
-    Trusts only Fly-Client-IP, which Fly's edge sets on every request that
-    reaches this process (deploys are Fly-only; see mcp_http_host docs).
-    Deliberately does not fall back to X-Forwarded-For: that header is
-    fully attacker-controlled unless a trusted proxy is guaranteed to
-    overwrite rather than append to it, and nothing here enforces that
+    Trusts only Fly-Client-IP, which the fronting proxy is responsible for
+    overwriting with the real client IP on every request: Fly's edge sets it
+    automatically, and the Oracle deploy's Caddy config does the same via
+    `header_up Fly-Client-IP {remote_host}` (deploy/oracle/setup.sh). That
+    overwrite is the trust boundary that makes the header unspoofable; if a
+    front proxy forwards a client-supplied value instead, a caller can pick
+    its own bucket. Deliberately does not fall back to X-Forwarded-For: that
+    header is fully attacker-controlled unless a trusted proxy is guaranteed
+    to overwrite rather than append to it, and nothing here enforces that
     boundary. Fails closed into SHARED_BUCKET on a None request (stdio) or
     on a missing/malformed Fly-Client-IP header. Never logs raw header
     values (untrusted input).
@@ -122,9 +126,10 @@ def resolve_client_ip(request: Request | None) -> str:
     if fly_ip is not None:
         return _validated_ip(fly_ip)
 
-    # No X-Forwarded-For fallback: Fly always sets Fly-Client-Ip at its
-    # edge, so absence of it means we are not behind Fly and must not
-    # trust client-supplied forwarding headers.
+    # No X-Forwarded-For fallback: a correctly configured front proxy (Fly's
+    # edge, or Oracle's Caddy) always overwrites Fly-Client-IP, so absence of
+    # it means we are not behind that proxy and must not trust client-supplied
+    # forwarding headers.
     return SHARED_BUCKET
 
 
