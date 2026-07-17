@@ -32,7 +32,7 @@ A brownfield hardening milestone for the async account-research pipeline: a no-c
 - [x] **Phase 9: Pipeline Extraction & Supporting Models** - Extract `open_deps()` from `pipeline.main()`, promote `collect_context()`, add `NullBrowserbase` and a frozen `EvidencePack` model (completed 2026-07-16)
 - [x] **Phase 10: Stdio MCP Server (Thin Tier)** - `get_account_evidence` served over stdio, verified against a real client, smoke-tested against a live domain (completed 2026-07-16)
 - [x] **Phase 11: Rate Limits & Streamable HTTP Transport** - Demo-mode limits with safe client-IP resolution, served over streamable HTTP from the same entry point as stdio (completed 2026-07-16)
-- [ ] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt
+- [x] **Phase 12: Full-Tier Tool, Resources & Prompt** - Gated `research_account_full`, `icp://rubric` and `icp://eval-report` resources, `research_account` prompt (completed 2026-07-17)
 - [ ] **Phase 13: Hosted Deploy & Docs Close** - Public Fly.io URL, hardened error payloads, CLAUDE.md and README updated for the new surface
 
 ## Phase Details
@@ -144,22 +144,22 @@ Plans:
   3. An MCP client reads `configs/icp.yaml` via the `icp://rubric` resource and `evals/REPORT.md` via the `icp://eval-report` resource
   4. Invoking the `research_account` prompt guides rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
 
-**Plans**: 4 plans
+**Plans**: 4/4 plans complete
 
 Plans:
 
 **Wave 1**
 
-- [ ] 12-01-PLAN.md — Pipeline seam: `Deps.exa/browserbase/limiter` fields plus `run_eval`/`on_stage` keyword params on `process_account` with D-02 status honesty (MCP-05)
-- [ ] 12-02-PLAN.md — `icp://rubric` and `icp://eval-report` resources with sanitized read failures, plus the static `research_account` prompt (MCP-02, MCP-03, MCP-04)
+- [x] 12-01-PLAN.md — Pipeline seam: `Deps.exa/browserbase/limiter` fields plus `run_eval`/`on_stage` keyword params on `process_account` with D-02 status honesty (MCP-05)
+- [x] 12-02-PLAN.md — `icp://rubric` and `icp://eval-report` resources with sanitized read failures, plus the static `research_account` prompt (MCP-02, MCP-03, MCP-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 12-03-PLAN.md — `EvidenceDeps` protocol, `make_full_lifespan` over `open_deps`, gated `research_account_full` with progress reporting, tier threading in `__main__`, demo-hides-full-tool test (MCP-05)
+- [x] 12-03-PLAN.md — `EvidenceDeps` protocol, `make_full_lifespan` over `open_deps`, gated `research_account_full` with progress reporting, tier threading in `__main__`, demo-hides-full-tool test (MCP-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 12-04-PLAN.md — Behavioral functional tests for the full tool (complete `ScoredAccount` round-trip, run_eval honesty, degraded mirroring, progress) plus the full phase gate (MCP-05)
+- [x] 12-04-PLAN.md — Behavioral functional tests for the full tool (complete `ScoredAccount` round-trip, run_eval honesty, degraded mirroring, progress) plus the full phase gate (MCP-05)
 
 ### Phase 13: Hosted Deploy & Docs Close
 
@@ -192,6 +192,6 @@ Plans:
 | 9. Pipeline Extraction & Supporting Models | v1.1 | 4/4 | Complete    | 2026-07-16 |
 | 10. Stdio MCP Server (Thin Tier) | v1.1 | 5/5 | Complete    | 2026-07-16 |
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 3/3 | Complete    | 2026-07-16 |
-| 12. Full-Tier Tool, Resources & Prompt | v1.1 | 0/TBD | Not started | - |
+| 12. Full-Tier Tool, Resources & Prompt | v1.1 | 4/4 | Complete    | 2026-07-17 |
 | 13. Hosted Deploy & Docs Close | v1.1 | 0/TBD | Not started | - |
 </content>

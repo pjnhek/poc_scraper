@@ -9,10 +9,10 @@
 ### MCP Server Core (MCP)
 
 - [x] **MCP-01**: An MCP client can call `get_account_evidence(domain)` and receive numbered, cited evidence as structured JSON with a `retrieval_status` honesty field (`ok`/`thin`/`empty`), with evidence snippets capped in size at the MCP boundary
-- [ ] **MCP-02**: An MCP client can read the ICP rubric via the `icp://rubric` resource
-- [ ] **MCP-03**: An MCP client can read the eval calibration report via the `icp://eval-report` resource
-- [ ] **MCP-04**: A user can invoke the `research_account` prompt, guiding their agent through rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
-- [ ] **MCP-05**: A BYOK user (writer/judge + Browserbase keys) can call `research_account_full(domain, run_eval)` and receive the complete grounded `ScoredAccount` JSON including `AccountStatus`
+- [x] **MCP-02**: An MCP client can read the ICP rubric via the `icp://rubric` resource
+- [x] **MCP-03**: An MCP client can read the eval calibration report via the `icp://eval-report` resource
+- [x] **MCP-04**: A user can invoke the `research_account` prompt, guiding their agent through rubric-based scoring where every claim cites an `[N]` justification index and unciteable claims are dropped
+- [x] **MCP-05**: A BYOK user (writer/judge + Browserbase keys) can call `research_account_full(domain, run_eval)` and receive the complete grounded `ScoredAccount` JSON including `AccountStatus`
 - [x] **MCP-06**: The server resolves its capability tier once at startup (thin with Exa only; full with all keys; `MCP_DEMO_MODE=1` forces thin regardless of keys) and logs the resolved tier
 - [x] **MCP-07**: Both tools carry `readOnlyHint`/`destructiveHint` annotations, and all domain failures (invalid domain, provider failure, rate limits) surface as `isError: true` tool results, never protocol-level errors
 
@@ -64,10 +64,10 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | MCP-01 | Phase 10 | Complete |
-| MCP-02 | Phase 12 | Pending |
-| MCP-03 | Phase 12 | Pending |
-| MCP-04 | Phase 12 | Pending |
-| MCP-05 | Phase 12 | Pending |
+| MCP-02 | Phase 12 | Complete |
+| MCP-03 | Phase 12 | Complete |
+| MCP-04 | Phase 12 | Complete |
+| MCP-05 | Phase 12 | Complete |
 | MCP-06 | Phase 10 | Complete |
 | MCP-07 | Phase 10 | Complete |
 | HOST-01 | Phase 10 | Complete |

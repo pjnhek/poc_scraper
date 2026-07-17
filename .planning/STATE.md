@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
-current_phase: 12
-current_phase_name: Full-Tier Tool, Resources & Prompt
-status: ready_to_execute
-stopped_at: Phase 12 planned (4 plans, 3 waves, checker passed)
-last_updated: "2026-07-17T04:16:46.000Z"
+current_phase: 13
+current_phase_name: Hosted Deploy & Docs Close
+status: verifying
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-07-17T05:08:26.830Z"
 last_activity: 2026-07-17
-last_activity_desc: "Phase 12 planned: 4 plans in 3 waves, plan-checker passed on iteration 2, validation contract filled"
+last_activity_desc: Phase 12 complete, transitioned to Phase 13
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 60
+  completed_phases: 4
+  total_plans: 16
+  completed_plans: 16
+  percent: 80
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 ## Current Position
 
-Phase: 12 — Full-Tier Tool, Resources & Prompt
-Plan: 0/4 complete
-Status: Ready to execute (4 plans in 3 waves, plan-checker passed)
-Last activity: 2026-07-17 — Phase 12 planned: 4 plans in 3 waves, plan-checker passed on iteration 2, validation contract filled
+Phase: 13 — Hosted Deploy & Docs Close
+Plan: Not started
+Status: Phase complete — ready for verification
+Last activity: 2026-07-17 — Phase 12 complete, transitioned to Phase 13
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -39,7 +39,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 35
+- Total plans completed: 39
 - Average duration: -
 - Total execution time: -
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | 09 | 4 | - | - |
 | 10 | 5 | - | - |
 | 11 | 3 | - | - |
+| 12 | 4 | - | - |
 
 **Recent Trend:**
 
@@ -91,6 +92,10 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 11 P01 | 8min | 2 tasks | 5 files |
 | Phase 11 P02 | 4min | 3 tasks | 3 files |
 | Phase 11 P03 | 4min | 3 tasks | 4 files |
+| Phase 12 P01 | 12min | 2 tasks | 2 files |
+| Phase 12 P02 | 20min | 2 tasks | 3 files |
+| Phase 12 P03 | 15min | 2 tasks | 4 files |
+| Phase 12 P04 | 7min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -174,6 +179,16 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 11-03]: stateless_http=True locked for the HTTP transport per RESEARCH.md A1 (avoids long-lived per-session tasks on an unauthenticated public endpoint)
 - [Phase ?]: [Phase 11-03]: TransportSecuritySettings passed explicitly rather than relying on the SDK's auto-built localhost wildcard, so the allowlist is greppable and Phase 13 has a single place to swap in the Fly hostname
 - [Phase ?]: [Phase 11-03]: ASGI-transport HTTP tests enter the Starlette lifespan manually via asgi_app.router.lifespan_context(asgi_app), the exact context uvicorn runs; documented for Phase 13's deploy verification to reuse
+- [Phase ?]: elif not run_eval: sits between hook_suppressed and eval_score is None checks so a deliberate judge skip never reads as judge_failed/low_groundedness (D-02)
+- [Phase ?]: on_stage fires with no try/except around it; a raising callback propagates rather than being swallowed (RESEARCH OQ2)
+- [Phase ?]: Deps.limiter typed bare None (not Optional[limiter type]) to keep src/pipeline.py free of any src.mcp_server import
+- [Phase ?]: [Phase 12-02]: Sanitized resource-failure messages are resource-specific (rubric vs eval report) so callers can tell which resource degraded, without leaking the filesystem path
+- [Phase ?]: [Phase 12-02]: research_account prompt points at icp://rubric and get_account_evidence rather than embedding rubric content, keeping icp.yaml the single editable source of truth
+- [Phase ?]: [Phase 12-03]: EvidenceDeps uses @property members for covariant limiter typing so ThinDeps and the extended pipeline Deps both satisfy it under strict mypy without inheritance
+- [Phase ?]: [Phase 12-03]: make_full_lifespan is a one-line delegation to open_deps (not an independent second client stack) so the full-tier server shares one httpx pool and inherits replay/record branching
+- [Phase ?]: [Phase 12-03]: tier is threaded through build_server as an explicit parameter derived from resolve_and_log_tier, never re-derived from the settings=None/not-None check, so MCP_DEMO_MODE hides research_account_full regardless of transport
+- [Phase ?]: [Phase 12-04]: HappyWriterLLM/HappyJudgeLLM kept as separate fakes so judge invocation count is independently assertable for D-02
+- [Phase ?]: [Phase 12-04]: title=None on fake about-page ExaResult mirrors test_pipeline_failures.py so justification summary clears the rapidfuzz groundedness_suppress_threshold gate reliably
 
 ### Pending Todos
 
@@ -202,9 +217,9 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-17T03:33:48.168Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-full-tier-tool-resources-prompt/12-CONTEXT.md
+Last session: 2026-07-17T04:55:09.043Z
+Stopped at: Completed 12-03-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

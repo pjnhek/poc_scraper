@@ -53,13 +53,13 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 <!-- v1.1 MCP Server Surface (in progress). -->
 
 - ✓ Pipeline seams extracted for MCP reuse: `open_deps()` wiring seam (INTEG-01), public `collect_context()`/`RawContext` + `NullBrowserbase` Exa-only path (INTEG-02), frozen `EvidencePack` with `retrieval_status` honesty field (INTEG-03); CLI behavior unchanged, 329 offline tests + strict mypy + lint green — Validated in Phase 9: Pipeline Extraction & Supporting Models (2026-07-16)
+- ✓ MCP server exposes grounded account evidence (thin tier, Phase 10), the ICP rubric and eval report as `icp://rubric` / `icp://eval-report` resources, and the `research_account` guided prompt on every tier (MCP-02, MCP-03, MCP-04) — Validated in Phase 12: Full-Tier Tool, Resources & Prompt (2026-07-17)
+- ✓ Full grounded pipeline available as the tier-gated `research_account_full` MCP tool for BYOK users: hidden (not refusing) below full tier, complete `ScoredAccount` JSON with `AccountStatus`, `run_eval` honesty semantics, per-stage progress, sanitized errors (MCP-05) — Validated in Phase 12: Full-Tier Tool, Resources & Prompt (2026-07-17)
 
 ### Active
 
 <!-- v1.1 MCP Server Surface. REQ-IDs live in .planning/REQUIREMENTS.md. -->
 
-- MCP server exposes grounded account evidence, the ICP rubric, and the eval report to any MCP client (thin tier, Exa-only)
-- Full grounded pipeline available as a gated MCP tool for BYOK users (stdio)
 - Hosted streamable-HTTP demo with hard rate limits and daily budget cap
 - Existing pipeline behavior, CLI, and Sheets output unchanged; charter amended for the `mcp` SDK
 
@@ -125,7 +125,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 Shipped the demo-ready v1.0 MVP (8 phases, 2026-07-15). The pipeline is grounded end-to-end (unciteable claims dropped before the sheet), the eval rigor is legible via `evals/REPORT.md` (2.73/5.0 holdout), failure modes are hardened, the Google Sheet output is demo-legible, the public repo is scrubbed, and the README + recorded walkthrough are live and pinned to commit `f868a09`.
 
-Milestone v1.1 (MCP Server Surface) is underway: Phases 9-11 complete (2026-07-16). Phase 9 extracted the `open_deps()`, `collect_context()`/`RawContext`/`NullBrowserbase`, and `EvidencePack` seams; Phase 10 shipped the stdio MCP server (thin tier); Phase 11 added demo-mode rate limits (`DemoLimiter` with per-IP hour window + UTC-day global cap, fail-closed client-IP resolution) and streamable HTTP transport from the same entry point (`make mcp-http`/`make mcp-demo`), validating HOST-02 and HOST-04 as amended post-review (Fly-Client-IP-only bucketing per WR-01; demo mode forces NullBrowserbase regardless of credentials per quick task 260716-p8r; 459 offline tests, strict mypy, lint all clean). Next: Phase 12, full-tier tool, resources & prompt.
+Milestone v1.1 (MCP Server Surface) is underway: Phases 9-12 complete (2026-07-17). Phase 9 extracted the `open_deps()`, `collect_context()`/`RawContext`/`NullBrowserbase`, and `EvidencePack` seams; Phase 10 shipped the stdio MCP server (thin tier); Phase 11 added demo-mode rate limits (`DemoLimiter` with per-IP hour window + UTC-day global cap, fail-closed client-IP resolution) and streamable HTTP transport from the same entry point (`make mcp-http`/`make mcp-demo`), validating HOST-02 and HOST-04 as amended post-review. Phase 12 completed the MCP surface (MCP-02 through MCP-05): `icp://rubric` and `icp://eval-report` resources plus the `research_account` prompt on every tier, and the tier-gated `research_account_full` tool wrapping the whole pipeline through `open_deps()` with `run_eval` honesty semantics, per-stage progress notifications, and sanitized errors (485 offline tests, strict mypy, lint all clean; verification 4/4; code review logged 3 advisory warnings in `12-REVIEW.md`, notably full-tier limiter bypass to gate before the Phase 13 public bind). Next: Phase 13, hosted deploy & docs close.
 
 ---
-*Last updated: 2026-07-16 after Phase 11 completion (Rate Limits & Streamable HTTP Transport). v1.0 history unchanged above.*
+*Last updated: 2026-07-17 after Phase 12 completion (Full-Tier Tool, Resources & Prompt). v1.0 history unchanged above.*
