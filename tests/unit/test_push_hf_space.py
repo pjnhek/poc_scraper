@@ -11,7 +11,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from scripts.push_hf_space import _reject_secrets_and_symlinks
+import pytest
+
+from scripts.push_hf_space import _refuse_symlink, _reject_secrets_and_symlinks
 
 
 def test_secret_named_files_are_skipped_at_any_depth(tmp_path: Path) -> None:
@@ -37,6 +39,37 @@ def test_secret_named_files_are_skipped_at_any_depth(tmp_path: Path) -> None:
         ".secrets-denylist",
         "run.log",
     }
+
+
+def test_secret_filter_is_case_insensitive(tmp_path: Path) -> None:
+    # The deploy host is Linux, where fnmatch is case-sensitive; a case-variant
+    # secret name must still be rejected before it reaches the public Space.
+    variants = (
+        ".ENV",
+        "Prod.Env",
+        "CREDENTIALS.JSON",
+        "Service-Account-Prod.JSON",
+        "RUN.LOG",
+    )
+    for name in variants:
+        (tmp_path / name).write_text("secret")
+
+    skip = _reject_secrets_and_symlinks(str(tmp_path), os.listdir(tmp_path))
+
+    assert skip >= set(variants)
+
+
+def test_refuse_symlink_raises_on_symlinked_root(tmp_path: Path) -> None:
+    real = tmp_path / "real_dir"
+    real.mkdir()
+    link = tmp_path / "linked_dir"
+    link.symlink_to(real)
+
+    with pytest.raises(RuntimeError, match="symlinked upload input"):
+        _refuse_symlink(link)
+
+    # A regular path must not raise.
+    _refuse_symlink(real)
 
 
 def test_symlinks_are_skipped(tmp_path: Path) -> None:

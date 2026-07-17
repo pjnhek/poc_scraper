@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from fnmatch import fnmatch
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,28 +49,43 @@ def _reject_secrets_and_symlinks(dir_path: str, names: list[str]) -> set[str]:
     base = Path(dir_path)
     skip: set[str] = {"__pycache__"}
     for name in names:
+        # casefold both sides: the deploy host is Linux, where fnmatch is
+        # case-sensitive, so a CREDENTIALS.JSON or .ENV would otherwise slip
+        # past lower-case patterns onto the public Space.
+        folded = name.casefold()
         if (
-            name.endswith(".pyc")
+            folded.endswith(".pyc")
             or (base / name).is_symlink()
-            or any(fnmatch(name, pattern) for pattern in SECRET_PATTERNS)
+            or any(fnmatchcase(folded, pattern) for pattern in SECRET_PATTERNS)
         ):
             skip.add(name)
     return skip
 
 
+def _refuse_symlink(path: Path) -> None:
+    # Fail closed on a symlinked upload input: copytree/copy2 dereference the
+    # link, so a symlinked src/evals/configs root or Space README could publish
+    # content from outside the tree. _reject_secrets_and_symlinks only guards
+    # links found INSIDE a copied tree, not the tree root itself.
+    if path.is_symlink():
+        raise RuntimeError(f"refusing to publish symlinked upload input: {path}")
+
+
 def assemble(workdir: Path) -> None:
     for name in ALLOWLIST_FILES:
         src = ROOT / name
-        # Skip symlinks: a symlinked allowlist entry could resolve to a secret
-        # outside the intended file.
-        if src.is_file() and not src.is_symlink():
+        _refuse_symlink(src)
+        if src.is_file():
             shutil.copy2(src, workdir / name)
     for name in ALLOWLIST_DIRS:
+        src_dir = ROOT / name
+        _refuse_symlink(src_dir)
         shutil.copytree(
-            ROOT / name,
+            src_dir,
             workdir / name,
             ignore=_reject_secrets_and_symlinks,
         )
+    _refuse_symlink(SPACE_README)
     shutil.copy2(SPACE_README, workdir / "README.md")
 
 
