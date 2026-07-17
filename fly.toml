@@ -1,0 +1,18 @@
+app = "poc-scraper-mcp"
+primary_region = "iad"
+
+[build]
+
+[env]
+  MCP_PUBLIC_HOSTNAME = "poc-scraper-mcp.fly.dev"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
