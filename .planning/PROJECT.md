@@ -23,6 +23,19 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 
 **Design authority:** `docs/superpowers/specs/2026-07-15-mcp-server-design.md` (commit `3a46444`). Economics decided: operator's hard-capped Exa key (unbilled $14.20 credit pool) funds demo retrieval; connectors' own Claude credits fund the reasoning. Server is read-only: no Sheets writes, no batch tools, no rubric editing. PyPI packaging and endpoint auth deferred.
 
+## Current Milestone: v1.2 Agent-Driven ICP Scoring
+
+**Goal:** Let a connecting agent (Codex/Claude) score a company domain against the ICP rubric using its own reasoning on the hosted keyless thin tier, while the server guarantees the scoring math deterministically (a pure `score_account` tool, no server-side LLM).
+
+**Target features:**
+- New `score_account` MCP tool on thin and full tiers: agent supplies 1-5 per axis (plus optional per-axis reason strings); server computes weighted total + verdict by reusing `compute_total` / `verdict_for` and the frozen `RubricBreakdown` (4 fixed axes, unchanged)
+- Pure arithmetic: no LLM, no Exa, no keys, no I/O; does NOT consume the demo rate-limit quota; `readOnlyHint: true`; sanitized one-line validation errors per the existing error-wrapper pattern
+- `research_account` prompt updated to orchestrate the full flow: `get_account_evidence` -> read `icp://rubric` -> score each axis 1-5 with [N] citations -> call `score_account` -> present the verdict
+- Optional `news_days` parameter on `get_account_evidence` to tune the Exa news lookback (clamped; threads through `collect_context` to `ExaClient.search_news(days=...)`)
+- Landing page (`deploy/oracle/setup.sh` index.html) + README MCP section updated with the honest hybrid framing: the judgment stays grounding-by-instruction (agent must cite [N] per axis), the scoring math becomes grounding-by-construction (the server cannot return an arithmetically wrong score)
+
+**Scope decision (conscious expansion):** This expands the thin tier beyond its original "evidence-only" framing, but it stays read-only, keyless, and costless (a deterministic helper, not a server-side pipeline). Arbitrary-axis rubrics remain deferred; the 4-axis `RubricBreakdown` model is not touched.
+
 ## Requirements
 
 ### Validated
@@ -62,9 +75,12 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 
 ### Active
 
-<!-- v1.1 shipped. Next milestone's requirements are defined via /gsd-new-milestone. -->
+<!-- v1.2 Agent-Driven ICP Scoring. REQ-IDs defined in .planning/REQUIREMENTS.md. -->
 
-None — v1.1 shipped 2026-07-17. Start the next milestone with `/gsd-new-milestone` to define fresh requirements.
+- Agent-driven deterministic ICP scoring via a `score_account` MCP tool on the thin and full tiers (server-guaranteed math over the existing rubric)
+- `research_account` prompt orchestrates evidence -> rubric -> cited axis scores -> `score_account` -> verdict
+- Optional clamped `news_days` lookback parameter on `get_account_evidence`
+- Landing page + README document the new scoring capability with the hybrid grounding framing
 
 ### Out of Scope
 
@@ -135,4 +151,4 @@ Shipped milestone v1.1 (MCP Server Surface) — all 5 phases (9-13, 2026-07-17).
 Post-execution, Phase 13 additionally received two adversarial Codex reviews (7 findings fixed with tests, incl. a live Caddy `Fly-Client-IP` spoofing fix), a formal `/gsd-secure-phase 13` audit (14/14 STRIDE threats closed), and a passing milestone audit (20/20 requirements, 6/6 cross-phase flows wired, 5/5 Nyquist-compliant). Full offline suite green: 512 pytest, strict mypy, ruff, black, verify-public-repo 0 hits. Next: `/gsd-new-milestone` to scope the next version.
 
 ---
-*Last updated: 2026-07-17 after v1.1 milestone completion (MCP Server Surface). v1.0 history unchanged above.*
+*Last updated: 2026-07-17 at v1.2 milestone start (Agent-Driven ICP Scoring). v1.0/v1.1 history unchanged above.*

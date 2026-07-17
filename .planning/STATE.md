@@ -1,37 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: MCP Server Surface
-current_phase: 1
-status: Awaiting next milestone
-stopped_at: Completed 13-04-PLAN.md
-last_updated: "2026-07-17T20:02:19.836Z"
+milestone: v1.2
+milestone_name: Agent-Driven ICP Scoring
+status: planning
+last_updated: "2026-07-17T23:05:00.000Z"
 last_activity: 2026-07-17
-last_activity_desc: Milestone v1.1 completed and archived
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
-current_phase_name: hosted-deploy-docs-close
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-15)
+See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Milestone v1.1 (MCP Server Surface) fully executed — ready for `/gsd-complete-milestone`
+**Current focus:** Milestone v1.2 (Agent-Driven ICP Scoring) — Phase 14 roadmapped, ready to plan
 
 ## Current Position
 
-Phase: Milestone v1.1 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-17 — Milestone v1.1 completed and archived
+Phase: 14 of 14 (Deterministic Scoring & Guided Flow)
+Plan: — of TBD
+Status: Ready to plan
+Last activity: 2026-07-17 — ROADMAP.md and REQUIREMENTS.md traceability written for v1.2 (single phase, 9/9 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -108,6 +106,7 @@ Last activity: 2026-07-17 — Milestone v1.1 completed and archived
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- v1.2 roadmapped as a single phase (Phase 14): the design is locked (deterministic `score_account` tool reusing `compute_total`/`verdict_for`, clamped `news_days`, prompt + docs updates), the code/tests/docs changes are all tightly coupled edits to the same `src/mcp_server/` module with no real sequencing dependency — splitting would invent structure the work does not need (2026-07-17)
 - v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) — MCP wraps existing seams at a fraction of the cost, stays on the groundedness differentiator, teaches the target skill
 - Roadmap follows the research-endorsed dependency-driven build order, consolidated into 5 phases (extraction+models -> stdio thin tier -> limits+HTTP transport -> gated full tier+resources/prompt -> hosted deploy+docs)
 - TEST-01 (cross-cutting test coverage) traced to the closing Phase 13 as the gate where full coverage across tiering/limits/evidence/errors is verifiable; each phase 9-12 still carries its own test acceptance per research's per-phase testing guidance
@@ -239,13 +238,14 @@ Items acknowledged and carried forward:
 | Eval rubric | Specificity and recency as 1-5 judge axes (AXIS-01) | v2, conditional on Phase 1 audit decision | 2026-05-14 |
 | Eval tooling | `great-tables` for PNG-quality eval tables (EVAL-V2-01) | v2, conditional on Phase 4 Markdown sufficiency | 2026-05-14 |
 | MCP server | PyPI/uvx packaging, hosted-endpoint auth, `structuredContent`, MCP Registry listing, company-name-to-domain resolution | v2, per v1.1 REQUIREMENTS.md Future Requirements | 2026-07-15 |
+| MCP server | Per-call rubric weights/descriptions override for `score_account`; arbitrary-axis rubrics | v2, per v1.2 REQUIREMENTS.md Future Requirements | 2026-07-17 |
 
 ## Session Continuity
 
-Last session: 2026-07-17T18:20:33.352Z
-Stopped at: Completed 13-04-PLAN.md
+Last session: 2026-07-17T23:05:00.000Z
+Stopped at: ROADMAP.md and REQUIREMENTS.md traceability written for v1.2 (Phase 14, 9/9 requirements mapped)
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Review the Phase 14 roadmap draft below, then run `/gsd-plan-phase 14` to produce PLAN.md
