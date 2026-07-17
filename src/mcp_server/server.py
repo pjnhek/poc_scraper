@@ -177,6 +177,24 @@ async def research_account_full(
 
     deps = ctx.request_context.lifespan_context
 
+    if not hasattr(deps, "enricher"):
+        # WR-01: research_account_full is only ever registered when tier=="full"
+        # (build_server), which the caller must pair with make_full_lifespan's
+        # full Deps bundle. A thin lifespan (ThinDeps) has no .enricher at all;
+        # catching that here, before the catch-all below, turns a wiring bug
+        # into an explicit misconfiguration message instead of a sanitized
+        # "internal error, try again" masquerading as a transient fault.
+        log.error(
+            "research_account_full called with a thin lifespan for %s: "
+            "server wiring bug, tier='full' must be paired with make_full_lifespan",
+            domain,
+        )
+        raise RuntimeError(
+            "server misconfiguration: research_account_full is registered (tier='full') "
+            "but the lifespan context has no enricher/scorer/etc (a thin Deps bundle). "
+            "Pair tier='full' with make_full_lifespan, not make_thin_lifespan."
+        )
+
     stages = (
         ("enrich", "score", "contacts", "outreach", "eval")
         if run_eval

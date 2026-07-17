@@ -929,3 +929,26 @@ async def test_full_tool_reports_five_stage_progress_notifications() -> None:
         if message is not None
     ]
     assert stage_names == ["enrich", "score", "contacts", "outreach", "eval"]
+
+
+@pytest.mark.asyncio
+async def test_full_tool_thin_lifespan_misconfiguration_fails_loudly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """WR-01: tier="full" registers research_account_full, but pairing it
+    with a thin lifespan (ThinDeps has no enricher/scorer/etc) must fail
+    loudly with an explicit misconfiguration message at call time, never the
+    sanitized "internal error, try again" reserved for genuine transient
+    faults. Mirrors the exact mismatched wiring the review flagged."""
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa), tier="full")
+
+    with caplog.at_level(logging.ERROR):
+        async with create_connected_server_and_client_session(app) as client:
+            result = await client.call_tool("research_account_full", {"domain": "notion.so"})
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "misconfiguration" in text
+    assert "internal error" not in text
+    assert any(record.levelno == logging.ERROR for record in caplog.records)
