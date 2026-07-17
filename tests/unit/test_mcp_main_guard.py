@@ -10,7 +10,10 @@ from __future__ import annotations
 import pytest
 
 from src.config import Settings
-from src.mcp_server.__main__ import guard_full_tier_http_exposure
+from src.mcp_server.__main__ import (
+    guard_full_tier_http_exposure,
+    guard_non_loopback_requires_public_hostname,
+)
 
 
 def test_refuses_full_tier_over_http_without_opt_in() -> None:
@@ -53,3 +56,39 @@ def test_demo_mode_thin_tier_over_http_is_unaffected_by_the_guard() -> None:
     )
 
     guard_full_tier_http_exposure(settings, transport="http", tier="thin")
+
+
+def test_refuses_non_loopback_http_bind_without_public_hostname() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, exa_api_key="x", mcp_http_host="0.0.0.0"
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        guard_non_loopback_requires_public_hostname(settings, transport="http")
+
+    assert "MCP_PUBLIC_HOSTNAME" in str(exc_info.value)
+
+
+def test_allows_non_loopback_http_bind_with_public_hostname() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        exa_api_key="x",
+        mcp_http_host="0.0.0.0",
+        mcp_public_hostname="poc-scraper-mcp.fly.dev",
+    )
+
+    guard_non_loopback_requires_public_hostname(settings, transport="http")
+
+
+def test_loopback_http_bind_is_unaffected_by_hostname_guard() -> None:
+    settings = Settings(_env_file=None, exa_api_key="x")  # type: ignore[call-arg]
+
+    guard_non_loopback_requires_public_hostname(settings, transport="http")
+
+
+def test_stdio_is_unaffected_by_hostname_guard() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, exa_api_key="x", mcp_http_host="0.0.0.0"
+    )
+
+    guard_non_loopback_requires_public_hostname(settings, transport="stdio")
