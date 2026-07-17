@@ -138,6 +138,14 @@ class Settings(BaseSettings):
     # 0.0.0.0), not a local default. Both env-overridable.
     mcp_http_port: int = Field(default=8000, ge=1, le=65535)
     mcp_http_host: str = "127.0.0.1"
+    # Public hostname (HOST-06, D-05): the externally-visible hostname a real
+    # client's Host header carries (e.g. Fly's edge-forwarded hostname). This
+    # is deliberately distinct from mcp_http_host, which stays a pure bind
+    # address (11-SECURITY scope correction). When set, it sources an
+    # additional entry in build_server's TransportSecuritySettings allowlist.
+    # Empty by default so local `make mcp-http`/`make mcp-demo` behavior is
+    # unaffected.
+    mcp_public_hostname: str = ""
     # Explicit opt-in (WR-03) for serving the full tier over HTTP:
     # research_account_full has no rate limiting (Deps.limiter is always
     # None on that path) and no auth, so the default must be to refuse
