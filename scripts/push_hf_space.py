@@ -49,11 +49,11 @@ def _reject_secrets_and_symlinks(dir_path: str, names: list[str]) -> set[str]:
     base = Path(dir_path)
     skip: set[str] = {"__pycache__"}
     for name in names:
-        if name.endswith(".pyc"):
-            skip.add(name)
-        elif (base / name).is_symlink():
-            skip.add(name)
-        elif any(fnmatch(name, pattern) for pattern in SECRET_PATTERNS):
+        if (
+            name.endswith(".pyc")
+            or (base / name).is_symlink()
+            or any(fnmatch(name, pattern) for pattern in SECRET_PATTERNS)
+        ):
             skip.add(name)
     return skip
 
