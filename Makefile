@@ -85,5 +85,9 @@ deploy-hf:
 	fi
 	uv run python -m scripts.push_hf_space $(HF_SPACE)
 
+# Pin exactly one machine after every deploy: the in-memory demo rate limits
+# (per-IP + global daily cap) are only truly global with a single instance
+# (HOST-06). fly.toml alone cannot express this; scale count is the mechanism.
 deploy-fly:
 	fly deploy --smoke-checks=false
+	fly scale count 1 --yes

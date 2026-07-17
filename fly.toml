@@ -6,6 +6,10 @@ primary_region = "iad"
 [env]
   MCP_PUBLIC_HOSTNAME = "poc-scraper-mcp.fly.dev"
 
+# Exactly one machine is required so the in-memory demo rate limits stay
+# global (HOST-06). fly.toml has no max-machines knob; `make deploy-fly` runs
+# `fly scale count 1` after every deploy to enforce it. auto_stop/suspend keeps
+# that single machine idle-cheap without fragmenting the limit counters.
 [http_service]
   internal_port = 8000
   force_https = true
