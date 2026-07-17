@@ -136,16 +136,102 @@ fi
 # account. Applies to a just-written or a pre-existing file.
 chmod 600 "$ENV_FILE"
 
-# --- Caddyfile: automatic HTTPS reverse proxy to the loopback-only container
 CADDY_HOSTNAME=$(grep '^MCP_PUBLIC_HOSTNAME=' "$ENV_FILE" | cut -d= -f2-)
+
+# --- landing page: a human-readable page served at / so a browser visit to the
+# root explains how to connect (the machine endpoint stays at /mcp, proxied
+# below). Heredoc is unquoted so ${CADDY_HOSTNAME} fills in the live hostname;
+# bash does no brace expansion in heredoc bodies, so the CSS braces are safe.
+mkdir -p /opt/poc-scraper/site
+cat >/opt/poc-scraper/site/index.html <<EOF
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poc_scraper - Grounded Account-Research MCP Server</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; background: #fafafa; }
+  main { max-width: 760px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  h1 { font-size: 1.7rem; margin: 0 0 .2rem; letter-spacing: -.02em; }
+  .tag { color: #666; margin: 0 0 2rem; }
+  h2 { font-size: 1.05rem; margin: 2.2rem 0 .5rem; }
+  p { margin: .6rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .86rem; }
+  pre { background: #f0f0f0; border: 1px solid #e2e2e2; border-radius: 8px; padding: .8rem 1rem; overflow-x: auto; }
+  .url { display: inline-block; background: #eef; border: 1px solid #dde; border-radius: 6px; padding: .15rem .45rem; }
+  .note { color: #666; font-size: .9rem; border-left: 3px solid #ddd; padding-left: 1rem; }
+  a { color: #2b6cb0; }
+  footer { margin-top: 3rem; color: #888; font-size: .85rem; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #16181c; }
+    .tag, .note, footer { color: #9aa0a6; }
+    pre { background: #1e2127; border-color: #2c303a; }
+    .url { background: #202634; border-color: #313a52; }
+    a { color: #7aa7e0; }
+    .note { border-left-color: #333; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>poc_scraper</h1>
+  <p class="tag">A grounded account-research pipeline, exposed as an MCP server.</p>
+
+  <p>This is the <strong>live demo tier</strong>: given a company domain it retrieves recent, cited evidence (about pages and last-90-day news), numbered so a calling agent can trace every claim back to its source. Evidence retrieval only, rationed to 5 calls per IP per hour and 25 per day. The full pipeline (ICP scoring, personas, citation-checked outreach) is BYOK and runs locally.</p>
+
+  <h2>MCP endpoint</h2>
+  <p><span class="url">https://${CADDY_HOSTNAME}/mcp</span></p>
+
+  <h2>Connect from Codex</h2>
+  <pre>codex mcp add poc-scraper --url https://${CADDY_HOSTNAME}/mcp</pre>
+
+  <h2>Connect from Claude Code</h2>
+  <pre>claude mcp add --transport http poc-scraper https://${CADDY_HOSTNAME}/mcp</pre>
+
+  <h2>Connect from Claude Desktop</h2>
+  <p>Add to <code>claude_desktop_config.json</code>:</p>
+  <pre>{
+  "mcpServers": {
+    "poc-scraper": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://${CADDY_HOSTNAME}/mcp"]
+    }
+  }
+}</pre>
+
+  <h2>Any other MCP client</h2>
+  <pre>npx mcp-remote https://${CADDY_HOSTNAME}/mcp</pre>
+
+  <p class="note">Once connected, call the <code>get_account_evidence</code> tool with a domain (e.g. <code>notion.so</code>). Invalid input and provider errors come back as sanitized one-line messages, never stack traces.</p>
+
+  <footer>
+    Source, the full BYOK tier, and how it works:
+    <a href="https://github.com/pjnhek/poc_scraper">github.com/pjnhek/poc_scraper</a>
+  </footer>
+</main>
+</body>
+</html>
+EOF
+
+# --- Caddyfile: HTTPS reverse proxy for the MCP endpoint at /mcp, plus the
+# static landing page at / for human visitors.
 cat >/etc/caddy/Caddyfile <<EOF
 $CADDY_HOSTNAME {
-    reverse_proxy 127.0.0.1:8000 {
-        # Overwrite any client-supplied Fly-Client-IP with the real TCP peer.
-        # The app trusts this header verbatim as the rate-limit bucket key
-        # (src/mcp_server/limits.py); without this line a caller could send its
-        # own Fly-Client-IP and pick a fresh per-IP bucket on every request.
-        header_up Fly-Client-IP {remote_host}
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:8000 {
+            # Overwrite any client-supplied Fly-Client-IP with the real TCP peer.
+            # The app trusts this header verbatim as the rate-limit bucket key
+            # (src/mcp_server/limits.py); without this line a caller could send its
+            # own Fly-Client-IP and pick a fresh per-IP bucket on every request.
+            header_up Fly-Client-IP {remote_host}
+        }
+    }
+    handle {
+        root * /opt/poc-scraper/site
+        file_server
     }
 }
 EOF

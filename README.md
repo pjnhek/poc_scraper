@@ -15,13 +15,13 @@ A grounded outreach research pipeline: drop in a CSV of company domains, get bac
 
 ## Try it live
 
-The pipeline's grounded evidence retrieval is hosted as a public MCP server, reachable with zero setup:
+The pipeline's grounded evidence retrieval is hosted as a public MCP server, reachable with zero setup. Open <https://170.9.7.144.sslip.io> in a browser for copy-paste connect instructions, or point any MCP client at it:
 
 ```bash
 npx mcp-remote https://170.9.7.144.sslip.io/mcp
 ```
 
-This is the demo tier: rate-limited (5 calls per IP per hour, 25 per day globally) and evidence-only, no scoring, no personas, no outreach hooks. See the [MCP server](#mcp-server) section below for the other two client configs and the full, BYOK tier.
+This is the demo tier: rate-limited (5 calls per IP per hour, 25 per day globally) and evidence-only, no scoring, no personas, no outreach hooks. See the [MCP server](#mcp-server) section below for the Codex and Claude client configs and the full, BYOK tier.
 
 ## Demo
 
@@ -165,6 +165,12 @@ Most portable, works with any client that only speaks stdio (leads with this sin
 
 ```bash
 npx mcp-remote https://170.9.7.144.sslip.io/mcp
+```
+
+Codex, native HTTP transport:
+
+```bash
+codex mcp add poc-scraper --url https://170.9.7.144.sslip.io/mcp
 ```
 
 Claude Code, native HTTP transport:
