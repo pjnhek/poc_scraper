@@ -10,6 +10,8 @@ POC = Point of Contact (the right person to reach in an account) AND Proof of Co
 
 The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same code can be retargeted at any vertical without touching prompts.
 
+The pipeline is also exposed as an MCP server: a hosted, rationed thin tier (evidence retrieval only) plus a BYOK full tier over stdio (full pipeline, cited outreach, ICP scoring), with the ICP rubric and eval report served as MCP resources.
+
 ## Working norms
 
 - Show a 10-line plan before each major component (enrich, score, contacts, outreach, sheets, eval). Course-correct early, not after the fact.
@@ -28,6 +30,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 - Browserbase fallback for JS-rendered pages or when Exa returns thin results.
 - Google Sheets API with service-account auth as the output surface.
 - LLM-as-judge eval over hand-labeled examples in `evals/labeled.jsonl`. 1-5 categorical rubric per NeMo guidance (1-10 numeric judges drift).
+- `mcp>=1.28,<2.0` as the MCP server SDK (FastMCP, stdio plus streamable HTTP transports).
 
 ## Testing strategy (5-layer)
 
@@ -37,7 +40,7 @@ The ICP rubric, weights, and definition live in `configs/icp.yaml` so the same c
 4. **Smoke E2E** - `make smoke`, opt-in, real LLM + Exa + Browserbase + Sheets against 2-3 fixture domains. Skipped in CI to avoid burning credits and avoid flakiness.
 5. **Edge cases** - scattered across layers above. Empty enrichment, scrape blocked, sub-threshold eval score, malformed CSV, rate limits.
 
-`make run` runs the full pipeline. `make smoke` is a separate opt-in target; it is no longer auto-chained because both hit the same rate-limited endpoint.
+`make run` runs the full pipeline. `make smoke` is a separate opt-in target; it is no longer auto-chained because both hit the same rate-limited endpoint. `make mcp` runs the MCP server over stdio (full tier if keys are present); `make mcp-http` runs it over streamable HTTP; `make mcp-demo` runs the HTTP transport in the rationed thin tier; `make smoke-mcp` is the MCP server's opt-in live E2E; `make provision-oracle` and `make deploy-oracle` provision and redeploy the hosted demo endpoint (`make deploy-hf` and `make deploy-fly` are documented, unverified-live alternatives; see `docs/DEPLOY.md`).
 
 ## Pre-commit vs CI split
 
@@ -53,6 +56,9 @@ mypy is strict. Don't loosen it without asking.
 - **Empty enrichment**: mark the account `unscoreable`, surface that in the sheet. Don't fake data.
 - **Rate limits**: asyncio + httpx, concurrency cap of 5, exponential backoff on 429s via tenacity.
 - **Sub-threshold eval**: groundedness below the configured threshold flags the row red in the sheet.
+- **MCP demo rationing**: hitting the per-IP-per-hour or global-per-day cap returns a structured refusal with a reset time, never a bare error; Exa credit exhaustion is deliberately worded the same way, so the public URL looks rationed, never broken.
+- **MCP client IP resolution**: the hosted server trusts `Fly-Client-IP` only, never `X-Forwarded-For`. If it is absent, resolution fails closed into one shared rate-limit bucket rather than trusting an unverifiable header.
+- **MCP tool errors**: every tool failure surfaces as an `isError` result with a plain, sanitized message. Never a stack trace, an env var name, or a key fragment.
 
 Internal tools deserve the same rigor as customer-facing agents.
 
@@ -73,6 +79,12 @@ src/
     nvidia_client.py     # OpenAI-compatible client for NVIDIA Build
     exa_client.py
     browserbase_client.py
+  mcp_server/           # src/mcp_server/: MCP server surface (thin/full tier)
+    evidence.py         # builds the numbered EvidencePack shared with the pipeline
+    limits.py           # DemoLimiter rationing + fail-closed client IP resolution
+    server.py           # FastMCP tools/resources/prompt, thin vs full tier wiring
+    wiring.py           # thin-tier lifespan (EvidenceDeps), full-tier lifespan delegation
+    __main__.py         # CLI entrypoint, startup guards, transport selection
 configs/
   icp.yaml               # rubric weights, axis definitions, verdict thresholds
 evals/
@@ -85,6 +97,10 @@ tests/
   integration/
   smoke/
 inputs/accounts.csv
+Dockerfile                # uv multi-stage build, shared across all deploy targets
+fly.toml                  # Fly.io deploy config (documented alternative, see docs/DEPLOY.md)
+docs/
+  DEPLOY.md               # hosted MCP demo deploy runbook (Oracle primary, HF/Fly appendices)
 ```
 
 ## Out of scope (v2/v3, do not build)
