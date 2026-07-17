@@ -4,11 +4,11 @@ milestone: v1.1
 milestone_name: MCP Server Surface
 current_phase: 12
 current_phase_name: Full-Tier Tool, Resources & Prompt
-status: planning
-stopped_at: Phase 12 context gathered
-last_updated: "2026-07-17T03:33:48.179Z"
+status: ready_to_execute
+stopped_at: Phase 12 planned (4 plans, 3 waves, checker passed)
+last_updated: "2026-07-17T04:16:46.000Z"
 last_activity: 2026-07-17
-last_activity_desc: "Phase 11 closeout: re-verification against amended HOST-04, VALIDATION.md filled, post-review fixes landed"
+last_activity_desc: "Phase 12 planned: 4 plans in 3 waves, plan-checker passed on iteration 2, validation contract filled"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 ## Current Position
 
 Phase: 12 — Full-Tier Tool, Resources & Prompt
-Plan: Not started
-Status: planning (Phase 11 verified, validated, and closed)
-Last activity: 2026-07-17 — Phase 11 closeout: re-verification against amended HOST-04, VALIDATION.md filled, post-review fixes landed
+Plan: 0/4 complete
+Status: Ready to execute (4 plans in 3 waves, plan-checker passed)
+Last activity: 2026-07-17 — Phase 12 planned: 4 plans in 3 waves, plan-checker passed on iteration 2, validation contract filled
 
 Progress: [░░░░░░░░░░] 0%
 
