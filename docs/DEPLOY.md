@@ -2,25 +2,41 @@
 
 This runbook covers deploying `poc_scraper`'s MCP server as the public,
 demo-mode-only hosted endpoint (HOST-03, HOST-06). The primary target is
-Hugging Face Spaces (free, no payment method). Fly.io is kept as a documented
-alternative for operators who already have Fly billing set up.
+Oracle Cloud Infrastructure's Always Free tier (a raw compute VM, $0/month).
+Hugging Face Spaces and Fly.io are kept as documented alternatives below,
+each blocked on a payment requirement that Oracle's Always Free tier avoids.
 
-**Deploy-target change (13-04):** the original plan targeted Fly.io. During
-this phase's live deploy, `fly apps create` failed with "We need your payment
-information": Fly.io now requires a card on file even for its otherwise-free
-allowances. The operator chose Hugging Face Spaces instead, which has no card
-requirement for a free CPU-basic Docker Space. The Fly artifacts below
-(`Dockerfile` is shared with HF, `fly.toml`) stayed committed as a validated,
-documented alternative; they were not carried through a live deploy in this
-milestone.
+## Deploy-target decision chain (13-04)
 
-## MCP_PUBLIC_HOSTNAME (applies to both targets)
+The original plan targeted Fly.io. Both of the first two candidates hit a
+payment gate that the operator declined:
+
+1. **Fly.io (original plan target).** `fly apps create` failed with "We need
+   your payment information": Fly.io now requires a card on file even for its
+   otherwise-free allowances.
+2. **Hugging Face Spaces (first pivot).** `hf repo create ... --type space
+   --sdk docker` returned HTTP 402: Docker/Gradio Spaces now require a PRO
+   subscription ($9/month); only static (non-Docker) Spaces are free.
+3. **Oracle Cloud Always Free (current target).** A raw compute VM under
+   OCI's Always Free tier. A card is required at account signup for identity
+   verification only; Free Tier accounts cannot be charged unless the
+   operator explicitly upgrades to Pay As You Go. This is the most
+   setup-heavy of the three (raw VM, Docker, host firewall, DNS-free
+   hostname, TLS all assembled by hand instead of a managed platform), which
+   is the tradeoff for zero ongoing cost and no card risk.
+
+The `Dockerfile` (shared across all three targets), `fly.toml`, and the HF
+Space artifacts stay committed; nothing about the pivot required deleting
+prior work; see the appendices below.
+
+## MCP_PUBLIC_HOSTNAME (applies to every target)
 
 `MCP_PUBLIC_HOSTNAME` is a `Settings` field (`src/config.py`) distinct from
 `MCP_HTTP_HOST`. `MCP_HTTP_HOST` is a pure bind address (for example
 `0.0.0.0` in the container); `MCP_PUBLIC_HOSTNAME` is the externally-visible
 hostname a real client's `Host` header carries (for example
-`<owner>-poc-scraper-mcp.hf.space` or `poc-scraper-mcp.fly.dev`).
+`203.0.113.10.sslip.io`, `<owner>-poc-scraper-mcp.hf.space`, or
+`poc-scraper-mcp.fly.dev`).
 
 - The server refuses to start when serving HTTP on a non-loopback bind (such
   as `0.0.0.0`) with no `MCP_PUBLIC_HOSTNAME` configured. This fail-fast guard
@@ -37,8 +53,197 @@ hostname a real client's `Host` header carries (for example
 - This variable could not be added to `.env.example` in plan 13-01 (file
   outside that session's file-access permissions), so it is documented here
   instead.
+- On Oracle, the hostname comes from [sslip.io](https://sslip.io): any
+  dotted-IP subdomain (`<public-ip>.sslip.io`) resolves to that IP with no DNS
+  account or domain purchase needed. Caddy performs the ACME HTTP-01
+  challenge against that same hostname to issue a real TLS certificate.
 
-## Hugging Face Spaces (primary)
+## Oracle Cloud Always Free (primary)
+
+**Status:** scaffolding drafted and committed (Dockerfile-compatible,
+idempotent); not yet run against a live OCI account in this milestone. The
+commands below are the confirmed design; once a live provisioning pass
+happens, this section is updated with any deviations found, following the
+same discipline as the Fly appendix's "Dry run findings" below.
+
+### Decision mapping (D-01 through D-04, D-13)
+
+- **D-01 (idle-behavior cost intent):** a raw Always Free VM has no
+  suspend-on-idle primitive (unlike Fly's `auto_stop_machines`). D-01's
+  actual goal, keeping cost near zero, is satisfied a different way: the VM
+  runs 24/7 at **$0/month** under the Always Free tier rather than by
+  idling. `DemoLimiter` counters therefore persist across quiet periods (no
+  suspend-triggered reset) and reset only on an explicit redeploy or crash,
+  same tradeoff class as the other two targets accept.
+- **D-02 (cost ceiling, up to ~$5/mo acceptable):** Always Free is $0/month
+  by construction as long as the instance stays within Always Free shape and
+  storage limits (see "Cost" below).
+- **D-03 (single-instance pin):** there is exactly one VM; no cluster or
+  autoscaling group exists to accidentally scale out, so `DemoLimiter`'s
+  in-memory counters stay globally correct by construction, the same
+  single-machine intent as Fly's `fly scale count 1` pin.
+- **D-04 (app identity):** the instance display name and Caddy site block
+  both use `poc-scraper-mcp`, vendor-neutral and consistent with the Fly app
+  name and HF Space name.
+- **D-13 (deploy stays a deliberate manual act):** `deploy/oracle/setup.sh`
+  and `deploy/oracle/provision.sh` are committed (no secrets; `EXA_API_KEY`
+  is injected by the operator directly on the VM, see below). There is no
+  GitHub Actions CD; `make provision-oracle` and `make deploy-oracle` are
+  explicit operator commands.
+
+### Prerequisites
+
+1. Create an Oracle Cloud (OCI) account: https://signup.oraclecloud.com. A
+   card is required at signup for identity verification only; Free Tier
+   accounts cannot be charged unless explicitly upgraded to Pay As You Go.
+   Note your **home region** once signup completes; every command below runs
+   against that region.
+2. Install the `oci` CLI:
+   ```
+   brew install oci-cli
+   ```
+3. Authenticate. Either works; the browser flow is faster for a first setup:
+   ```
+   oci session authenticate
+   ```
+   or configure a long-lived API key profile per Oracle's docs if you prefer
+   not to re-authenticate each session.
+4. One-time network setup (console is the fastest path for a first VM): in
+   the OCI console, Networking > Virtual Cloud Networks > **Start VCN
+   Wizard** > "Create VCN with Internet Connectivity". This creates a VCN, a
+   public subnet, an internet gateway, a route table, and a default security
+   list in one step. Note the public subnet's OCID
+   (`Networking > Virtual Cloud Networks > <vcn> > Subnets > <subnet>`).
+5. Generate an SSH key pair if you do not already have one:
+   ```
+   ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+   ```
+
+### Provision the instance
+
+```
+export OCI_COMPARTMENT_ID=<your compartment OCID>
+export OCI_AD=$(oci iam availability-domain list \
+  --compartment-id "$OCI_COMPARTMENT_ID" \
+  --query 'data[0].name' --raw-output)
+export OCI_SUBNET_ID=<the public subnet OCID from step 4 above>
+export SSH_PUBLIC_KEY_FILE=~/.ssh/id_ed25519.pub
+make provision-oracle
+```
+
+`deploy/oracle/provision.sh` tries the Always Free ARM shape first
+(`VM.Standard.A1.Flex`, 1 OCPU / 6GB), and falls back to the smaller Always
+Free AMD shape (`VM.Standard.E2.1.Micro`) if A1.Flex reports a
+capacity/limit error in that availability domain. This is a known Always
+Free gotcha: A1.Flex capacity is finite per availability domain and
+frequently exhausted; E2.1.Micro is always obtainable but has only 1GB RAM
+(the setup script adds a 2GB swapfile to compensate during the Docker
+build). The instance boots Ubuntu 22.04, looked up dynamically per shape so
+the ARM/AMD image OCID split never needs to be hand-maintained.
+
+The instance's OCI user-data is `deploy/oracle/setup.sh` itself: cloud-init
+runs a plain `#!/bin/bash` user-data script directly at first boot, so the
+same script that provisions the VM is also what an operator re-runs by hand
+later. No separate cloud-init YAML file exists; keeping one script avoids
+config drift between "first boot" and "redeploy" behavior.
+
+### Open the cloud-level firewall (the classic OCI gotcha)
+
+OCI has **two** independent firewalls; both must allow inbound 443 (and 80,
+for the ACME challenge) or the deploy is unreachable even though the VM's
+own iptables (opened by `setup.sh`) is correct:
+
+1. **Security List / Network Security Group** (cloud-level, OCI console or
+   CLI): Networking > Virtual Cloud Networks > `<vcn>` > Security Lists >
+   Default Security List > Add Ingress Rules. Add two stateless-off ingress
+   rules: source `0.0.0.0/0`, TCP, destination port `443`; and the same for
+   port `80`.
+2. **Host firewall (iptables)**: already opened by `deploy/oracle/setup.sh`
+   for ports 80 and 443, persisted via `netfilter-persistent`.
+
+Both are necessary. Missing either one produces a hang or connection-refused
+on the public URL with a clean `docker ps`/`caddy` status on the VM itself,
+the single most common Oracle deploy pitfall.
+
+### Inject EXA_API_KEY (the executor cannot read this value)
+
+`setup.sh` writes `/opt/poc-scraper/mcp.env` on the VM with a placeholder,
+then leaves it alone on every later run so the real value is never
+overwritten. The operator sets it directly on the VM, never in this repo:
+
+```
+ssh -o StrictHostKeyChecking=accept-new ubuntu@<public-ip>.sslip.io
+sudo nano /opt/poc-scraper/mcp.env   # replace EXA_API_KEY=REPLACE_ME
+exit
+```
+
+Then pick the new value up (also how you redeploy after `git pull`):
+
+```
+make deploy-oracle ORACLE_HOST=<public-ip>.sslip.io
+```
+
+### app_port and the container
+
+`setup.sh` builds this repo's `Dockerfile` on the VM and runs it bound to
+`127.0.0.1:8000` only (not the public interface directly); Caddy is the only
+process listening on the public interface (80/443), terminating TLS and
+reverse-proxying to the loopback-bound container. This is a defense-in-depth
+step beyond what HF/Fly need, since on a raw VM there is no managed edge
+doing that isolation for you.
+
+### Single-instance and idle behavior (mapping D-01/D-03)
+
+See "Decision mapping" above. In short: one VM, always on, $0/month; no
+suspend/resume state machine to reason about.
+
+### Verifying the deploy
+
+Replace `<host>` with the confirmed `<public-ip>.sslip.io` hostname.
+
+1. Confirm the MCP endpoint responds to a JSON-RPC initialize call:
+   ```
+   curl -sS -X POST https://<host>/mcp \
+     -H "Accept: application/json, text/event-stream" \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"deploy-check","version":"0.1"}}}'
+   ```
+   Expect a non-421, non-5xx response. A 421 means the `Host` header did not
+   match the `TransportSecuritySettings` allowlist; confirm
+   `MCP_PUBLIC_HOSTNAME` in `/opt/poc-scraper/mcp.env` matches the real
+   hostname exactly.
+2. Check container logs for the startup lines: the resolved tier line must
+   say `thin`, and the demo-limits line must show the 5/25/5 defaults:
+   ```
+   ssh ubuntu@<host> 'docker logs poc-scraper-mcp | tail -20'
+   ```
+3. Confirm HTTP redirects to HTTPS:
+   ```
+   curl -sI http://<host>/mcp
+   ```
+   Caddy issues a real Let's Encrypt certificate on first request to `<host>`
+   via the ACME HTTP-01 challenge (port 80 must already be open, see above).
+
+### Cost
+
+Always Free VM shapes (`VM.Standard.A1.Flex` up to 4 OCPU / 24GB total across
+all A1 instances, or `VM.Standard.E2.1.Micro` x2) plus up to 200GB of block
+storage are $0/month for the lifetime of the account, not a time-limited
+trial. A Free Tier account cannot be charged unless explicitly converted to
+Pay As You Go; the card on file at signup is identity verification only.
+
+### Teardown
+
+```
+oci compute instance terminate --instance-id <instance-id> --preserve-boot-volume false
+```
+
+## Appendix: Hugging Face Spaces (alternative, requires HF PRO)
+
+**Why not primary:** Docker/Gradio Spaces now require a paid PRO subscription
+($9/month) to create; only static (non-Docker) Spaces are free, which cannot
+run this project's container. Kept here as a documented, committed
+alternative for operators who already have HF PRO.
 
 ### Prerequisites
 
@@ -46,8 +251,8 @@ hostname a real client's `Host` header carries (for example
    ```
    uv tool install "huggingface_hub[cli]"
    ```
-2. Create a free account at https://huggingface.co/join if you do not have
-   one.
+2. Create an account at https://huggingface.co/join if you do not have one,
+   and an active PRO subscription.
 3. Authenticate:
    ```
    hf auth login
@@ -91,6 +296,12 @@ variables, the same mechanism `fly secrets set` uses for Fly.
 uv run python -m scripts.push_hf_space <owner>/<space-name>
 ```
 
+or via the Makefile wrapper:
+
+```
+make deploy-hf HF_SPACE=<owner>/<space-name>
+```
+
 `scripts/push_hf_space.py` copies an explicit allowlist, exactly what the
 Dockerfile's `COPY` instructions need (`Dockerfile`, `pyproject.toml`,
 `uv.lock`, `.dockerignore`, `src/`, `evals/`, `configs/`), plus the Space card
@@ -122,8 +333,8 @@ Free Spaces sleep after a period of inactivity (Hugging Face documents this
 as roughly 48 hours for free-tier Spaces, subject to change) and cold-start
 on the next request. The in-memory `DemoLimiter` counters reset on that
 restart, the same accepted tradeoff as Fly's suspend/restart behavior (see
-"Idle behavior and cost" in the Fly appendix). Expect the first request after
-a sleep period to take noticeably longer while the container restarts;
+"Idle behavior and cost" in the Fly appendix below). Expect the first request
+after a sleep period to take noticeably longer while the container restarts;
 subsequent requests return at normal latency.
 
 ### Verifying the deploy
@@ -146,9 +357,8 @@ Replace `<space-hostname>` with the confirmed hostname from the Space page.
 
 ### Cost
 
-Free CPU-basic Spaces cost $0/month with no payment method required. This is
-the reason the hosted target switched from Fly.io, which now requires a card
-on file even for otherwise-free usage, to Hugging Face Spaces.
+Docker Spaces on `cpu-basic` require an active PRO subscription ($9/month).
+This is why the primary hosted target moved to Oracle Cloud Always Free.
 
 ### Teardown
 
@@ -157,16 +367,17 @@ Delete the Space from its Settings page, or:
 hf repo delete <owner>/<space-name> --type space
 ```
 
-## Appendix: Fly.io (alternative)
+## Appendix: Fly.io (alternative, requires a card on file)
 
-Fly.io's artifacts (`Dockerfile` is shared with the HF path above,
+Fly.io's artifacts (`Dockerfile` is shared with the other targets above,
 `fly.toml`) stay committed as a documented alternative for operators who
 already have Fly billing configured. `fly apps create` now requires a
 payment method on the account before it will create an app, even though the
 resulting usage can stay within Fly's free allowances; this blocked the live
-deploy for this milestone's operator. The commands below were validated
-through the plan 13-02/13-03 dry run and app-creation attempt but were not
-carried through a live deploy.
+deploy for this milestone's operator, and the subsequent HF Spaces attempt
+hit the same class of payment gate (PRO required). The commands below were
+validated through the plan 13-02/13-03 dry run and app-creation attempt but
+were not carried through a live deploy.
 
 ### Dry run findings
 

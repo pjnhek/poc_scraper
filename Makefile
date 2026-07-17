@@ -1,4 +1,4 @@
-.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo deploy deploy-fly
+.PHONY: install setup-sheet run run-demo mcp mcp-http mcp-demo eval eval-live eval-fixtures eval-calibration eval-report test smoke smoke-mcp lint format typecheck clean verify-public-repo provision-oracle deploy-oracle deploy-hf deploy-fly
 
 install:
 	uv sync --extra dev
@@ -63,9 +63,24 @@ clean:
 verify-public-repo:
 	uv run python -m scripts.verify_public_repo
 
-deploy:
+# Primary target: Oracle Cloud Always Free (see docs/DEPLOY.md). Provisioning
+# and redeploys happen against the VM itself, not from this machine's Docker
+# build, so these targets wrap the oci CLI and SSH rather than a local push.
+provision-oracle:
+	bash deploy/oracle/provision.sh
+
+deploy-oracle:
+	@if [ -z "$(ORACLE_HOST)" ]; then \
+		echo "Set ORACLE_HOST=<public-ip>.sslip.io, e.g. make deploy-oracle ORACLE_HOST=1.2.3.4.sslip.io" >&2; \
+		exit 1; \
+	fi
+	ssh -o StrictHostKeyChecking=accept-new ubuntu@$(ORACLE_HOST) 'sudo bash -s' < deploy/oracle/setup.sh
+
+# Alternatives, see docs/DEPLOY.md appendices (HF Docker Spaces now require a
+# PRO subscription; Fly.io now requires a card on file for app creation).
+deploy-hf:
 	@if [ -z "$(HF_SPACE)" ]; then \
-		echo "Set HF_SPACE=<owner>/<space-name>, e.g. make deploy HF_SPACE=you/poc-scraper-mcp" >&2; \
+		echo "Set HF_SPACE=<owner>/<space-name>, e.g. make deploy-hf HF_SPACE=you/poc-scraper-mcp" >&2; \
 		exit 1; \
 	fi
 	uv run python -m scripts.push_hf_space $(HF_SPACE)
