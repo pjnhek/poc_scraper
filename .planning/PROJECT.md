@@ -8,9 +8,11 @@ A generic account-research prototype. Given a CSV of company domains, it produce
 
 Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader. If everything else slips, this must hold — it is the whole story.
 
-## Current Milestone: v1.1 MCP Server Surface
+## Shipped Milestone: v1.1 MCP Server Surface
 
-**Goal:** Expose the grounded account-research pipeline as a public MCP server: a hosted URL anyone can paste into Claude Desktop for capped, evidence-cited demo research, plus a full BYOK stdio server for cloned-repo users.
+**Status:** SHIPPED 2026-07-17 (Phases 9-13). Live hosted thin-tier endpoint on Oracle Cloud Always Free; full details archived in `.planning/milestones/v1.1-ROADMAP.md`.
+
+**Goal (as shipped):** Expose the grounded account-research pipeline as a public MCP server: a hosted URL anyone can paste into Claude Desktop for capped, evidence-cited demo research, plus a full BYOK stdio server for cloned-repo users.
 
 **Target features:**
 - Tiered FastMCP server in `src/mcp_server/`: thin tier (evidence tool, rubric + eval-report resources, research prompt; Exa-only) always registered; full-pipeline tool gated on BYOK writer/judge/Browserbase keys
@@ -50,18 +52,19 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 - ✓ Public-repo scrub (history rewrite + pre-commit name guard) — v1.0 (Phase 7)
 - ✓ Front-loaded README + recorded walkthrough pinned to a specific commit — v1.0 (Phase 8)
 
-<!-- v1.1 MCP Server Surface (in progress). -->
+<!-- v1.1 MCP Server Surface (shipped 2026-07-17). -->
 
-- ✓ Pipeline seams extracted for MCP reuse: `open_deps()` wiring seam (INTEG-01), public `collect_context()`/`RawContext` + `NullBrowserbase` Exa-only path (INTEG-02), frozen `EvidencePack` with `retrieval_status` honesty field (INTEG-03); CLI behavior unchanged, 329 offline tests + strict mypy + lint green — Validated in Phase 9: Pipeline Extraction & Supporting Models (2026-07-16)
-- ✓ MCP server exposes grounded account evidence (thin tier, Phase 10), the ICP rubric and eval report as `icp://rubric` / `icp://eval-report` resources, and the `research_account` guided prompt on every tier (MCP-02, MCP-03, MCP-04) — Validated in Phase 12: Full-Tier Tool, Resources & Prompt (2026-07-17)
-- ✓ Full grounded pipeline available as the tier-gated `research_account_full` MCP tool for BYOK users: hidden (not refusing) below full tier, complete `ScoredAccount` JSON with `AccountStatus`, `run_eval` honesty semantics, per-stage progress, sanitized errors (MCP-05) — Validated in Phase 12: Full-Tier Tool, Resources & Prompt (2026-07-17)
+- ✓ Pipeline seams extracted for MCP reuse: `open_deps()` wiring seam (INTEG-01), public `collect_context()`/`RawContext` + `NullBrowserbase` Exa-only path (INTEG-02), frozen `EvidencePack` with `retrieval_status` honesty field (INTEG-03); CLI behavior unchanged — v1.1 (Phase 9, 2026-07-16)
+- ✓ Stdio thin-tier MCP server: `get_account_evidence` returns numbered cited evidence verified against a real client, stderr-only logging, `make smoke-mcp` real-subprocess gate (MCP-01, MCP-06, MCP-07, HOST-01, TEST-02) — v1.1 (Phase 10, 2026-07-16)
+- ✓ Streamable HTTP transport from one entry point plus demo-mode rate limits: `DemoLimiter` (per-IP hour window + UTC-day global cap, race-safe, injected clock), fail-closed `Fly-Client-IP` resolution, explicit `TransportSecuritySettings` allowlist (HOST-02, HOST-04) — v1.1 (Phase 11, 2026-07-16)
+- ✓ ICP rubric + eval report as `icp://rubric` / `icp://eval-report` resources and the `research_account` guided prompt on every tier; tier-gated `research_account_full` BYOK tool (hidden below full tier, complete `ScoredAccount` JSON, `run_eval` honesty, per-stage progress, sanitized errors) (MCP-02/03/04/05) — v1.1 (Phase 12, 2026-07-17)
+- ✓ Public hosted deploy (Oracle Cloud Always Free, live) with hardened/sanitized error payloads and a single-machine global rate-limit invariant; CLAUDE.md charter + README MCP section synced to the shipped surface (HOST-03, HOST-05, HOST-06, DOCS-01, DOCS-02, TEST-01) — v1.1 (Phase 13, 2026-07-17)
 
 ### Active
 
-<!-- v1.1 MCP Server Surface. REQ-IDs live in .planning/REQUIREMENTS.md. -->
+<!-- v1.1 shipped. Next milestone's requirements are defined via /gsd-new-milestone. -->
 
-- Hosted streamable-HTTP demo with hard rate limits and daily budget cap
-- Existing pipeline behavior, CLI, and Sheets output unchanged; charter amended for the `mcp` SDK
+None — v1.1 shipped 2026-07-17. Start the next milestone with `/gsd-new-milestone` to define fresh requirements.
 
 ### Out of Scope
 
@@ -102,7 +105,9 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 | Phase 7 narrowed from broad vertical/vendor/synthetic scrub to a hiring-company-name-only audit (2026-05-14) | The pipeline must run against real companies to demonstrate it works; real prospect domains and incidental vendor names are acceptable. The only fatal leak is the hiring company name. REPO-02 withdrawn; REPO-01 redefined | — Decided 2026-05-14 |
 | History rewritten and force-pushed to purge the hiring company name (2026-05-14) | The name was baked into ~40 commits of source/prompts plus a commit message on origin/main; git filter-repo replaced it, force-pushed, working repo reset, stale branches deleted, original preserved at ../poc_scraper-FULL-BACKUP.bundle. Repo had 0 forks; exposure closed. Satisfies REPO-03 (rewrite chosen over document) | — Done 2026-05-14 |
 | Pre-commit company-name guard added in lieu of detect-secrets/gitleaks (2026-05-14) | scripts/check_public_discipline.py reads a local-only gitignored .secrets-denylist so the term never enters the public repo; no-ops if absent. Generic secret scanners do not target a project-specific name. Satisfies REPO-04 | — Done 2026-05-14 |
-| v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) | MCP wraps existing seams at a fraction of the cost of the review-queue/CRM product, stays on the groundedness differentiator, and teaches the target skill (building MCPs). Demo economics: operator's capped Exa key funds retrieval, caller's Claude credits fund reasoning. Charter amended to add the mcp SDK | — Decided 2026-07-15 |
+| v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) | MCP wraps existing seams at a fraction of the cost of the review-queue/CRM product, stays on the groundedness differentiator, and teaches the target skill (building MCPs). Demo economics: operator's capped Exa key funds retrieval, caller's Claude credits fund reasoning. Charter amended to add the mcp SDK | Good, shipped v1.1 (2026-07-17) |
+| Hosted deploy target pivoted Fly.io -> Oracle Cloud Always Free (2026-07-17) | Fly.io (card required) and HF Docker Spaces (PRO required) both gated previously-free container hosting behind payment mid-phase; Oracle Always Free runs the single container 24/7 at $0/mo. fly.toml + HF push kept as documented, unverified-live alternatives | Good, live at `https://170.9.7.144.sslip.io/mcp` |
+| Post-ship hardening: two Codex reviews + `/gsd-secure-phase` on the public MCP surface (2026-07-17) | A publicly-exposed endpoint warrants adversarial review beyond per-phase verification; found and fixed a live `Fly-Client-IP` rate-limit spoof (Caddy did not overwrite the trusted header after the Fly->Oracle pivot) plus 6 lower-severity issues | Good, 7 fixed with tests; 14/14 threats closed |
 
 ## Evolution
 
@@ -125,7 +130,9 @@ This document evolves at phase transitions and milestone boundaries.
 
 Shipped the demo-ready v1.0 MVP (8 phases, 2026-07-15). The pipeline is grounded end-to-end (unciteable claims dropped before the sheet), the eval rigor is legible via `evals/REPORT.md` (2.73/5.0 holdout), failure modes are hardened, the Google Sheet output is demo-legible, the public repo is scrubbed, and the README + recorded walkthrough are live and pinned to commit `f868a09`.
 
-Milestone v1.1 (MCP Server Surface) is underway: Phases 9-12 complete (2026-07-17). Phase 9 extracted the `open_deps()`, `collect_context()`/`RawContext`/`NullBrowserbase`, and `EvidencePack` seams; Phase 10 shipped the stdio MCP server (thin tier); Phase 11 added demo-mode rate limits (`DemoLimiter` with per-IP hour window + UTC-day global cap, fail-closed client-IP resolution) and streamable HTTP transport from the same entry point (`make mcp-http`/`make mcp-demo`), validating HOST-02 and HOST-04 as amended post-review. Phase 12 completed the MCP surface (MCP-02 through MCP-05): `icp://rubric` and `icp://eval-report` resources plus the `research_account` prompt on every tier, and the tier-gated `research_account_full` tool wrapping the whole pipeline through `open_deps()` with `run_eval` honesty semantics, per-stage progress notifications, and sanitized errors (485 offline tests, strict mypy, lint all clean; verification 4/4; code review logged 3 advisory warnings in `12-REVIEW.md`, notably full-tier limiter bypass to gate before the Phase 13 public bind). Next: Phase 13, hosted deploy & docs close.
+Shipped milestone v1.1 (MCP Server Surface) — all 5 phases (9-13, 2026-07-17). The grounded pipeline is now an MCP server: Phase 9 extracted the `open_deps()`/`collect_context()`/`NullBrowserbase`/`EvidencePack` seams (reused, not duplicated); Phase 10 shipped the stdio thin tier (`get_account_evidence`, real-client verified); Phase 11 added `DemoLimiter` rationing + fail-closed `Fly-Client-IP` resolution + streamable HTTP from one entry point; Phase 12 completed the surface with `icp://rubric` / `icp://eval-report` resources, the `research_account` prompt, and the tier-gated `research_account_full` BYOK tool; Phase 13 deployed a public thin-tier endpoint (Oracle Cloud Always Free, live at `https://170.9.7.144.sslip.io/mcp`) with hardened error payloads and synced the CLAUDE.md/README charter.
+
+Post-execution, Phase 13 additionally received two adversarial Codex reviews (7 findings fixed with tests, incl. a live Caddy `Fly-Client-IP` spoofing fix), a formal `/gsd-secure-phase 13` audit (14/14 STRIDE threats closed), and a passing milestone audit (20/20 requirements, 6/6 cross-phase flows wired, 5/5 Nyquist-compliant). Full offline suite green: 512 pytest, strict mypy, ruff, black, verify-public-repo 0 hits. Next: `/gsd-new-milestone` to scope the next version.
 
 ---
-*Last updated: 2026-07-17 after Phase 12 completion (Full-Tier Tool, Resources & Prompt). v1.0 history unchanged above.*
+*Last updated: 2026-07-17 after v1.1 milestone completion (MCP Server Surface). v1.0 history unchanged above.*

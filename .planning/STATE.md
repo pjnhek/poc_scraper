@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: MCP Server Surface
-current_phase: 13
-status: verifying
-stopped_at: Phase 13 complete and verified
-last_updated: "2026-07-17T18:43:42.459Z"
+current_phase: 1
+status: Awaiting next milestone
+stopped_at: Completed 13-04-PLAN.md
+last_updated: "2026-07-17T20:02:19.836Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 13 complete
+last_activity_desc: Milestone v1.1 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,12 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 ## Current Position
 
-Phase: 13 — hosted-deploy-docs-close
-Plan: 5 of 5 complete
-Status: Phase 13 complete and verified (6/6 requirements: HOST-03, HOST-05, HOST-06, DOCS-01, DOCS-02, TEST-01). Verifier independently re-ran the offline gates (503 pytest passed, mypy/ruff/black clean, no new overrides) and re-probed the live Oracle endpoint (`https://170.9.7.144.sslip.io/mcp`: valid MCP initialize, HTTPS redirect, forged Host header rejected at the Caddy edge). The D-14 live real-client checkpoint (HOST-03/05/06 live halves) is human-approved and recorded in `13-04-SUMMARY.md` and `docs/DEPLOY.md`. `13-VERIFICATION.md` written. This is the last phase, so milestone v1.1 is now fully executed.
-Last activity: 2026-07-17 — Phase 13 verified and marked complete; milestone v1.1 ready to close
-
-Progress: [██████████] 100%
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-17 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -250,7 +248,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Run `/gsd-execute-phase 13` (or execute 13-05-PLAN.md directly) to close out Phase 13: README "Try it live" hook + MCP section + Loom scope note, CLAUDE.md charter sync (DOCS-01, DOCS-02)
-- 13-05 should use the confirmed live URL `https://170.9.7.144.sslip.io/mcp`
-
-</content>
+- Start the next milestone with /gsd-new-milestone
