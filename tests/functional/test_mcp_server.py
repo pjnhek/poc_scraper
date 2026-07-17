@@ -805,7 +805,16 @@ async def test_full_tool_happy_path_returns_complete_scored_account() -> None:
     assert result.isError is False
     assert result.structuredContent is not None
     content = result.structuredContent
-    for field in ("account", "status", "enrichment", "score", "contacts", "hooks", "eval_score", "error"):
+    for field in (
+        "account",
+        "status",
+        "enrichment",
+        "score",
+        "contacts",
+        "hooks",
+        "eval_score",
+        "error",
+    ):
         assert field in content
     assert content["status"] in {"clean", "low_groundedness", "hook_suppressed", "judge_failed"}
 
@@ -873,9 +882,7 @@ async def test_full_tool_invalid_domain_sanitized_error() -> None:
     app = build_server(lifespan=_full_lifespan_factory(deps), tier="full")
 
     async with create_connected_server_and_client_session(app) as client:
-        result = await client.call_tool(
-            "research_account_full", {"domain": "example.com/path"}
-        )
+        result = await client.call_tool("research_account_full", {"domain": "example.com/path"})
 
     assert result.isError is True
     text = result.content[0].text  # type: ignore[union-attr]
