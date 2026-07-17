@@ -13,11 +13,22 @@ A grounded outreach research pipeline: drop in a CSV of company domains, get bac
 
 *Two of the four AccountStatus states from a real run: clean (white) and low_groundedness (yellow).*
 
+## Try it live
+
+The pipeline's grounded evidence retrieval is hosted as a public MCP server, reachable with zero setup:
+
+```bash
+npx mcp-remote https://170.9.7.144.sslip.io/mcp
+```
+
+This is the demo tier: rate-limited (5 calls per IP per hour, 25 per day globally) and evidence-only, no scoring, no personas, no outreach hooks. See the [MCP server](#mcp-server) section below for the other two client configs and the full, BYOK tier.
+
 ## Demo
 
 [![Watch the walkthrough](images/demo-thumbnail.jpg)](https://kommodo.ai/recordings/E751BaRaerNaXw78iXEc)
 
 > Recording made at commit [f868a09](https://github.com/pjnhek/poc_scraper/commit/f868a09). README and assets at that SHA match what the video shows.
+> The video covers the v1.0 pipeline; the MCP server surface below is newer than the recording.
 
 [Sample output workbook](https://docs.google.com/spreadsheets/d/18NVrm8IrDxt9Z-DKXsExJPrbIvFDCy9Mf10NhDrXstc/edit?usp=sharing): the Rubric, Inputs, Legend, Sources, and Results tabs from a real run.
 
@@ -137,6 +148,58 @@ RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
 ```
 
 `.env.example` documents every variable, including writer/judge model overrides, reasoning settings, and the optional local `.secrets-denylist` that arms the public-repo guard (`make verify-public-repo`).
+
+## MCP server
+
+The same grounded retrieval the pipeline uses is also exposed over MCP. The hosted demo runs the thin tier: evidence retrieval only, rationed to 5 calls per IP per hour and 25 calls per day globally. The full tier (scoring, personas, cited outreach hooks) is BYOK, run locally over stdio.
+
+### Grounding by instruction vs grounding by construction
+
+The two tiers ground claims in different ways. The thin tier practices **grounding by instruction**: the `research_account` prompt and the `get_account_evidence` tool text instruct the calling agent to cite an `[N]` justification index for every claim and to refuse to fabricate when `retrieval_status` is `empty`. Whether that discipline holds depends on the calling agent actually following the instructions; nothing on the server enforces it once the evidence pack ships.
+
+The full tier practices **grounding by construction**: `research_account_full` runs this repo's own pipeline, which validates every outreach claim's citations in code and drops anything unciteable before the result is returned. There is no instruction to follow or ignore; an ungrounded claim cannot reach the client because the code assembling the response will not let it through.
+
+### Connect a client
+
+Most portable, works with any client that only speaks stdio (leads with this since it works everywhere):
+
+```bash
+npx mcp-remote https://170.9.7.144.sslip.io/mcp
+```
+
+Claude Code, native HTTP transport:
+
+```bash
+claude mcp add --transport http poc-scraper https://170.9.7.144.sslip.io/mcp
+```
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "poc-scraper": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://170.9.7.144.sslip.io/mcp"]
+    }
+  }
+}
+```
+
+Clients with native remote-HTTP support can skip the `mcp-remote` bridge and point a `url` field directly at `https://170.9.7.144.sslip.io/mcp` instead.
+
+### Full tier (BYOK)
+
+```bash
+git clone https://github.com/pjnhek/poc_scraper.git
+cd poc_scraper
+make install
+make mcp
+```
+
+Unlocking the full tier over stdio takes a writer/judge provider key (`DEEPSEEK_API_KEY` or `NVIDIA_API_KEY`), plus `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` on top of the `EXA_API_KEY` the thin tier already needs. With those set, `research_account_full(domain, run_eval)` returns the complete grounded `ScoredAccount`: the ICP score breakdown, the top-three personas, cited outreach hooks, and the `AccountStatus` honesty field.
+
+Hosting your own instance: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Eval
 
