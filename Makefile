@@ -69,12 +69,17 @@ verify-public-repo:
 provision-oracle:
 	bash deploy/oracle/provision.sh
 
+# Optional SSH_KEY=<path> selects the identity file (e.g. the dedicated deploy
+# key from docs/DEPLOY.md); when set it adds `-i <path>`, otherwise ssh falls
+# back to the agent / default keys as before.
+_SSH_IDENTITY = $(if $(SSH_KEY),-i $(SSH_KEY),)
+
 deploy-oracle:
 	@if [ -z "$(ORACLE_HOST)" ]; then \
-		echo "Set ORACLE_HOST=<public-ip>.sslip.io, e.g. make deploy-oracle ORACLE_HOST=1.2.3.4.sslip.io" >&2; \
+		echo "Set ORACLE_HOST=<public-ip>.sslip.io, e.g. make deploy-oracle ORACLE_HOST=1.2.3.4.sslip.io [SSH_KEY=~/.ssh/poc_scraper_oracle]" >&2; \
 		exit 1; \
 	fi
-	ssh -o StrictHostKeyChecking=accept-new ubuntu@$(ORACLE_HOST) 'sudo bash -s' < deploy/oracle/setup.sh
+	ssh $(_SSH_IDENTITY) -o StrictHostKeyChecking=accept-new ubuntu@$(ORACLE_HOST) 'sudo bash -s' < deploy/oracle/setup.sh
 
 # Alternatives, see docs/DEPLOY.md appendices (HF Docker Spaces now require a
 # PRO subscription; Fly.io now requires a card on file for app creation).

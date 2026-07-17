@@ -225,6 +225,14 @@ Then pick the new value up (also how you redeploy after `git pull`):
 make deploy-oracle ORACLE_HOST=<public-ip>.sslip.io
 ```
 
+If the dedicated deploy key is not loaded in your ssh-agent, pass it
+explicitly (otherwise ssh only offers your default keys and fails with
+`Permission denied (publickey)`):
+
+```
+make deploy-oracle ORACLE_HOST=<public-ip>.sslip.io SSH_KEY=~/.ssh/poc_scraper_oracle
+```
+
 ### app_port and the container
 
 `setup.sh` builds this repo's `Dockerfile` on the VM and runs it bound to
