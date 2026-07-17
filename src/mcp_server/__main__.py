@@ -44,6 +44,34 @@ def guard_full_tier_http_exposure(settings: Settings, transport: str, tier: str)
         )
 
 
+def guard_non_loopback_requires_public_hostname(settings: Settings, transport: str) -> None:
+    """Refuse to bind non-loopback HTTP without a public hostname configured.
+
+    D-06: a 0.0.0.0 (or other non-loopback) bind with no MCP_PUBLIC_HOSTNAME
+    means real clients' Host headers would 421 against the DNS-rebinding
+    allowlist (server.py's TransportSecuritySettings), or worse, get
+    silently misconfigured if the check is skipped. Loopback binds keep
+    Phase 11's existing localhost allowlist untouched, so local
+    make mcp-http/make mcp-demo workflows are unaffected.
+
+    A small named function (rather than inlining the check in main()) so it
+    can be unit-tested without spinning up a server or parsing argv.
+    """
+    loopback_hosts = {"127.0.0.1", "localhost", "::1"}
+    if (
+        transport == "http"
+        and settings.mcp_http_host not in loopback_hosts
+        and not settings.mcp_public_hostname
+    ):
+        raise SystemExit(
+            f"refusing to bind {settings.mcp_http_host!r} without MCP_PUBLIC_HOSTNAME set "
+            "(a non-loopback bind with no public hostname means real clients' Host headers "
+            "would 421 against the DNS-rebinding allowlist, or worse, get silently "
+            "misconfigured). Set MCP_PUBLIC_HOSTNAME to the externally-visible hostname, "
+            "or bind to 127.0.0.1/localhost for local development."
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--transport", choices=["stdio", "http"], default="stdio")
@@ -52,6 +80,7 @@ def main() -> int:
     settings = get_settings()
     tier = resolve_and_log_tier(settings)
     guard_full_tier_http_exposure(settings, args.transport, tier)
+    guard_non_loopback_requires_public_hostname(settings, args.transport)
     # No key validation needed here: mcp_tier() == "full" already implies
     # writer/judge/Browserbase keys are present, and open_deps defers key
     # checks by design.
