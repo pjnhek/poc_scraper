@@ -7,7 +7,7 @@ status: Awaiting next milestone
 stopped_at: Phase 14 complete (security 9/9 closed, UAT 13/13 passed), milestone v1.2 at 100%
 last_updated: "2026-07-18T04:32:18.384Z"
 last_activity: 2026-07-18
-last_activity_desc: "Quick task 260718-ev4: documented hosted MCP usage and redeployed the box from v1.1 to v1.2"
+last_activity_desc: "Renamed project title to GTM Research Pipeline across README and hosted landing page"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 Phase: Milestone v1.2 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-18 — Quick task 260718-ev4: documented hosted MCP usage, redeployed the hosted demo from v1.1 to v1.2
+Last activity: 2026-07-18 — Renamed project title to GTM Research Pipeline across README and hosted landing page
 
 ## Performance Metrics
 
@@ -241,6 +241,7 @@ None
 | 260714-mrg | Document specificity and recency in judge rubric tab | 2026-07-14 | 6f8be41 | [260714-mrg-fix-rubric-tab-add-specificity-and-recen](./quick/260714-mrg-fix-rubric-tab-add-specificity-and-recen/) |
 | 260716-p8r | Fix demo-mode Browserbase safety rail regression in MCP server wiring | 2026-07-17 | 4fbc1bf | [260716-p8r-fix-demo-mode-browserbase-safety-rail-re](./quick/260716-p8r-fix-demo-mode-browserbase-safety-rail-re/) |
 | 260718-ev4 | Document hosted MCP usage and redeploy the box from v1.1 to v1.2 | 2026-07-18 | 605691f | [260718-ev4-mcp-usage-docs-redeploy](./quick/260718-ev4-mcp-usage-docs-redeploy/) |
+| fast | Rename project title to GTM Research Pipeline (README H1 + landing page title/h1) to match the resume | 2026-07-18 | 6f1b471 | (gsd-fast, no directory) |
 
 ## Deferred Items
 
