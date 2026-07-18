@@ -2,40 +2,42 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Agent-Driven ICP Scoring
-status: planning
-last_updated: "2026-07-17T23:05:00.000Z"
-last_activity: 2026-07-17
+current_phase: 2
+status: Awaiting next milestone
+stopped_at: Phase 14 complete (security 9/9 closed, UAT 13/13 passed), milestone v1.2 at 100%
+last_updated: "2026-07-18T04:32:18.384Z"
+last_activity: 2026-07-18
+last_activity_desc: Milestone v1.2 completed and archived
 progress:
   total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
+current_phase_name: deterministic-scoring-guided-flow
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-17)
+See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader.
-**Current focus:** Milestone v1.2 (Agent-Driven ICP Scoring) — Phase 14 roadmapped, ready to plan
+**Current focus:** Close milestone v1.2 (all phases complete)
 
 ## Current Position
 
-Phase: 14 of 14 (Deterministic Scoring & Guided Flow)
-Plan: — of TBD
-Status: Ready to plan
-Last activity: 2026-07-17 — ROADMAP.md and REQUIREMENTS.md traceability written for v1.2 (single phase, 9/9 requirements mapped)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v1.2 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-18 — Milestone v1.2 completed and archived
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 44
+- Total plans completed: 47
 - Average duration: -
 - Total execution time: -
 
@@ -53,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | 11 | 3 | - | - |
 | 12 | 4 | - | - |
 | 13 | 5 | - | - |
+| 14 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -98,6 +101,9 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P03 | 5min | 2 tasks | 1 files |
 | Phase 13-hosted-deploy-docs-close P04 | 185min | 3 tasks | 1 files |
 | Phase 13 P05 | 20min | 2 tasks | 2 files |
+| Phase 14 P01 | 12min | 2 tasks | 5 files |
+| Phase 14 P02 | 12min | 2 tasks | 5 files |
+| Phase 14 P03 | 14min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -213,6 +219,12 @@ Recent decisions affecting current work:
 - [Phase 13-04]: HOST-06 live half confirmed: exactly one instance/container, forged Host header rejected at both Caddy edge and the app's own TransportSecuritySettings allowlist
 - [Phase ?]: Plan 13-05 substituted the confirmed live Oracle Cloud endpoint (https://170.9.7.144.sslip.io/mcp) for the plan's fly.dev placeholder throughout README.md, per the 13-04 deploy-target pivot
 - [Phase ?]: CLAUDE.md Makefile-targets mention lists provision-oracle/deploy-oracle/deploy-hf/deploy-fly (the real current targets) instead of the plan's generic deploy target
+- [Phase ?]: score_account has zero ctx/Context[...] parameters by construction, structurally proving it cannot reach DemoLimiter, exa, or browserbase (SCORE-02)
+- [Phase ?]: Range validation lives in the tool body (D-04); type validation is left to the MCP SDK's own arg-model, asserted only for isError=True and absence of banned substrings
+- [Phase ?]: news_days threads through exactly three hops (get_account_evidence -> build_evidence_pack -> collect_context -> exa.search_news); collect_context's days=90 keyword-only default preserves Enricher.enrich's existing 90-day behavior
+- [Phase ?]: research_account rewritten as an explicit six-step numbered flow ending in score_account and personas/hooks; empty-evidence skip rule (unscoreable/drop/fabricate wording) lives inline in step 1, not as a separate step
+- [Phase ?]: README/Oracle landing-page docs updated with score_account hybrid framing (judgment grounding-by-instruction, arithmetic grounding-by-construction); full offline gate green, closing v1.2 (SCORE-01..03, PROMPT-01, EVID-01, DOCS-03/04, TEST-03/04)
+- [Phase ?]: test_mcp_scoring.py black-reformatted as part of the TEST-03 gate (pre-existing Plan 01 formatting drift, fixed via make format per Task 2's own instructions)
 
 ### Pending Todos
 
@@ -242,10 +254,10 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-07-17T23:05:00.000Z
-Stopped at: ROADMAP.md and REQUIREMENTS.md traceability written for v1.2 (Phase 14, 9/9 requirements mapped)
+Last session: 2026-07-18T03:05:00Z
+Stopped at: Phase 14 complete (security 9/9 closed, UAT 13/13 passed), milestone v1.2 at 100%
 Resume file: None
 
 ## Operator Next Steps
 
-- Review the Phase 14 roadmap draft below, then run `/gsd-plan-phase 14` to produce PLAN.md
+- Start the next milestone with /gsd-new-milestone

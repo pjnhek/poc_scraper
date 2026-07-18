@@ -1,5 +1,17 @@
 # Milestones
 
+## v1.2 Agent-Driven ICP Scoring (Shipped: 2026-07-18)
+
+**Phases completed:** 1 phases, 3 plans, 6 tasks
+
+**Key accomplishments:**
+
+- New score_account MCP tool: pure-arithmetic wrapper over compute_total/verdict_for, registered on both tiers with zero lifespan access, echoing rubric weights and verdict thresholds for reproducibility
+- news_days threads clamped (7-365, default 90) from get_account_evidence through collect_context to exa.search_news, and research_account is rewritten as a six-step guided flow ending in score_account and cited personas/hooks
+- README.md and the Oracle landing page now document score_account with the honest hybrid-grounding framing (agent judgment stays instruction-grounded, the weighted total is arithmetic-grounded); full offline gate (test, typecheck, lint, verify-public-repo) green with no mypy overrides added
+
+---
+
 ## v1.1 MCP Server Surface (Shipped: 2026-07-17)
 
 **Phases completed:** 5 phases, 21 plans, 47 tasks

@@ -4,6 +4,8 @@
 
 A generic account-research prototype. Given a CSV of company domains, it produces a Google Sheet with firmographic enrichment, recent context, an ICP fit score against an editable rubric, top-3 buyer personas, and grounded outreach hooks per persona. "POC" means both Point of Contact (the right person to reach in an account) and Proof of Concept. The ICP rubric lives in `configs/icp.yaml` so the pipeline can be retargeted at any vertical without code changes.
 
+The pipeline is also exposed as a public MCP server: a hosted keyless thin tier (cited evidence retrieval, deterministic `score_account` ICP scoring, guided `research_account` flow; live on Oracle Cloud Always Free) and a BYOK full tier over stdio running the complete cited pipeline.
+
 ## Core Value
 
 Every outreach claim is grounded in retrieved evidence and surfaced with a citation, and the eval system makes that rigor visible to a reader. If everything else slips, this must hold — it is the whole story.
@@ -23,9 +25,11 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 
 **Design authority:** `docs/superpowers/specs/2026-07-15-mcp-server-design.md` (commit `3a46444`). Economics decided: operator's hard-capped Exa key (unbilled $14.20 credit pool) funds demo retrieval; connectors' own Claude credits fund the reasoning. Server is read-only: no Sheets writes, no batch tools, no rubric editing. PyPI packaging and endpoint auth deferred.
 
-## Current Milestone: v1.2 Agent-Driven ICP Scoring
+## Shipped Milestone: v1.2 Agent-Driven ICP Scoring
 
-**Goal:** Let a connecting agent (Codex/Claude) score a company domain against the ICP rubric using its own reasoning on the hosted keyless thin tier, while the server guarantees the scoring math deterministically (a pure `score_account` tool, no server-side LLM).
+**Status:** SHIPPED 2026-07-18 (Phase 14). Full details archived in `.planning/milestones/v1.2-ROADMAP.md`; audit passed 9/9 in `.planning/milestones/v1.2-MILESTONE-AUDIT.md`.
+
+**Goal (as shipped):** Let a connecting agent (Codex/Claude) score a company domain against the ICP rubric using its own reasoning on the hosted keyless thin tier, while the server guarantees the scoring math deterministically (a pure `score_account` tool, no server-side LLM).
 
 **Target features:**
 - New `score_account` MCP tool on thin and full tiers: agent supplies 1-5 per axis (plus optional per-axis reason strings); server computes weighted total + verdict by reusing `compute_total` / `verdict_for` and the frozen `RubricBreakdown` (4 fixed axes, unchanged)
@@ -73,14 +77,16 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 - ✓ ICP rubric + eval report as `icp://rubric` / `icp://eval-report` resources and the `research_account` guided prompt on every tier; tier-gated `research_account_full` BYOK tool (hidden below full tier, complete `ScoredAccount` JSON, `run_eval` honesty, per-stage progress, sanitized errors) (MCP-02/03/04/05) — v1.1 (Phase 12, 2026-07-17)
 - ✓ Public hosted deploy (Oracle Cloud Always Free, live) with hardened/sanitized error payloads and a single-machine global rate-limit invariant; CLAUDE.md charter + README MCP section synced to the shipped surface (HOST-03, HOST-05, HOST-06, DOCS-01, DOCS-02, TEST-01) — v1.1 (Phase 13, 2026-07-17)
 
+<!-- v1.2 Agent-Driven ICP Scoring (Phase 14, completed 2026-07-18). -->
+
+- ✓ Agent-driven deterministic ICP scoring via `score_account` on thin and full tiers: pure delegation to `compute_total`/`verdict_for`, frozen `ScoreResult` echoing weights + thresholds, no LLM/keys/quota (SCORE-01/02/03) — v1.2 (Phase 14, 2026-07-18)
+- ✓ `research_account` prompt rewritten as the six-step guided flow: evidence -> rubric -> cited axis scores -> `score_account` -> verdict -> personas/hooks (PROMPT-01) — v1.2 (Phase 14, 2026-07-18)
+- ✓ Clamped `news_days` lookback (7-365, default 90) threaded from `get_account_evidence` through `build_evidence_pack` to `ExaClient.search_news`; pipeline call site untouched (EVID-01, TEST-04) — v1.2 (Phase 14, 2026-07-18)
+- ✓ Landing page + README document `score_account` with the hybrid grounding framing (judgment grounding-by-instruction, math grounding-by-construction); full offline gate green: 543 tests, strict mypy, ruff, black, verify-public-repo 0 hits (DOCS-03, DOCS-04, TEST-03) — v1.2 (Phase 14, 2026-07-18)
+
 ### Active
 
-<!-- v1.2 Agent-Driven ICP Scoring. REQ-IDs defined in .planning/REQUIREMENTS.md. -->
-
-- Agent-driven deterministic ICP scoring via a `score_account` MCP tool on the thin and full tiers (server-guaranteed math over the existing rubric)
-- `research_account` prompt orchestrates evidence -> rubric -> cited axis scores -> `score_account` -> verdict
-- Optional clamped `news_days` lookback parameter on `get_account_evidence`
-- Landing page + README document the new scoring capability with the hybrid grounding framing
+<!-- No active milestone. v1.2 complete; next milestone not yet scoped. -->
 
 ### Out of Scope
 
@@ -124,6 +130,9 @@ Every outreach claim is grounded in retrieved evidence and surfaced with a citat
 | v1.1 adds an MCP server surface; sales-workflow brief rejected (2026-07-15) | MCP wraps existing seams at a fraction of the cost of the review-queue/CRM product, stays on the groundedness differentiator, and teaches the target skill (building MCPs). Demo economics: operator's capped Exa key funds retrieval, caller's Claude credits fund reasoning. Charter amended to add the mcp SDK | Good, shipped v1.1 (2026-07-17) |
 | Hosted deploy target pivoted Fly.io -> Oracle Cloud Always Free (2026-07-17) | Fly.io (card required) and HF Docker Spaces (PRO required) both gated previously-free container hosting behind payment mid-phase; Oracle Always Free runs the single container 24/7 at $0/mo. fly.toml + HF push kept as documented, unverified-live alternatives | Good, live at `https://170.9.7.144.sslip.io/mcp` |
 | Post-ship hardening: two Codex reviews + `/gsd-secure-phase` on the public MCP surface (2026-07-17) | A publicly-exposed endpoint warrants adversarial review beyond per-phase verification; found and fixed a live `Fly-Client-IP` rate-limit spoof (Caddy did not overwrite the trusted header after the Fly->Oracle pivot) plus 6 lower-severity issues | Good, 7 fixed with tests; 14/14 threats closed |
+| v1.2 expanded the thin tier beyond "evidence-only" with `score_account` (2026-07-17) | Stays read-only, keyless, and costless (pure arithmetic, quota-exempt); hybrid grounding framing keeps the honesty story intact: judgment is instruction-grounded, math is construction-grounded | Good, shipped v1.2 (2026-07-18) |
+| score_account structurally isolated: zero ctx/lifespan parameters by construction (2026-07-17) | A tool with no SDK/lifespan access provably cannot reach DemoLimiter, Exa, or Browserbase; the type signature is the security boundary, verified by an inspect.signature test | Good, shipped v1.2 |
+| v1.2 shipped as a single phase with a locked design (2026-07-17) | Tool, prompt, evidence tuning, tests, and docs are tightly coupled edits to one server module; splitting would invent structure the work does not need | Good, 3 plans, ~1 day wall-clock |
 
 ## Evolution
 
@@ -148,7 +157,9 @@ Shipped the demo-ready v1.0 MVP (8 phases, 2026-07-15). The pipeline is grounded
 
 Shipped milestone v1.1 (MCP Server Surface) — all 5 phases (9-13, 2026-07-17). The grounded pipeline is now an MCP server: Phase 9 extracted the `open_deps()`/`collect_context()`/`NullBrowserbase`/`EvidencePack` seams (reused, not duplicated); Phase 10 shipped the stdio thin tier (`get_account_evidence`, real-client verified); Phase 11 added `DemoLimiter` rationing + fail-closed `Fly-Client-IP` resolution + streamable HTTP from one entry point; Phase 12 completed the surface with `icp://rubric` / `icp://eval-report` resources, the `research_account` prompt, and the tier-gated `research_account_full` BYOK tool; Phase 13 deployed a public thin-tier endpoint (Oracle Cloud Always Free, live at `https://170.9.7.144.sslip.io/mcp`) with hardened error payloads and synced the CLAUDE.md/README charter.
 
-Post-execution, Phase 13 additionally received two adversarial Codex reviews (7 findings fixed with tests, incl. a live Caddy `Fly-Client-IP` spoofing fix), a formal `/gsd-secure-phase 13` audit (14/14 STRIDE threats closed), and a passing milestone audit (20/20 requirements, 6/6 cross-phase flows wired, 5/5 Nyquist-compliant). Full offline suite green: 512 pytest, strict mypy, ruff, black, verify-public-repo 0 hits. Next: `/gsd-new-milestone` to scope the next version.
+Post-execution, Phase 13 additionally received two adversarial Codex reviews (7 findings fixed with tests, incl. a live Caddy `Fly-Client-IP` spoofing fix), a formal `/gsd-secure-phase 13` audit (14/14 STRIDE threats closed), and a passing milestone audit (20/20 requirements, 6/6 cross-phase flows wired, 5/5 Nyquist-compliant). Full offline suite green: 512 pytest, strict mypy, ruff, black, verify-public-repo 0 hits.
+
+Shipped milestone v1.2 (Agent-Driven ICP Scoring) — Phase 14 (3/3 plans, 2026-07-18). The thin tier now carries the deterministic `score_account` tool (pure `compute_total`/`verdict_for` delegation, both tiers, quota-exempt), the six-step guided `research_account` flow, and the clamped `news_days` evidence tuning; README and the Oracle landing page carry the hybrid grounding framing. Close-out rigor: VERIFICATION passed 5/5 must-haves; post-execution code review's 2 advisory warnings fixed (CR-01/CR-02/WR-01 commits); `/gsd-secure-phase 14` closed 9/9 STRIDE threats (3 accepted risks logged); UAT 13/13 including a live cold-start smoke (fresh `make mcp-demo` boot, first `score_account` call over streamable HTTP returned total 4.2 / verdict strong, range violation sanitized); milestone audit passed 9/9 requirements with 6/6 integration wirings. Full offline gate green: 558 pytest, strict mypy, ruff, black, verify-public-repo 0 hits. No active milestone; next scope not yet defined (`/gsd-new-milestone`).
 
 ---
-*Last updated: 2026-07-17 at v1.2 milestone start (Agent-Driven ICP Scoring). v1.0/v1.1 history unchanged above.*
+*Last updated: 2026-07-18 after v1.2 milestone. v1.0/v1.1 history unchanged above.*

@@ -69,3 +69,41 @@ The grounded account-research pipeline is now an MCP server. A reusable wiring s
 
 - Model mix: Opus orchestrator; Sonnet subagents (executors, verifier, security/integration/nyquist auditors); two Codex CLI reviews out-of-band.
 - Notable: delegating verification, security, integration, and Nyquist audits to fresh Sonnet subagents kept the orchestrator lean across a long multi-command close-out session.
+
+## Milestone: v1.2 — Agent-Driven ICP Scoring
+
+**Shipped:** 2026-07-18
+**Phases:** 1 (14) | **Plans:** 3
+
+### What Was Built
+
+The hosted keyless thin tier gained agent-driven ICP scoring under a hybrid grounding contract: a new `score_account` MCP tool takes the connecting agent's four 1-5 axis scores (with `[N]`-cited reason strings) and returns the weighted total and verdict computed server-side by the existing `compute_total`/`verdict_for`, echoing the rubric weights and thresholds so every score is reproducible by inspection. The `research_account` prompt was rewritten as an explicit six-step guided flow (evidence -> rubric -> cited axis scores -> `score_account` -> verdict -> personas/hooks), `get_account_evidence` gained a clamped `news_days` lookback parameter (7-365, default 90), and README plus the Oracle landing page document the honest hybrid framing.
+
+### What Worked
+
+- **Single-phase milestone for a locked design.** All 9 requirements were tightly coupled edits to one server module; one phase with three waves shipped in about a day of wall-clock without inventing sequencing structure.
+- **Structural security guarantees over procedural ones.** `score_account`'s zero-ctx signature (verified by an `inspect.signature` test) proves it cannot reach the limiter or providers; `StrictInt` plus an in-body range check plus `RubricBreakdown` field bounds gave three independent validation layers.
+- **Full close-out chain caught real issues.** Code review surfaced 2 advisory error-surface warnings (fixed as CR-01/CR-02/WR-01, including a lazy-config leak where a missing `configs/icp.yaml` would have surfaced a server filesystem path); secure-phase closed 9/9 STRIDE threats; UAT's cold-start smoke exercised the live streamable-HTTP path end-to-end.
+- **Tracking discipline held this time.** STATE/ROADMAP/REQUIREMENTS stayed in sync through execution; verification, validation, security, and UAT artifacts all existed before milestone close — the recurring v1.0/v1.1 drift lesson finally stuck.
+
+### What Was Inefficient
+
+- **Test-recording assertions needed a deliberate choice.** The news_days threading looked already-done at two of three hops (fakes already accepted `days`), so output-shape tests would have passed with broken threading; asserting on the recorded kwarg was the fix, but the near-miss cost a research detour (RESEARCH Pitfall 2).
+- **Formatting drift between plans.** Plan 01's test file needed a black reformat pass during Plan 03's gate — pre-commit should have caught it at the original commit.
+
+### Patterns Established
+
+- Hybrid grounding framing: when a capability splits between agent judgment and server math, document which half is instruction-grounded and which is construction-grounded, and never claim the former is enforced.
+- Quota-exempt tools must structurally lack lifespan/context access (no ctx parameter), making the exemption provable by signature inspection rather than by code review.
+- Silent min/max clamping (not errors) for untrusted numeric tuning parameters at the MCP boundary, matching the existing DemoClampedExa posture.
+
+### Key Lessons
+
+- For untrusted-input threading, assert on the recorded kwarg at the far boundary, never on output shape — output-shape tests pass even when threading silently breaks.
+- A public tool exempt from rationing still needs its inputs bounded and echoes capped (500-char reasons); exemption from quota is not exemption from boundary discipline.
+- Catch pydantic's ValidationError before any ValueError passthrough in error-sanitizing wrappers — ValidationError IS a ValueError, and config-validation failures quote file content.
+
+### Cost Observations
+
+- Model mix: Fable orchestrator; Sonnet subagents (integration checker, security auditor); one Codex CLI review out-of-band.
+- Notable: the milestone audit, secure-phase, UAT (run inline by the orchestrator at user request, including a live server boot), and close all completed in a single session; the only subagent spawns were the integration checker and earlier executors.

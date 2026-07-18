@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 MVP** — Phases 1-8 (shipped 2026-07-15)
 - ✅ **v1.1 MCP Server Surface** — Phases 9-13 (shipped 2026-07-17)
-- 🔵 **v1.2 Agent-Driven ICP Scoring** — Phase 14 (in progress)
+- ✅ **v1.2 Agent-Driven ICP Scoring** — Phase 14 (shipped 2026-07-18)
 
 ## Phases
 
@@ -37,31 +37,14 @@ Exposed the grounded account-research pipeline as an MCP server: a hosted, ratio
 
 </details>
 
-### v1.2 Agent-Driven ICP Scoring (Phase 14) — IN PROGRESS
+<details>
+<summary>✅ v1.2 Agent-Driven ICP Scoring (Phase 14) — SHIPPED 2026-07-18</summary>
 
-A deliberately small milestone with a locked design: one new deterministic `score_account` MCP tool reusing `compute_total`/`verdict_for` over the existing frozen `RubricBreakdown`, wired into an updated `research_account` prompt, plus a clamped `news_days` evidence-tuning parameter and doc updates for the hybrid grounding framing. All 9 requirements land in a single phase; the work is one tightly-coupled server-module change with no real sequencing dependency between the tool, the prompt, evidence tuning, tests, and docs.
+A deliberately small milestone with a locked design: one new deterministic `score_account` MCP tool reusing `compute_total`/`verdict_for` over the existing frozen `RubricBreakdown`, wired into an updated six-step `research_account` guided flow, plus a clamped `news_days` evidence-tuning parameter and hybrid-grounding doc updates. All 9 requirements landed in a single phase. Full details archived at [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md).
 
-- [ ] **Phase 14: Deterministic Scoring & Guided Flow** - Agents get a server-guaranteed ICP score alongside their cited evidence, orchestrated end-to-end by the research prompt
+- [x] Phase 14: Deterministic Scoring & Guided Flow (3/3 plans) — completed 2026-07-18
 
-## Phase Details
-
-### Phase 14: Deterministic Scoring & Guided Flow
-**Goal**: A connecting agent can retrieve cited evidence, score each ICP axis itself, and get a deterministically-computed weighted total and verdict back from the server — with the guided prompt, tunable news recency, and docs all reflecting the new capability.
-**Depends on**: Phase 13 (existing thin/full tier MCP server, `compute_total`/`verdict_for`, `RubricBreakdown`, `icp://rubric` resource, `research_account` prompt, `get_account_evidence` tool)
-**Requirements**: SCORE-01, SCORE-02, SCORE-03, PROMPT-01, EVID-01, DOCS-03, DOCS-04, TEST-03, TEST-04
-**Success Criteria** (what must be TRUE):
-  1. A connected MCP client calls `score_account` with four 1-5 axis scores (plus optional per-axis reason strings) and receives back the rubric breakdown, weighted total, and verdict, computed by reusing `compute_total`/`verdict_for` against the unchanged, frozen `RubricBreakdown` — no new axes, no model changes.
-  2. `score_account` is registered on both the thin and full tiers, performs pure arithmetic with no LLM/Exa/key/I-O dependency, never consumes the `DemoLimiter` quota, carries `readOnlyHint: true`/`destructiveHint: false`, and returns the project's standard sanitized one-line error for invalid axis input.
-  3. Following the updated `research_account` prompt, an agent calls `get_account_evidence`, reads `icp://rubric`, scores each axis 1-5 with `[N]` citations from the evidence, calls `score_account` with those scores, and is shown the returned verdict — the guided flow works end to end.
-  4. A caller can pass `news_days` to `get_account_evidence` to tune the Exa news lookback; out-of-range values are clamped server-side, and omitting the parameter preserves the existing 90-day default, threaded through `collect_context` to `ExaClient.search_news(days=...)`.
-  5. The Oracle landing page and README MCP section document `score_account` with the honest hybrid framing (judgment stays grounding-by-instruction via agent-cited `[N]`, scoring math becomes grounding-by-construction), and the full offline gate (unit tests, in-memory MCP-client functional tests for `score_account` and `news_days` clamping, strict mypy, ruff, black, `verify-public-repo`) stays green with no new mypy overrides.
-**Plans**: 3 plans
-**UI hint**: yes
-
-Plans:
-- [ ] 14-01-PLAN.md — Deterministic score_account tool (scoring.py + server wiring + unit/functional/integration tests)
-- [ ] 14-02-PLAN.md — news_days clamped threading to Exa + research_account guided-flow prompt rewrite
-- [ ] 14-03-PLAN.md — README + Oracle landing-page hybrid-framing docs, full offline gate
+</details>
 
 ## Progress
 
@@ -80,4 +63,4 @@ Plans:
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 3/3 | Complete | 2026-07-16 |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 4/4 | Complete | 2026-07-17 |
 | 13. Hosted Deploy & Docs Close | v1.1 | 5/5 | Complete | 2026-07-17 |
-| 14. Deterministic Scoring & Guided Flow | v1.2 | 0/3 | Not started | - |
+| 14. Deterministic Scoring & Guided Flow | v1.2 | 3/3 | Complete    | 2026-07-18 |
