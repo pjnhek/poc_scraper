@@ -743,6 +743,15 @@ async def test_research_account_prompt_contains_required_elements() -> None:
         "[N]",
         "drop",
         "fabricate",
+        "score_account",
+        "news_days",
+        "unscoreable",
+        "1.",
+        "2.",
+        "3.",
+        "4.",
+        "5.",
+        "6.",
     ):
         assert required in text
 

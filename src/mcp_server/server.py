@@ -173,18 +173,31 @@ def read_eval_report() -> str:
 
 
 def research_account(domain: str) -> str:
-    """Guide rubric-based ICP research for one domain with hard [N]-citation
-    discipline: never fabricate, drop any uncited claim.
+    """Guide agent-driven ICP research for one domain end to end: evidence
+    retrieval, rubric-based axis scoring with hard [N]-citation discipline,
+    the deterministic score_account call, verdict presentation, and closing
+    personas/hooks. Never fabricate; drop any uncited claim.
     """
     return (
-        f"Research {domain} for ICP fit. Read the icp://rubric resource for the "
-        "current axis definitions and weights. Call "
-        f"get_account_evidence({domain!r}) to retrieve numbered justifications. "
-        "Score each rubric axis 1-5 using the stated weights, propose the top 3 "
-        "buyer personas, and draft an outreach hook per persona. Every claim MUST "
-        "cite an [N] index from justifications; drop any claim without a matching "
-        "index. If retrieval_status is 'empty', state that the account cannot be "
-        "researched, never fabricate."
+        f"Research {domain} for ICP fit by following these steps in order:\n\n"
+        f"1. Call get_account_evidence({domain!r}) to retrieve numbered, cited "
+        "evidence (about page and recent news). (Aside: pass news_days to widen "
+        "or narrow the news lookback window when recency matters; it is silently "
+        "clamped to 7-365 and defaults to 90.) If retrieval_status is 'empty', "
+        "stop here: do NOT call score_account, report the account as unscoreable "
+        "instead, and never fabricate.\n"
+        "2. Read the icp://rubric resource for the current axis definitions and "
+        "weights.\n"
+        "3. Score each rubric axis 1-5 yourself, citing an [N] justification "
+        "index from the evidence for every axis judgment. Every claim MUST cite "
+        "an [N] index from justifications; drop any claim without a matching "
+        "index, and never fabricate.\n"
+        "4. Call score_account with the four integer scores, a per-axis reason "
+        f"string carrying its [N] citations, and domain={domain!r}.\n"
+        "5. Present the returned verdict, weighted total, and per-axis breakdown "
+        "to the user.\n"
+        "6. Propose the top 3 buyer personas and draft one cited outreach hook "
+        "per persona."
     )
 
 
