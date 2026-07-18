@@ -130,9 +130,19 @@ def score_account(
     retrieval, no rate limit consumed. Call get_account_evidence and read the
     icp://rubric resource first, then score each axis yourself. Axis scores
     must be integers 1-5. Put an [N] citation from the evidence in each
-    reason string; reasons are echoed back verbatim, not verified server-side.
-    Pass the researched domain so the result can be attributed to it.
+    reason string; reasons are echoed back truncated to 500 characters, not
+    verified server-side. Pass the researched domain so the result can be
+    attributed to it; it is validated and normalized exactly like
+    get_account_evidence's domain.
     """
+    if domain is not None:
+        # CR-01: score_account is exempt from the DemoLimiter, so its inputs
+        # must be bounded like every other tool's; Account enforces the
+        # 253-char DNS limit and never reflects raw input in its error.
+        try:
+            domain = Account(domain=domain).domain
+        except ValidationError as exc:
+            raise ValueError(_sanitized_validation_message(exc)) from None
     return build_score_result(
         support_volume=support_volume,
         ai_maturity=ai_maturity,

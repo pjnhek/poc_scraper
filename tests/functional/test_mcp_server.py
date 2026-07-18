@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -328,6 +329,122 @@ async def test_score_account_fractional_axis_sdk_type_violation() -> None:
         )
 
     assert result.isError is True
+
+
+@pytest.mark.asyncio
+async def test_score_account_oversized_reasons_bounded_response() -> None:
+    """CR-01: score_account is exempt from the DemoLimiter, so an
+    unauthenticated client must not be able to round-trip megabytes of free
+    text through it. Four 1 MB reasons must come back truncated, keeping the
+    whole wire payload bounded."""
+    raw_suffix = "distinctive-reason-suffix"
+    huge_reason = ("evidence [1] " * 80_000) + raw_suffix
+    assert len(huge_reason) > 1_000_000
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {
+                "support_volume": 3,
+                "ai_maturity": 3,
+                "stage_fit": 3,
+                "channel_breadth": 3,
+                "support_volume_reason": huge_reason,
+                "ai_maturity_reason": huge_reason,
+                "stage_fit_reason": huge_reason,
+                "channel_breadth_reason": huge_reason,
+            },
+        )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    breakdown = result.structuredContent["breakdown"]
+    for field in (
+        "support_volume_reason",
+        "ai_maturity_reason",
+        "stage_fit_reason",
+        "channel_breadth_reason",
+    ):
+        assert len(breakdown[field]) <= 500
+        assert raw_suffix not in breakdown[field]
+    serialized = json.dumps(result.structuredContent)
+    assert len(serialized.encode("utf-8")) <= 8_000
+
+
+@pytest.mark.asyncio
+async def test_score_account_invalid_domain_sanitized_error() -> None:
+    """CR-01: domain goes through the same Account validation as
+    get_account_evidence and research_account_full."""
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {
+                "support_volume": 3,
+                "ai_maturity": 3,
+                "stage_fit": 3,
+                "channel_breadth": 3,
+                "domain": "example.com/path",
+            },
+        )
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "invalid domain" in text
+    assert "Traceback" not in text
+    assert "/Users/" not in text
+
+
+@pytest.mark.asyncio
+async def test_score_account_oversized_domain_error_bounded_without_reflection() -> None:
+    raw_suffix = "distinctive-raw-suffix.example"
+    domain = f"{'x' * 1_000_000}.{raw_suffix}"
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {
+                "support_volume": 3,
+                "ai_maturity": 3,
+                "stage_fit": 3,
+                "channel_breadth": 3,
+                "domain": domain,
+            },
+        )
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "invalid domain" in text
+    assert len(text.encode("utf-8")) <= 256
+    assert raw_suffix not in text
+
+
+@pytest.mark.asyncio
+async def test_score_account_domain_normalized_like_evidence_tool() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {
+                "support_volume": 3,
+                "ai_maturity": 3,
+                "stage_fit": 3,
+                "channel_breadth": 3,
+                "domain": "https://www.Notion.so/",
+            },
+        )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    assert result.structuredContent["domain"] == "notion.so"
 
 
 @pytest.mark.asyncio

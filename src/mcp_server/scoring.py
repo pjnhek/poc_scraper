@@ -3,8 +3,16 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 
 from src.icp_config import ICPConfig, get_config
+from src.mcp_server.evidence import _truncate_words
 from src.models import RubricBreakdown
 from src.score import compute_total
+
+# CR-01: score_account is the one public tool exempt from the DemoLimiter, so
+# every free-text field it echoes must be bounded like the rest of the MCP
+# boundary (EvidencePack's 24 KB budget, 300-char justification summaries).
+# 500 chars comfortably fits a cited per-axis rationale while capping the
+# response amplification an unauthenticated client can extract.
+AXIS_REASON_MCP_CAP = 500
 
 
 class _Frozen(BaseModel):
@@ -57,10 +65,10 @@ def build_score_result(
         ai_maturity=ai_maturity,
         stage_fit=stage_fit,
         channel_breadth=channel_breadth,
-        support_volume_reason=support_volume_reason,
-        ai_maturity_reason=ai_maturity_reason,
-        stage_fit_reason=stage_fit_reason,
-        channel_breadth_reason=channel_breadth_reason,
+        support_volume_reason=_truncate_words(support_volume_reason, AXIS_REASON_MCP_CAP),
+        ai_maturity_reason=_truncate_words(ai_maturity_reason, AXIS_REASON_MCP_CAP),
+        stage_fit_reason=_truncate_words(stage_fit_reason, AXIS_REASON_MCP_CAP),
+        channel_breadth_reason=_truncate_words(channel_breadth_reason, AXIS_REASON_MCP_CAP),
     )
     total = compute_total(breakdown, cfg)
     verdict = cfg.verdict_for(total)

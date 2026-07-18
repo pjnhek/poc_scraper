@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.icp_config import get_config
-from src.mcp_server.scoring import ScoreResult, build_score_result
+from src.mcp_server.scoring import AXIS_REASON_MCP_CAP, ScoreResult, build_score_result
 
 
 def test_all_fives_yields_five_and_strong() -> None:
@@ -73,6 +73,43 @@ def test_provided_reasons_pass_through_verbatim() -> None:
     assert result.breakdown.ai_maturity_reason == "AI hiring signal [2]"
     assert result.breakdown.stage_fit_reason == "series B [3]"
     assert result.breakdown.channel_breadth_reason == "four channels [4]"
+
+
+def test_oversized_reasons_truncated_at_word_boundary_with_ellipsis() -> None:
+    """CR-01: reasons are the only free text score_account echoes; they must be
+    bounded like every other value crossing the MCP boundary."""
+    long_reason = "high ticket volume [1] " * 200
+    result = build_score_result(
+        support_volume=3,
+        ai_maturity=3,
+        stage_fit=3,
+        channel_breadth=3,
+        support_volume_reason=long_reason,
+        ai_maturity_reason=long_reason,
+        stage_fit_reason=long_reason,
+        channel_breadth_reason=long_reason,
+    )
+    for reason in (
+        result.breakdown.support_volume_reason,
+        result.breakdown.ai_maturity_reason,
+        result.breakdown.stage_fit_reason,
+        result.breakdown.channel_breadth_reason,
+    ):
+        assert len(reason) <= AXIS_REASON_MCP_CAP
+        assert reason.endswith("…")
+        assert not reason[:-1].endswith(" ")
+
+
+def test_reason_at_cap_passes_through_verbatim() -> None:
+    at_cap = "x" * AXIS_REASON_MCP_CAP
+    result = build_score_result(
+        support_volume=3,
+        ai_maturity=3,
+        stage_fit=3,
+        channel_breadth=3,
+        support_volume_reason=at_cap,
+    )
+    assert result.breakdown.support_volume_reason == at_cap
 
 
 def test_domain_echoed_verbatim() -> None:
