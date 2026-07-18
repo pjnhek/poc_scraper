@@ -99,3 +99,38 @@ async def test_unexpected_internal_error_is_sanitized() -> None:
     text = result.content[0].text  # type: ignore[union-attr]
     assert "internal error, try again" in text
     _assert_sanitized(text)
+
+
+async def test_score_account_range_violation_error_is_sanitized() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {"support_volume": 6, "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    _assert_sanitized(text)
+
+
+async def test_score_account_type_violation_error_is_sanitized() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        string_result = await client.call_tool(
+            "score_account",
+            {"support_volume": "abc", "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+        fractional_result = await client.call_tool(
+            "score_account",
+            {"support_volume": 3.5, "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert string_result.isError is True
+    assert fractional_result.isError is True
+    _assert_sanitized(string_result.content[0].text)  # type: ignore[union-attr]
+    _assert_sanitized(fractional_result.content[0].text)  # type: ignore[union-attr]

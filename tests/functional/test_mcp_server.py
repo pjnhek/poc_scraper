@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -20,7 +21,7 @@ from src.clients.protocols import ExaLike, LLMClient
 from src.config import Settings
 from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.limits import DemoLimiter
-from src.mcp_server.server import build_server, resolve_and_log_tier
+from src.mcp_server.server import build_server, resolve_and_log_tier, score_account
 from src.mcp_server.wiring import DemoClampedExa, ThinDeps, make_full_lifespan, make_thin_lifespan
 from src.pipeline import Deps, build_deps
 from tests.functional.test_enrich import FakeExa
@@ -242,13 +243,138 @@ async def test_annotations_and_description_over_the_wire() -> None:
     async with create_connected_server_and_client_session(app) as client:
         listed = await client.list_tools()
 
-    tool = listed.tools[0]
+    tool = next(t for t in listed.tools if t.name == "get_account_evidence")
     assert tool.name == "get_account_evidence"
     assert tool.annotations is not None
     assert tool.annotations.readOnlyHint is True
     assert tool.annotations.destructiveHint is False
     assert tool.description is not None
     assert "[N]" in tool.description
+
+
+@pytest.mark.asyncio
+async def test_score_account_happy_path_returns_structured_result() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {
+                "support_volume": 5,
+                "ai_maturity": 4,
+                "stage_fit": 4,
+                "channel_breadth": 5,
+                "domain": "notion.so",
+            },
+        )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    content = result.structuredContent
+    assert content["total"] == 4.5
+    assert content["verdict"] == "strong"
+    assert content["domain"] == "notion.so"
+    assert content["weights"]
+    assert content["verdict_thresholds"]
+    breakdown = content["breakdown"]
+    assert breakdown["support_volume"] == 5.0
+    assert breakdown["ai_maturity"] == 4.0
+    assert breakdown["stage_fit"] == 4.0
+    assert breakdown["channel_breadth"] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_score_account_range_violation_sanitized_error() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {"support_volume": 6, "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "support_volume must be an integer 1-5" in text
+
+
+@pytest.mark.asyncio
+async def test_score_account_string_axis_sdk_type_violation() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {"support_volume": "abc", "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert result.isError is True
+
+
+@pytest.mark.asyncio
+async def test_score_account_fractional_axis_sdk_type_violation() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool(
+            "score_account",
+            {"support_volume": 3.5, "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert result.isError is True
+
+
+@pytest.mark.asyncio
+async def test_score_account_annotations_over_the_wire() -> None:
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    async with create_connected_server_and_client_session(app) as client:
+        listed = await client.list_tools()
+
+    tool = next(t for t in listed.tools if t.name == "score_account")
+    assert tool.annotations is not None
+    assert tool.annotations.readOnlyHint is True
+    assert tool.annotations.destructiveHint is False
+
+
+@pytest.mark.asyncio
+async def test_score_account_ignores_demo_limiter_exhaustion() -> None:
+    """SCORE-02: score_account never consults DemoLimiter, so it succeeds
+    even when the limiter refuses every get_account_evidence call."""
+    clock = FakeClock(datetime(2026, 7, 17, 12, 0, tzinfo=UTC))
+    limiter = DemoLimiter(ip_limit=0, daily_cap=0, clock=clock)
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa, limiter=limiter))
+
+    async with create_connected_server_and_client_session(app) as client:
+        evidence_result = await client.call_tool("get_account_evidence", {"domain": "notion.so"})
+        score_result = await client.call_tool(
+            "score_account",
+            {"support_volume": 3, "ai_maturity": 3, "stage_fit": 3, "channel_breadth": 3},
+        )
+
+    assert evidence_result.isError is True
+    assert score_result.isError is False
+
+
+def test_score_account_signature_has_no_sdk_or_lifespan_parameters() -> None:
+    params = list(inspect.signature(score_account).parameters)
+    assert params == [
+        "support_volume",
+        "ai_maturity",
+        "stage_fit",
+        "channel_breadth",
+        "support_volume_reason",
+        "ai_maturity_reason",
+        "stage_fit_reason",
+        "channel_breadth_reason",
+        "domain",
+    ]
 
 
 def test_tier_logging_thin(caplog: pytest.LogCaptureFixture) -> None:
@@ -642,7 +768,7 @@ async def test_demo_hides_full_tool_even_with_full_keys_present() -> None:
     async with create_connected_server_and_client_session(app) as client:
         listed = await client.list_tools()
 
-    assert [tool.name for tool in listed.tools] == ["get_account_evidence"]
+    assert {tool.name for tool in listed.tools} == {"get_account_evidence", "score_account"}
 
 
 @pytest.mark.asyncio
@@ -668,7 +794,7 @@ async def test_full_tool_registered_and_described_over_stdio() -> None:
         listed = await client.list_tools()
 
     names = {tool.name for tool in listed.tools}
-    assert names == {"get_account_evidence", "research_account_full"}
+    assert names == {"get_account_evidence", "score_account", "research_account_full"}
 
     full_tool = next(t for t in listed.tools if t.name == "research_account_full")
     assert full_tool.annotations is not None
@@ -689,7 +815,7 @@ async def test_build_server_default_tier_registers_thin_tool_only() -> None:
     async with create_connected_server_and_client_session(app) as client:
         listed = await client.list_tools()
 
-    assert [tool.name for tool in listed.tools] == ["get_account_evidence"]
+    assert {tool.name for tool in listed.tools} == {"get_account_evidence", "score_account"}
 
 
 def _full_lifespan_factory(

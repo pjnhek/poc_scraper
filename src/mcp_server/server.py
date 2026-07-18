@@ -19,6 +19,7 @@ from src.config import Settings
 from src.icp_config import DEFAULT_CONFIG_PATH
 from src.mcp_server.evidence import build_evidence_pack
 from src.mcp_server.limits import DAILY_CAP_MESSAGE, resolve_client_ip
+from src.mcp_server.scoring import ScoreResult, build_score_result
 from src.mcp_server.wiring import EvidenceDeps
 from src.models import Account, EvidencePack, ScoredAccount
 from src.pipeline import Deps, process_account
@@ -105,6 +106,38 @@ async def get_account_evidence(
             "unexpected error in get_account_evidence for %s: %s", domain, exc, exc_info=True
         )
         raise ValueError("internal error, try again") from None
+
+
+def score_account(
+    support_volume: int,
+    ai_maturity: int,
+    stage_fit: int,
+    channel_breadth: int,
+    support_volume_reason: str = "",
+    ai_maturity_reason: str = "",
+    stage_fit_reason: str = "",
+    channel_breadth_reason: str = "",
+    domain: str | None = None,
+) -> ScoreResult:
+    """Deterministically score the four ICP rubric axes and return the
+    breakdown, weighted total, and verdict. Pure arithmetic: no LLM call, no
+    retrieval, no rate limit consumed. Call get_account_evidence and read the
+    icp://rubric resource first, then score each axis yourself. Axis scores
+    must be integers 1-5. Put an [N] citation from the evidence in each
+    reason string; reasons are echoed back verbatim, not verified server-side.
+    Pass the researched domain so the result can be attributed to it.
+    """
+    return build_score_result(
+        support_volume=support_volume,
+        ai_maturity=ai_maturity,
+        stage_fit=stage_fit,
+        channel_breadth=channel_breadth,
+        support_volume_reason=support_volume_reason,
+        ai_maturity_reason=ai_maturity_reason,
+        stage_fit_reason=stage_fit_reason,
+        channel_breadth_reason=channel_breadth_reason,
+        domain=domain,
+    )
 
 
 def read_icp_rubric() -> str:
@@ -304,6 +337,9 @@ def build_server(
         )
     server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))(
         get_account_evidence
+    )
+    server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))(
+        score_account
     )
     server.resource("icp://rubric", mime_type="application/yaml")(read_icp_rubric)
     server.resource("icp://eval-report", mime_type="text/markdown")(read_eval_report)
