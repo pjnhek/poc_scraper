@@ -60,15 +60,19 @@ def _sanitized_validation_message(exc: ValidationError) -> str:
 
 
 async def get_account_evidence(
-    domain: str, ctx: Context[ServerSession, EvidenceDeps, Request]
+    domain: str,
+    ctx: Context[ServerSession, EvidenceDeps, Request],
+    news_days: int | None = None,
 ) -> EvidencePack:
     """Retrieve numbered, cited evidence for a company domain (about page and
-    last-90-day news). Every downstream claim you build from this evidence
-    MUST cite a justification by its [N] index; never state a fact without a
+    recent news). Every downstream claim you build from this evidence MUST
+    cite a justification by its [N] index; never state a fact without a
     matching index from `justifications`. `retrieval_status` tells you
     whether the evidence is strong enough to reason from: 'ok' means solid
     evidence, 'thin' means sparse evidence, 'empty' means this account
-    cannot be researched, do not fabricate claims for it.
+    cannot be researched, do not fabricate claims for it. `news_days` tunes
+    the news lookback window in days; it is silently clamped to 7-365 and
+    defaults to 90 when omitted.
     """
     try:
         account = Account(domain=domain)
@@ -88,7 +92,9 @@ async def get_account_evidence(
             raise ValueError(decision.message) from None
 
     try:
-        return await build_evidence_pack(account, exa=deps.exa, browserbase=deps.browserbase)
+        return await build_evidence_pack(
+            account, exa=deps.exa, browserbase=deps.browserbase, news_days=news_days
+        )
     except (httpx.HTTPError, BrowserbaseError) as exc:
         log.warning("evidence retrieval failed [%s] for %s: %s", type(exc).__name__, domain, exc)
         if (

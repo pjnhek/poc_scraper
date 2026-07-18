@@ -67,11 +67,12 @@ class RaisingExa:
 
 
 class RecordingExa:
-    """Records the num_results kwarg it receives, for DemoClampedExa forwarding tests."""
+    """Records the num_results/days kwargs it receives, for forwarding tests."""
 
     def __init__(self) -> None:
         self.about_num_results: int | None = None
         self.news_num_results: int | None = None
+        self.news_days_received: int | None = None
 
     async def search_about(self, domain: str, num_results: int = 5) -> list[ExaResult]:
         self.about_num_results = num_results
@@ -81,6 +82,7 @@ class RecordingExa:
         self, domain: str, days: int = 90, num_results: int = 8
     ) -> list[ExaResult]:
         self.news_num_results = num_results
+        self.news_days_received = days
         return []
 
 
@@ -525,6 +527,33 @@ async def test_demo_clamped_exa_forwards_min_of_requested_and_max() -> None:
 
     await clamped.search_about("notion.so", num_results=1)
     assert recording.about_num_results == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("news_days_arg", "expected_days"),
+    [
+        (1000, 365),
+        (6, 7),
+        (30, 30),
+        (None, 90),
+    ],
+)
+async def test_get_account_evidence_news_days_threads_clamped_days_to_exa(
+    news_days_arg: int | None, expected_days: int
+) -> None:
+    recording = RecordingExa()
+    app = build_server(lifespan=_lifespan_factory(recording))
+
+    arguments: dict[str, object] = {"domain": "notion.so"}
+    if news_days_arg is not None:
+        arguments["news_days"] = news_days_arg
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool("get_account_evidence", arguments)
+
+    assert result.isError is False
+    assert recording.news_days_received == expected_days
 
 
 @pytest.mark.asyncio

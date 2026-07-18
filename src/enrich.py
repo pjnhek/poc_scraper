@@ -32,7 +32,7 @@ class RawContext:
 
 
 async def collect_context(
-    account: Account, *, exa: ExaLike, browserbase: BrowserbaseLike
+    account: Account, *, exa: ExaLike, browserbase: BrowserbaseLike, days: int = 90
 ) -> RawContext:
     about_results = await exa.search_about(account.domain)
     about_text, about_citations = _gather_about_text(about_results)
@@ -46,7 +46,7 @@ async def collect_context(
                 if not any(str(c.url) == rendered.url for c in about_citations):
                     about_citations.append(Citation.make(url=rendered.url, source="browserbase"))
 
-    news_results = await exa.search_news(account.domain)
+    news_results = await exa.search_news(account.domain, days=days)
     news_items = [_to_news_item(r) for r in news_results if r.snippet]
 
     return RawContext(

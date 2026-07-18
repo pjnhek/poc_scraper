@@ -12,6 +12,17 @@ NEWS_ITEM_MCP_CAP = 10
 CITATION_URL_MCP_CAP = 2048
 EVIDENCE_PACK_MAX_BYTES = 24_000
 
+# news_days tuning (D-12, D-13): silent clamp, no new EvidencePack field.
+NEWS_DAYS_MIN = 7
+NEWS_DAYS_MAX = 365
+NEWS_DAYS_DEFAULT = 90
+
+
+def clamp_news_days(value: int | None) -> int:
+    if value is None:
+        return NEWS_DAYS_DEFAULT
+    return max(NEWS_DAYS_MIN, min(NEWS_DAYS_MAX, value))
+
 
 def _truncate_words(text: str, cap: int) -> str:
     """Cut text at a word boundary and append an ellipsis, never a hard slice.
@@ -162,7 +173,9 @@ def pack_from_context(ctx: RawContext) -> EvidencePack:
 
 
 async def build_evidence_pack(
-    account: Account, *, exa: ExaLike, browserbase: BrowserbaseLike
+    account: Account, *, exa: ExaLike, browserbase: BrowserbaseLike, news_days: int | None = None
 ) -> EvidencePack:
-    ctx = await collect_context(account, exa=exa, browserbase=browserbase)
+    ctx = await collect_context(
+        account, exa=exa, browserbase=browserbase, days=clamp_news_days(news_days)
+    )
     return pack_from_context(ctx)

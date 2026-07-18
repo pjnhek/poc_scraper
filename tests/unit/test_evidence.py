@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import pytest
+
 from src.enrich import RawContext
 from src.mcp_server.evidence import (
     ABOUT_TEXT_MCP_CAP,
     CITATION_URL_MCP_CAP,
     EVIDENCE_PACK_MAX_BYTES,
     JUSTIFICATION_SUMMARY_MCP_CAP,
+    NEWS_DAYS_DEFAULT,
+    NEWS_DAYS_MAX,
+    NEWS_DAYS_MIN,
     NEWS_ITEM_MCP_CAP,
     _truncate_words,
+    clamp_news_days,
     pack_from_context,
 )
 from src.models import Citation, NewsItem
@@ -259,6 +265,23 @@ def test_pack_from_context_keeps_first_ten_valid_news_in_source_order() -> None:
         str(item.citation.url) for item in valid_news[:NEWS_ITEM_MCP_CAP]
     ]
     assert [item.index for item in pack.justifications] == list(range(1, NEWS_ITEM_MCP_CAP + 1))
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, NEWS_DAYS_DEFAULT),
+        (6, NEWS_DAYS_MIN),
+        (7, NEWS_DAYS_MIN),
+        (90, 90),
+        (365, NEWS_DAYS_MAX),
+        (366, NEWS_DAYS_MAX),
+        (1000, NEWS_DAYS_MAX),
+        (-5, NEWS_DAYS_MIN),
+    ],
+)
+def test_clamp_news_days_boundaries(value: int | None, expected: int) -> None:
+    assert clamp_news_days(value) == expected
 
 
 def test_pack_from_context_returns_honest_empty_pack_when_no_provenance_can_fit() -> None:
