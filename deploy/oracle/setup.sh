@@ -149,7 +149,7 @@ cat >/opt/poc-scraper/site/index.html <<EOF
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>poc_scraper - Grounded Account-Research MCP Server</title>
+<title>GTM Research Pipeline - Grounded Account-Research MCP Server</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -179,7 +179,7 @@ cat >/opt/poc-scraper/site/index.html <<EOF
 </head>
 <body>
 <main>
-  <h1>poc_scraper</h1>
+  <h1>GTM Research Pipeline</h1>
   <p class="tag">A grounded account-research pipeline, exposed as an MCP server.</p>
 
   <p>This is the <strong>live demo tier</strong>: given a company domain it retrieves recent, cited evidence (about pages and last-90-day news), numbered so a calling agent can trace every claim back to its source, then the agent scores each ICP axis from that evidence and calls <code>score_account</code>, which computes the weighted total and verdict deterministically. Cited evidence retrieval is rationed to 5 calls per IP per hour and 25 per day; <code>score_account</code> is unrationed pure arithmetic on top of it. The full pipeline (personas, citation-checked outreach) is BYOK and runs locally.</p>

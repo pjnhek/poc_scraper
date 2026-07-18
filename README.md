@@ -1,4 +1,4 @@
-# lead scout
+# GTM Research Pipeline
 
 > **POC = Point of Contact**, sales-speak for the right person to reach in an account.
 > Also: **Proof of Concept**.
