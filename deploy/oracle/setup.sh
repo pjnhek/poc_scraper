@@ -159,6 +159,8 @@ cat >/opt/poc-scraper/site/index.html <<EOF
   .tag { color: #666; margin: 0 0 2rem; }
   h2 { font-size: 1.05rem; margin: 2.2rem 0 .5rem; }
   p { margin: .6rem 0; }
+  ul { margin: .6rem 0; padding-left: 1.25rem; }
+  li { margin: .35rem 0; }
   code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .86rem; }
   pre { background: #f0f0f0; border: 1px solid #e2e2e2; border-radius: 8px; padding: .8rem 1rem; overflow-x: auto; }
   .url { display: inline-block; background: #eef; border: 1px solid #dde; border-radius: 6px; padding: .15rem .45rem; }
@@ -205,7 +207,38 @@ cat >/opt/poc-scraper/site/index.html <<EOF
   <h2>Any other MCP client</h2>
   <pre>npx mcp-remote https://${CADDY_HOSTNAME}/mcp</pre>
 
-  <p class="note">Once connected, call the <code>get_account_evidence</code> tool with a domain (e.g. <code>notion.so</code>), then <code>score_account</code> with your own four 1-5 ICP axis scores to get back the weighted total and verdict. Invalid input and provider errors come back as sanitized one-line messages, never stack traces.</p>
+  <h2>First call</h2>
+  <p>Once connected, run the <code>research_account</code> prompt on a domain. In Claude Code that is a slash command:</p>
+  <pre>/mcp__poc-scraper__research_account notion.so</pre>
+  <p>It returns a six-step flow for the agent to follow: retrieve cited evidence, read the rubric, score each ICP axis carrying an [N] citation, call <code>score_account</code>, present the verdict, then propose personas and outreach hooks. To drive the pieces yourself instead:</p>
+  <ul>
+    <li><code>get_account_evidence(domain)</code> returns numbered, cited evidence. Optional <code>news_days</code> widens or narrows the news window (clamped 7-365, default 90).</li>
+    <li><code>score_account(...)</code> takes your four 1-5 axis scores and returns the weighted total and verdict. Unrationed: pure arithmetic, no LLM call.</li>
+    <li><code>icp://rubric</code> and <code>icp://eval-report</code> are readable resources: the live rubric this server scores against, and the eval calibration narrative behind its groundedness numbers.</li>
+  </ul>
+
+  <h2>What comes back</h2>
+  <p>Evidence arrives numbered, and those indices are the citation vocabulary for everything downstream. Real output for <code>notion.so</code>, trimmed:</p>
+  <pre>{
+  "retrieval_status": "ok",
+  "justifications": [
+    {"index": 1, "summary": "Llms",
+     "citation": {"url": "https://www.notion.so/llms.txt", "source": "exa"}},
+    {"index": 6, "summary": "Notion just turned its workspace into a hub for AI agents",
+     "citation": {"url": "https://techcrunch.com/2026/05/13/...", "source": "exa"}}
+  ]
+}</pre>
+  <p>Score those axes, cite an index in each reason, and <code>score_account</code> returns:</p>
+  <pre>{
+  "domain": "notion.so",
+  "total": 4.2,
+  "verdict": "strong",
+  "verdict_description": "Clear ICP fit; prioritize outreach.",
+  "weights": {"support_volume": 0.4, "ai_maturity": 0.3,
+              "stage_fit": 0.2, "channel_breadth": 0.1},
+  "verdict_thresholds": {"strong": 4, "borderline": 2.5, "weak": 0}
+}</pre>
+  <p class="note">The weights and thresholds ship with every score, so the total is checkable by hand: 4(0.4) + 5(0.3) + 4(0.2) + 3(0.1) = 4.2, clearing the 4.0 strong threshold. An agent made the judgment; it did not do the arithmetic. Invalid input and provider errors come back as sanitized one-line messages, never stack traces.</p>
 
   <footer>
     Source, the full BYOK tier, and how it works:
