@@ -50,6 +50,30 @@ def test_out_of_range_axis_raises_per_axis_value_error(axis: str, kwargs: dict[s
         build_score_result(**base)
 
 
+@pytest.mark.parametrize(
+    ("axis", "value"),
+    [
+        ("support_volume", True),
+        ("ai_maturity", False),
+        ("stage_fit", 3.0),
+        ("channel_breadth", "3"),
+    ],
+)
+def test_non_int_axis_rejected_despite_range(axis: str, value: object) -> None:
+    """CR-02: bool is an int subclass (True would score as 1), and non-MCP
+    callers bypass the SDK schema entirely, so build_score_result itself must
+    enforce integer-ness, not just the 1-5 range."""
+    base: dict[str, object] = {
+        "support_volume": 3,
+        "ai_maturity": 3,
+        "stage_fit": 3,
+        "channel_breadth": 3,
+    }
+    base[axis] = value
+    with pytest.raises(ValueError, match=f"^{axis} must be an integer 1-5$"):
+        build_score_result(**base)  # type: ignore[arg-type]
+
+
 def test_omitted_reasons_default_to_empty_string() -> None:
     result = build_score_result(support_volume=3, ai_maturity=3, stage_fit=3, channel_breadth=3)
     assert result.breakdown.support_volume_reason == ""

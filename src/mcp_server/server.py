@@ -10,7 +10,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
-from pydantic import ValidationError
+from pydantic import StrictInt, ValidationError
 from starlette.requests import Request
 
 from evals.report import REPORT_PATH
@@ -114,11 +114,14 @@ async def get_account_evidence(
         raise ValueError("internal error, try again") from None
 
 
+# CR-02: StrictInt on the tool signature makes FastMCP's pydantic layer reject
+# true/3.0/"3" at the wire; a plain int annotation lax-coerces them to int
+# before the tool body runs (bool True would silently score as 1).
 def score_account(
-    support_volume: int,
-    ai_maturity: int,
-    stage_fit: int,
-    channel_breadth: int,
+    support_volume: StrictInt,
+    ai_maturity: StrictInt,
+    stage_fit: StrictInt,
+    channel_breadth: StrictInt,
     support_volume_reason: str = "",
     ai_maturity_reason: str = "",
     stage_fit_reason: str = "",

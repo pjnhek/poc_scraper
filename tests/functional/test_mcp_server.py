@@ -332,6 +332,43 @@ async def test_score_account_fractional_axis_sdk_type_violation() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("axis", "value"),
+    [
+        ("support_volume", True),
+        ("ai_maturity", 3.0),
+        ("stage_fit", "3"),
+    ],
+)
+async def test_score_account_non_int_axis_rejected_at_schema_layer(
+    axis: str, value: object
+) -> None:
+    """CR-02: a plain int annotation lax-coerces true/3.0/"3" to int before the
+    tool body runs (bool True would silently score as 1). StrictInt on the tool
+    signature makes the SDK's pydantic schema layer reject them at the wire;
+    build_score_result's own type(value) is int guard covers direct callers
+    that bypass the schema (see tests/unit/test_mcp_scoring.py)."""
+    exa = FakeExa(about=[], news=[])
+    app = build_server(lifespan=_lifespan_factory(exa))
+
+    arguments: dict[str, object] = {
+        "support_volume": 3,
+        "ai_maturity": 3,
+        "stage_fit": 3,
+        "channel_breadth": 3,
+    }
+    arguments[axis] = value
+
+    async with create_connected_server_and_client_session(app) as client:
+        result = await client.call_tool("score_account", arguments)
+
+    assert result.isError is True
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert axis in text
+    assert "integer" in text
+
+
+@pytest.mark.asyncio
 async def test_score_account_oversized_reasons_bounded_response() -> None:
     """CR-01: score_account is exempt from the DemoLimiter, so an
     unauthenticated client must not be able to round-trip megabytes of free

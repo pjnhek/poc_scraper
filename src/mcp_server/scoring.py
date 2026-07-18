@@ -57,7 +57,10 @@ def build_score_result(
     }
     for name in _AXIS_NAMES:
         value = scores[name]
-        if not 1 <= value <= 5:
+        # CR-02: bool is an int subclass (True would score as 1) and callers
+        # outside the MCP schema layer can pass coerced floats or strings, so
+        # integer-ness must be enforced here, not assumed from the annotation.
+        if type(value) is not int or not 1 <= value <= 5:
             raise ValueError(f"{name} must be an integer 1-5")
 
     breakdown = RubricBreakdown(
