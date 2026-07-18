@@ -196,6 +196,71 @@ Claude Desktop (`claude_desktop_config.json`):
 
 Clients with native remote-HTTP support can skip the `mcp-remote` bridge and point a `url` field directly at `https://170.9.7.144.sslip.io/mcp` instead.
 
+### Tools and resources
+
+| Surface | Kind | Tier | What it gives you |
+|---------|------|------|-------------------|
+| `research_account(domain)` | prompt | demo | The guided six-step flow. Start here: it drives both tools and both resources in the right order. |
+| `get_account_evidence(domain, news_days)` | tool | demo, rationed | Numbered, cited evidence (about page plus recent news). `news_days` is clamped to 7-365 and defaults to 90. |
+| `score_account(...)` | tool | demo, unrationed | Weighted total and verdict from your four 1-5 axis scores. Pure arithmetic, no LLM call, no retrieval. Echoes back the weights and thresholds it used. |
+| `icp://rubric` | resource | demo | `configs/icp.yaml` verbatim: axis definitions, weights, verdict thresholds. Re-read from disk per call, so an edited rubric needs no restart. |
+| `icp://eval-report` | resource | demo | `evals/REPORT.md` verbatim: the calibration narrative behind the groundedness numbers. |
+| `research_account_full(domain, run_eval)` | tool | full (BYOK) | The whole pipeline in one call: ICP score, top-three personas, citation-checked outreach hooks, `AccountStatus`. |
+
+### A worked example
+
+Once connected, run the `research_account` prompt against a domain. In Claude Code, MCP prompts surface as slash commands (`/mcp__poc-scraper__research_account notion.so`); other clients invoke the prompt by name. It returns six numbered steps for the agent to follow.
+
+Step 1 retrieves the evidence. Real output for `notion.so`, trimmed for length:
+
+```json
+{
+  "retrieval_status": "ok",
+  "about_text": "Notion is the connected workspace where better, faster work happens ... More than 50 million people and teams around the world use Notion to organize their work",
+  "justifications": [
+    {"index": 1, "summary": "Llms",
+     "citation": {"url": "https://www.notion.so/llms.txt", "source": "exa"}},
+    {"index": 6, "summary": "Notion just turned its workspace into a hub for AI agents | TechCrunch",
+     "citation": {"url": "https://techcrunch.com/2026/05/13/notion-just-turned-its-workspace-into-a-hub-for-ai-agents/", "source": "exa"}},
+    {"index": 8, "summary": "1 million agents later, Notion ships Ship OS to run product development for you",
+     "citation": {"url": "https://topaiproduct.com/2026/07/10/1-million-agents-later-notion-ships-ship-os-to-run-product-development-for-you/", "source": "exa"}}
+  ]
+}
+```
+
+Those `index` values are the citation vocabulary for everything downstream. Steps 2 and 3 read `icp://rubric` and score each axis, carrying an `[N]` into every reason string. Step 4 hands those scores to `score_account`:
+
+```python
+score_account(
+    domain="notion.so",
+    support_volume=4,
+    support_volume_reason="More than 50 million people and teams use the product [1], a high-volume consumer-facing base, though support skews self-serve rather than transactional.",
+    ai_maturity=5,
+    ai_maturity_reason="AI is embedded across the product line [1] and the workspace was turned into a hub for AI agents at 1M-agent scale [6], followed by Ship OS running full product-development cycles [8].",
+    stage_fit=4,
+    stage_fit_reason="Scale of the user base and breadth of the enterprise product line [1] place it well past PMF and pre-IPO; the evidence does not name a funding round.",
+    channel_breadth=3,
+    channel_breadth_reason="Evidence shows a contact-sales channel [2] and webinar/support content [4], but does not enumerate chat, voice, or SMS support channels.",
+)
+```
+
+The response echoes the four scores and their reason strings back under `breakdown` (truncated to 500 characters each, not verified server-side), then adds the fields it computed itself:
+
+```json
+{
+  "domain": "notion.so",
+  "total": 4.2,
+  "verdict": "strong",
+  "verdict_description": "Clear ICP fit; prioritize outreach.",
+  "weights": {"support_volume": 0.4, "ai_maturity": 0.3, "stage_fit": 0.2, "channel_breadth": 0.1},
+  "verdict_thresholds": {"strong": 4, "borderline": 2.5, "weak": 0}
+}
+```
+
+That total is checkable by hand: `4(0.4) + 5(0.3) + 4(0.2) + 3(0.1) = 4.2`, clearing the 4.0 `strong` threshold. Returning the weights and thresholds alongside the score is what makes that check possible. The judgment came from an agent reading evidence, the arithmetic did not, and you can audit the second half without trusting the first.
+
+Step 5 presents the verdict, and step 6 closes with the top three personas and one cited outreach hook each.
+
 ### Full tier (BYOK)
 
 ```bash
