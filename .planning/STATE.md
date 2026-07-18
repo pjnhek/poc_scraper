@@ -7,7 +7,7 @@ status: Awaiting next milestone
 stopped_at: Phase 14 complete (security 9/9 closed, UAT 13/13 passed), milestone v1.2 at 100%
 last_updated: "2026-07-18T04:32:18.384Z"
 last_activity: 2026-07-18
-last_activity_desc: "Renamed project title to GTM Research Pipeline across README and hosted landing page"
+last_activity_desc: "Restructured README for a recruiter-first read; added MIT license, CI badge, and GitHub repo metadata"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 Phase: Milestone v1.2 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-18 — Renamed project title to GTM Research Pipeline across README and hosted landing page
+Last activity: 2026-07-18 — Restructured README for a recruiter-first read; added MIT license, CI badge, and GitHub repo metadata
 
 ## Performance Metrics
 
@@ -242,6 +242,7 @@ None
 | 260716-p8r | Fix demo-mode Browserbase safety rail regression in MCP server wiring | 2026-07-17 | 4fbc1bf | [260716-p8r-fix-demo-mode-browserbase-safety-rail-re](./quick/260716-p8r-fix-demo-mode-browserbase-safety-rail-re/) |
 | 260718-ev4 | Document hosted MCP usage and redeploy the box from v1.1 to v1.2 | 2026-07-18 | 605691f | [260718-ev4-mcp-usage-docs-redeploy](./quick/260718-ev4-mcp-usage-docs-redeploy/) |
 | fast | Rename project title to GTM Research Pipeline (README H1 + landing page title/h1) to match the resume | 2026-07-18 | 6f1b471 | (gsd-fast, no directory) |
+| review | README restructure for a recruiter-first read (12 decisions across structure, content, presentation), MIT LICENSE, CI badge, GitHub sidebar metadata | 2026-07-18 | 4bf4a39 | (interactive review, no directory) |
 
 ## Deferred Items
 
