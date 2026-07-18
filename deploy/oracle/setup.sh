@@ -180,7 +180,7 @@ cat >/opt/poc-scraper/site/index.html <<EOF
   <h1>poc_scraper</h1>
   <p class="tag">A grounded account-research pipeline, exposed as an MCP server.</p>
 
-  <p>This is the <strong>live demo tier</strong>: given a company domain it retrieves recent, cited evidence (about pages and last-90-day news), numbered so a calling agent can trace every claim back to its source. Evidence retrieval only, rationed to 5 calls per IP per hour and 25 per day. The full pipeline (ICP scoring, personas, citation-checked outreach) is BYOK and runs locally.</p>
+  <p>This is the <strong>live demo tier</strong>: given a company domain it retrieves recent, cited evidence (about pages and last-90-day news), numbered so a calling agent can trace every claim back to its source, then the agent scores each ICP axis from that evidence and calls <code>score_account</code>, which computes the weighted total and verdict deterministically. Cited evidence retrieval is rationed to 5 calls per IP per hour and 25 per day; <code>score_account</code> is unrationed pure arithmetic on top of it. The full pipeline (personas, citation-checked outreach) is BYOK and runs locally.</p>
 
   <h2>MCP endpoint</h2>
   <p><span class="url">https://${CADDY_HOSTNAME}/mcp</span></p>
@@ -205,7 +205,7 @@ cat >/opt/poc-scraper/site/index.html <<EOF
   <h2>Any other MCP client</h2>
   <pre>npx mcp-remote https://${CADDY_HOSTNAME}/mcp</pre>
 
-  <p class="note">Once connected, call the <code>get_account_evidence</code> tool with a domain (e.g. <code>notion.so</code>). Invalid input and provider errors come back as sanitized one-line messages, never stack traces.</p>
+  <p class="note">Once connected, call the <code>get_account_evidence</code> tool with a domain (e.g. <code>notion.so</code>), then <code>score_account</code> with your own four 1-5 ICP axis scores to get back the weighted total and verdict. Invalid input and provider errors come back as sanitized one-line messages, never stack traces.</p>
 
   <footer>
     Source, the full BYOK tier, and how it works:

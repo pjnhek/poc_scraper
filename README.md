@@ -21,7 +21,7 @@ The pipeline's grounded evidence retrieval is hosted as a public MCP server, rea
 npx mcp-remote https://170.9.7.144.sslip.io/mcp
 ```
 
-This is the demo tier: rate-limited (5 calls per IP per hour, 25 per day globally) and evidence-only, no scoring, no personas, no outreach hooks. See the [MCP server](#mcp-server) section below for the Codex and Claude client configs and the full, BYOK tier.
+This is the demo tier: cited evidence retrieval is rate-limited (5 calls per IP per hour, 25 per day globally), and deterministic ICP scoring via `score_account` runs on top of it unrationed (pure arithmetic, no LLM call). Personas and outreach hooks stay full-tier. See the [MCP server](#mcp-server) section below for the Codex and Claude client configs and the full, BYOK tier.
 
 ## Demo
 
@@ -151,13 +151,15 @@ RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
 
 ## MCP server
 
-The same grounded retrieval the pipeline uses is also exposed over MCP. The hosted demo runs the thin tier: evidence retrieval only, rationed to 5 calls per IP per hour and 25 calls per day globally. The full tier (scoring, personas, cited outreach hooks) is BYOK, run locally over stdio.
+The same grounded retrieval the pipeline uses is also exposed over MCP. The hosted demo runs the thin tier: evidence retrieval (rationed to 5 calls per IP per hour and 25 calls per day globally) plus deterministic ICP scoring via `score_account` (unrationed, pure arithmetic). The full tier (personas, cited outreach hooks, and the complete guided pipeline) is BYOK, run locally over stdio.
 
 ### Grounding by instruction vs grounding by construction
 
 The two tiers ground claims in different ways. The thin tier practices **grounding by instruction**: the `research_account` prompt and the `get_account_evidence` tool text instruct the calling agent to cite an `[N]` justification index for every claim and to refuse to fabricate when `retrieval_status` is `empty`. Whether that discipline holds depends on the calling agent actually following the instructions; nothing on the server enforces it once the evidence pack ships.
 
 The full tier practices **grounding by construction**: `research_account_full` runs this repo's own pipeline, which validates every outreach claim's citations in code and drops anything unciteable before the result is returned. There is no instruction to follow or ignore; an ungrounded claim cannot reach the client because the code assembling the response will not let it through.
+
+The thin tier's `score_account` tool sits between the two, a hybrid of both. It takes the calling agent's four 1-5 integer axis scores, whose per-axis reason strings are supposed to carry an `[N]` evidence citation each (a discipline `research_account` instructs but the stateless server cannot verify, since it never sees the evidence pack). The judgment is grounding-by-instruction, same as the rest of the thin tier. What `score_account` returns is different: the weighted total and verdict computed server-side from `compute_total`/`verdict_for`, with the axis weights and verdict thresholds used echoed back in the response, so every score is reproducible by inspection. The server cannot return an arithmetically wrong total; that half is grounding-by-construction. `get_account_evidence` also takes an optional `news_days` parameter (clamped 7-365, default 90) to widen or narrow the news lookback when recency matters. `research_account` ties all of this together as a guided, numbered flow: evidence retrieval, the `icp://rubric` resource, agent-scored cited axes, the `score_account` call, verdict presentation, then personas and outreach hooks.
 
 ### Connect a client
 
