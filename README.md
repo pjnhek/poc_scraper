@@ -1,17 +1,20 @@
 # GTM Research Pipeline
 
-> **POC = Point of Contact**, sales-speak for the right person to reach in an account.
-> Also: **Proof of Concept**.
+[![CI](https://github.com/pjnhek/poc_scraper/actions/workflows/ci.yml/badge.svg)](https://github.com/pjnhek/poc_scraper/actions/workflows/ci.yml)
 
 A grounded outreach research pipeline: drop in a CSV of company domains, get back a Google Sheet where every account is scored against an editable ICP, given its top three buyer personas, and handed one personalized outreach hook per persona in which every claim traces to a numbered retrieval.
 
 - **What.** `inputs/accounts.csv` in, scored Google Sheet out. Each row carries an ICP verdict, the weighted per-axis breakdown, three inferred personas, and one outreach paragraph per persona whose hooks and score-justifications hyperlink to numbered evidence in a per-run Sources tab.
 - **Why.** Hallucinated context is the most damaging failure in an AI-assisted sales motion. Every claim ties to a numbered retrieval; an unciteable claim is dropped, not shipped, so that failure mode is impossible by construction.
-- **Proof.** [2.73 / 5.0 mean groundedness on a 10-record holdout](evals/REPORT.md), judged by `deepseek-v4-flash` with claim-by-claim decomposition. Per-axis means and cross-family kappa live in `evals/REPORT.md`.
+- **Proof.** Every shipped paragraph is decomposed claim by claim by an LLM judge, then re-scored by a judge from a different model family (`moonshot-v1-32k`) so same-family self-preference bias surfaces as disagreement instead of hiding. Groundedness on the 10-record holdout is a [categorical 1-5 mean of 2.73](evals/REPORT.md), not a pass rate. Cross-family kappa is 0.176, "slight" agreement on the Landis-Koch scale, reported as the honest bound on what the eval detects rather than explained away.
 
 ![Sheet output with clean and low_groundedness rows](images/hero.png)
 
 *Two of the four AccountStatus states from a real run: clean (white) and low_groundedness (yellow).*
+
+> **POC = Point of Contact**, sales-speak for the right person to reach in an account. Also: **Proof of Concept**.
+
+Built with 561 tests across a 5-layer strategy (unit, functional, integration, smoke, edge cases), `mypy --strict`, and CI running black, ruff, and the offline suite on every push. Roughly $0.20-0.40 per 10-domain run.
 
 ## Try it live
 
@@ -21,16 +24,7 @@ The pipeline's grounded evidence retrieval is hosted as a public MCP server, rea
 npx mcp-remote https://170.9.7.144.sslip.io/mcp
 ```
 
-This is the demo tier: cited evidence retrieval is rate-limited (5 calls per IP per hour, 25 per day globally), and deterministic ICP scoring via `score_account` runs on top of it unrationed (pure arithmetic, no LLM call). Personas and outreach hooks stay full-tier. See the [MCP server](#mcp-server) section below for the Codex and Claude client configs and the full, BYOK tier.
-
-## Demo
-
-[![Watch the walkthrough](images/demo-thumbnail.jpg)](https://kommodo.ai/recordings/E751BaRaerNaXw78iXEc)
-
-> Recording made at commit [f868a09](https://github.com/pjnhek/poc_scraper/commit/f868a09). README and assets at that SHA match what the video shows.
-> The video covers the v1.0 pipeline; the MCP server surface below is newer than the recording.
-
-[Sample output workbook](https://docs.google.com/spreadsheets/d/18NVrm8IrDxt9Z-DKXsExJPrbIvFDCy9Mf10NhDrXstc/edit?usp=sharing): the Rubric, Inputs, Legend, Sources, and Results tabs from a real run.
+Rate-limited to 5 calls per IP per hour and 25 per day globally. Full client configs, the tool inventory, and a worked example are in [MCP server](#mcp-server) below.
 
 ## What it does
 
@@ -91,6 +85,16 @@ Cropped from real runs. `hook_suppressed` and `judge_failed` are defined above b
 
 Citations run on numbered justifications: each Exa retrieval (about page plus recent news) gets a 1-based index, and the writer emits every claim with its own `cited_indices`. A rapidfuzz coverage check in `src/citations.py` drops any claim that does not match its cited evidence before assembly, so an unciteable assertion never reaches the sheet. The judge then re-decomposes the shipped paragraph and scores groundedness deterministically as `(cited / max(total, 3)) * 5`, which penalizes short hooks that cite once and stop.
 
+## Demo: v1.0 pipeline walkthrough
+
+This recording covers the v1.0 pipeline only. The MCP server surface described below is newer than the video.
+
+[![Watch the walkthrough](images/demo-thumbnail.jpg)](https://kommodo.ai/recordings/E751BaRaerNaXw78iXEc)
+
+> Recording made at commit [f868a09](https://github.com/pjnhek/poc_scraper/commit/f868a09). README and assets at that SHA match what the video shows.
+
+[Sample output workbook](https://docs.google.com/spreadsheets/d/18NVrm8IrDxt9Z-DKXsExJPrbIvFDCy9Mf10NhDrXstc/edit?usp=sharing): the Rubric, Inputs, Legend, Sources, and Results tabs from a real run.
+
 ## What this gets wrong
 
 - **Cross-family judge agreement is modest.** Inter-judge kappa between `deepseek-v4-flash` and the cross-family judge `moonshot-v1-32k` is 0.176 on groundedness with 16.7% exact agreement, which is "slight" agreement on the Landis-Koch scale; see [evals/REPORT.md](evals/REPORT.md) §5. A same-family judge shares blind spots with the writer, and the cross-family number is the honest bound on what the eval can detect.
@@ -118,48 +122,9 @@ Configured in `configs/icp.yaml`. Default weights:
 
 Each axis is scored 1-5 by the writer using the anchor descriptions in the YAML, then weighted into a 1-5 total. Verdict bucketing: total >= 4.0 = strong, >= 2.5 = borderline, < 2.5 = weak. Edit `configs/icp.yaml` to retarget for a different vertical; both the scoring prompt and the judge prompt read from this file, so they stay in sync.
 
-## What's next
-
-- v2: feedback loop. When a user rejects a recommendation, the rubric weights update.
-- v3: CRM trigger. Runs automatically when a new account hits the CRM.
-
-## Run it
-
-```bash
-# 1. Install
-make install
-
-# 2. Add API keys to .env (copy from .env.example)
-cp .env.example .env
-# fill in DEEPSEEK_API_KEY (recommended) OR NVIDIA_API_KEY (free fallback),
-# plus EXA_API_KEY, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID.
-# point GOOGLE_APPLICATION_CREDENTIALS at a Sheets-enabled service-account JSON
-
-# 3. Drop domains into inputs/accounts.csv (one per line, header `domain`)
-
-# 4. Ship
-make run
-```
-
-`make run` runs the full pipeline against `inputs/accounts.csv` and writes the workbook. To cap how many domains a run processes (useful for demos and rate limits), set `RUN_LIMIT`:
-
-```bash
-RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
-```
-
-`.env.example` documents every variable, including writer/judge model overrides, reasoning settings, and the optional local `.secrets-denylist` that arms the public-repo guard (`make verify-public-repo`).
-
 ## MCP server
 
 The same grounded retrieval the pipeline uses is also exposed over MCP. The hosted demo runs the thin tier: evidence retrieval (rationed to 5 calls per IP per hour and 25 calls per day globally) plus deterministic ICP scoring via `score_account` (unrationed, pure arithmetic). The full tier (personas, cited outreach hooks, and the complete guided pipeline) is BYOK, run locally over stdio.
-
-### Grounding by instruction vs grounding by construction
-
-The two tiers ground claims in different ways. The thin tier practices **grounding by instruction**: the `research_account` prompt and the `get_account_evidence` tool text instruct the calling agent to cite an `[N]` justification index for every claim and to refuse to fabricate when `retrieval_status` is `empty`. Whether that discipline holds depends on the calling agent actually following the instructions; nothing on the server enforces it once the evidence pack ships.
-
-The full tier practices **grounding by construction**: `research_account_full` runs this repo's own pipeline, which validates every outreach claim's citations in code and drops anything unciteable before the result is returned. There is no instruction to follow or ignore; an ungrounded claim cannot reach the client because the code assembling the response will not let it through.
-
-The thin tier's `score_account` tool sits between the two, a hybrid of both. It takes the calling agent's four 1-5 integer axis scores, whose per-axis reason strings are supposed to carry an `[N]` evidence citation each (a discipline `research_account` instructs but the stateless server cannot verify, since it never sees the evidence pack). The judgment is grounding-by-instruction, same as the rest of the thin tier. What `score_account` returns is different: the weighted total and verdict computed server-side from `compute_total`/`verdict_for`, with the axis weights and verdict thresholds used echoed back in the response, so every score is reproducible by inspection. The server cannot return an arithmetically wrong total; that half is grounding-by-construction. `get_account_evidence` also takes an optional `news_days` parameter (clamped 7-365, default 90) to widen or narrow the news lookback when recency matters. `research_account` ties all of this together as a guided, numbered flow: evidence retrieval, the `icp://rubric` resource, agent-scored cited axes, the `score_account` call, verdict presentation, then personas and outreach hooks.
 
 ### Connect a client
 
@@ -261,6 +226,14 @@ That total is checkable by hand: `4(0.4) + 5(0.3) + 4(0.2) + 3(0.1) = 4.2`, clea
 
 Step 5 presents the verdict, and step 6 closes with the top three personas and one cited outreach hook each.
 
+### Grounding by instruction vs grounding by construction
+
+The two tiers ground claims in different ways. The thin tier practices **grounding by instruction**: the `research_account` prompt and the `get_account_evidence` tool text instruct the calling agent to cite an `[N]` justification index for every claim and to refuse to fabricate when `retrieval_status` is `empty`. Whether that discipline holds depends on the calling agent actually following the instructions; nothing on the server enforces it once the evidence pack ships.
+
+The full tier practices **grounding by construction**: `research_account_full` runs this repo's own pipeline, which validates every outreach claim's citations in code and drops anything unciteable before the result is returned. There is no instruction to follow or ignore; an ungrounded claim cannot reach the client because the code assembling the response will not let it through.
+
+The thin tier's `score_account` tool sits between the two, a hybrid of both. It takes the calling agent's four 1-5 integer axis scores, whose per-axis reason strings are supposed to carry an `[N]` evidence citation each (a discipline `research_account` instructs but the stateless server cannot verify, since it never sees the evidence pack). The judgment is grounding-by-instruction, same as the rest of the thin tier. What `score_account` returns is different: the weighted total and verdict computed server-side from `compute_total`/`verdict_for`, with the axis weights and verdict thresholds used echoed back in the response, so every score is reproducible by inspection. The server cannot return an arithmetically wrong total; that half is grounding-by-construction. `get_account_evidence` also takes an optional `news_days` parameter (clamped 7-365, default 90) to widen or narrow the news lookback when recency matters. `research_account` ties all of this together as a guided, numbered flow: evidence retrieval, the `icp://rubric` resource, agent-scored cited axes, the `score_account` call, verdict presentation, then personas and outreach hooks.
+
 ### Full tier (BYOK)
 
 ```bash
@@ -273,6 +246,41 @@ make mcp
 Unlocking the full tier over stdio takes a writer/judge provider key (`DEEPSEEK_API_KEY` or `NVIDIA_API_KEY`), plus `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` on top of the `EXA_API_KEY` the thin tier already needs. With those set, `research_account_full(domain, run_eval)` returns the complete grounded `ScoredAccount`: the ICP score breakdown, the top-three personas, cited outreach hooks, and the `AccountStatus` honesty field.
 
 Hosting your own instance: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+## What shipped, what's next
+
+**Shipped:** v1.0, the pipeline and its Google Sheet output. v1.1, the hosted MCP server (thin tier live, full tier BYOK over stdio). v1.2, deterministic `score_account` plus the guided `research_account` flow.
+
+Deliberately out of scope for this repo:
+
+- v2: feedback loop. When a user rejects a recommendation, the rubric weights update.
+- v3: CRM trigger. Runs automatically when a new account hits the CRM.
+
+## Run it
+
+```bash
+# 1. Install
+make install
+
+# 2. Add API keys to .env (copy from .env.example)
+cp .env.example .env
+# fill in DEEPSEEK_API_KEY (recommended) OR NVIDIA_API_KEY (free fallback),
+# plus EXA_API_KEY, BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID.
+# point GOOGLE_APPLICATION_CREDENTIALS at a Sheets-enabled service-account JSON
+
+# 3. Drop domains into inputs/accounts.csv (one per line, header `domain`)
+
+# 4. Ship
+make run
+```
+
+`make run` runs the full pipeline against `inputs/accounts.csv` and writes the workbook. To cap how many domains a run processes (useful for demos and rate limits), set `RUN_LIMIT`:
+
+```bash
+RUN_LIMIT=5 make run     # process first 5 domains from accounts.csv
+```
+
+`.env.example` documents every variable, including writer/judge model overrides, reasoning settings, and the optional local `.secrets-denylist` that arms the public-repo guard (`make verify-public-repo`).
 
 ## Eval
 
@@ -290,3 +298,7 @@ Hosting your own instance: [docs/DEPLOY.md](docs/DEPLOY.md).
 | edge cases  | Empty enrichment, scrape blocked, sub-threshold eval, rate limits.        | Mixed           |
 
 `make test` runs everything except smoke. `make smoke` runs the live E2E.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
