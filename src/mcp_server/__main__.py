@@ -15,6 +15,7 @@ import argparse
 import asyncio
 
 from src.config import Settings, get_settings
+from src.icp_config import get_config
 from src.mcp_server.server import build_server, resolve_and_log_tier
 from src.mcp_server.wiring import make_full_lifespan, make_thin_lifespan
 
@@ -81,6 +82,12 @@ def main() -> int:
     tier = resolve_and_log_tier(settings)
     guard_full_tier_http_exposure(settings, args.transport, tier)
     guard_non_loopback_requires_public_hostname(settings, args.transport)
+    # WR-01: nothing else loads the ICP config before serving -- the first
+    # score_account call would otherwise trigger the lazy get_config(), so a
+    # missing or invalid configs/icp.yaml must fail fast here on stderr
+    # instead of at first tool call over the wire. score_account's own
+    # catch-all is the backstop if the file breaks after startup.
+    get_config()
     # No key validation needed here: mcp_tier() == "full" already implies
     # writer/judge/Browserbase keys are present, and open_deps defers key
     # checks by design.

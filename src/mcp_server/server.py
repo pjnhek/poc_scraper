@@ -146,17 +146,36 @@ def score_account(
             domain = Account(domain=domain).domain
         except ValidationError as exc:
             raise ValueError(_sanitized_validation_message(exc)) from None
-    return build_score_result(
-        support_volume=support_volume,
-        ai_maturity=ai_maturity,
-        stage_fit=stage_fit,
-        channel_breadth=channel_breadth,
-        support_volume_reason=support_volume_reason,
-        ai_maturity_reason=ai_maturity_reason,
-        stage_fit_reason=stage_fit_reason,
-        channel_breadth_reason=channel_breadth_reason,
-        domain=domain,
-    )
+    try:
+        return build_score_result(
+            support_volume=support_volume,
+            ai_maturity=ai_maturity,
+            stage_fit=stage_fit,
+            channel_breadth=channel_breadth,
+            support_volume_reason=support_volume_reason,
+            ai_maturity_reason=ai_maturity_reason,
+            stage_fit_reason=stage_fit_reason,
+            channel_breadth_reason=channel_breadth_reason,
+            domain=domain,
+        )
+    except ValidationError as exc:
+        # WR-01: must precede the ValueError passthrough below -- pydantic's
+        # ValidationError IS a ValueError, and an ICPConfig validation failure
+        # quotes config file content, exactly the leak this catch-all exists
+        # to stop.
+        log.warning("unexpected error in score_account: %s", exc, exc_info=True)
+        raise ValueError("internal error, try again") from None
+    except ValueError:
+        # The per-axis "must be an integer 1-5" message: the one intended
+        # client-visible validation error.
+        raise
+    except Exception as exc:
+        # WR-01: first score_account call triggers the lazy get_config();
+        # a missing configs/icp.yaml raises FileNotFoundError naming the
+        # server filesystem path, which FastMCP would surface verbatim.
+        # Same catch-all discipline as get_account_evidence.
+        log.warning("unexpected error in score_account: %s", exc, exc_info=True)
+        raise ValueError("internal error, try again") from None
 
 
 def read_icp_rubric() -> str:
