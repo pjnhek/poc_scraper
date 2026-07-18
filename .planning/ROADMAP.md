@@ -55,8 +55,13 @@ A deliberately small milestone with a locked design: one new deterministic `scor
   3. Following the updated `research_account` prompt, an agent calls `get_account_evidence`, reads `icp://rubric`, scores each axis 1-5 with `[N]` citations from the evidence, calls `score_account` with those scores, and is shown the returned verdict — the guided flow works end to end.
   4. A caller can pass `news_days` to `get_account_evidence` to tune the Exa news lookback; out-of-range values are clamped server-side, and omitting the parameter preserves the existing 90-day default, threaded through `collect_context` to `ExaClient.search_news(days=...)`.
   5. The Oracle landing page and README MCP section document `score_account` with the honest hybrid framing (judgment stays grounding-by-instruction via agent-cited `[N]`, scoring math becomes grounding-by-construction), and the full offline gate (unit tests, in-memory MCP-client functional tests for `score_account` and `news_days` clamping, strict mypy, ruff, black, `verify-public-repo`) stays green with no new mypy overrides.
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 14-01-PLAN.md — Deterministic score_account tool (scoring.py + server wiring + unit/functional/integration tests)
+- [ ] 14-02-PLAN.md — news_days clamped threading to Exa + research_account guided-flow prompt rewrite
+- [ ] 14-03-PLAN.md — README + Oracle landing-page hybrid-framing docs, full offline gate
 
 ## Progress
 
@@ -75,4 +80,4 @@ A deliberately small milestone with a locked design: one new deterministic `scor
 | 11. Rate Limits & Streamable HTTP Transport | v1.1 | 3/3 | Complete | 2026-07-16 |
 | 12. Full-Tier Tool, Resources & Prompt | v1.1 | 4/4 | Complete | 2026-07-17 |
 | 13. Hosted Deploy & Docs Close | v1.1 | 5/5 | Complete | 2026-07-17 |
-| 14. Deterministic Scoring & Guided Flow | v1.2 | 0/TBD | Not started | - |
+| 14. Deterministic Scoring & Guided Flow | v1.2 | 0/3 | Not started | - |
