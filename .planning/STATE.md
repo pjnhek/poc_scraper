@@ -7,7 +7,7 @@ status: Awaiting next milestone
 stopped_at: Phase 14 complete (security 9/9 closed, UAT 13/13 passed), milestone v1.2 at 100%
 last_updated: "2026-07-18T04:32:18.384Z"
 last_activity: 2026-07-18
-last_activity_desc: Milestone v1.2 completed and archived
+last_activity_desc: "Quick task 260718-ev4: documented hosted MCP usage and redeployed the box from v1.1 to v1.2"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 Phase: Milestone v1.2 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-18 — Milestone v1.2 completed and archived
+Last activity: 2026-07-18 — Quick task 260718-ev4: documented hosted MCP usage, redeployed the hosted demo from v1.1 to v1.2
 
 ## Performance Metrics
 
@@ -240,6 +240,7 @@ None
 |---|-------------|------|--------|-----------|
 | 260714-mrg | Document specificity and recency in judge rubric tab | 2026-07-14 | 6f8be41 | [260714-mrg-fix-rubric-tab-add-specificity-and-recen](./quick/260714-mrg-fix-rubric-tab-add-specificity-and-recen/) |
 | 260716-p8r | Fix demo-mode Browserbase safety rail regression in MCP server wiring | 2026-07-17 | 4fbc1bf | [260716-p8r-fix-demo-mode-browserbase-safety-rail-re](./quick/260716-p8r-fix-demo-mode-browserbase-safety-rail-re/) |
+| 260718-ev4 | Document hosted MCP usage and redeploy the box from v1.1 to v1.2 | 2026-07-18 | 605691f | [260718-ev4-mcp-usage-docs-redeploy](./quick/260718-ev4-mcp-usage-docs-redeploy/) |
 
 ## Deferred Items
 
@@ -251,6 +252,7 @@ Items acknowledged and carried forward:
 | Eval tooling | `great-tables` for PNG-quality eval tables (EVAL-V2-01) | v2, conditional on Phase 4 Markdown sufficiency | 2026-05-14 |
 | MCP server | PyPI/uvx packaging, hosted-endpoint auth, `structuredContent`, MCP Registry listing, company-name-to-domain resolution | v2, per v1.1 REQUIREMENTS.md Future Requirements | 2026-07-15 |
 | MCP server | Per-call rubric weights/descriptions override for `score_account`; arbitrary-axis rubrics | v2, per v1.2 REQUIREMENTS.md Future Requirements | 2026-07-17 |
+| Deploy process | No check that the hosted endpoint matches `origin/main` at milestone close. v1.2 sat undeployed for a day while the README advertised `score_account` as live (found in 260718-ev4). Candidate: milestone-close step probing live `tools/list` against the local inventory | Open, size with v1.3 scope | 2026-07-18 |
 
 ## Session Continuity
 
